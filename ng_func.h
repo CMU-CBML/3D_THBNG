@@ -39,24 +39,28 @@ Eigen::MatrixXd matInit(int rows, int cols, float val);
 
 // Creating a vector of zero matrices/arraies
 std::vector<Eigen::MatrixXd> vectorMatInit(int n, int rows, int cols);
-std::vector<Eigen::ArrayXd> arrayMatInit(int n, int rows, int cols);
+std::vector<Eigen::ArrayXXd> arrayMatInit(int n, int rows, int cols);
 
 // Solve for x from Ax = b
 Eigen::MatrixXd linSol(Eigen::MatrixXd A, Eigen::MatrixXd b);
 
-// calculate element-wise atan2, cos, sin, atan
-Eigen::MatrixXd getAtan2(Eigen::MatrixXd A, Eigen::MatrixXd b, int lenu, int lenv);
-Eigen::MatrixXd getCos(Eigen::MatrixXd input, int lenu, int lenv);
-Eigen::MatrixXd getSin(Eigen::MatrixXd input, int lenu, int lenv);
-Eigen::MatrixXd getAtan(Eigen::MatrixXd input, int lenu, int lenv);
+// calculate element-wise atan2
+Eigen::ArrayXXd getAtan2(Eigen::ArrayXXd A, Eigen::ArrayXXd b, int lenu, int lenv);
+// Eigen::MatrixXd getCos(Eigen::MatrixXd input, int lenu, int lenv);
+// Eigen::MatrixXd getSin(Eigen::MatrixXd input, int lenu, int lenv);
+// Eigen::MatrixXd getAtan(Eigen::MatrixXd input, int lenu, int lenv);
 
 // calculates epsilon and aap (a*a') based on phi, theta, NuN1v, and N1uNv.
 void getEpsilonAndAap(std::vector<Eigen::MatrixXd>& output, float epsilonb, float delta, Eigen::MatrixXd phi, Eigen::MatrixXd xtheta, std::vector<Eigen::MatrixXd>& cm, int lenu, int lenv);
 
-void updateRgSg(Eigen::ArrayXd& rMat, Eigen::ArrayXd& sMat, Eigen::ArrayXd nnT, int lenu, int lenv);
+void updateRgSg(Eigen::ArrayXXd& rMat, Eigen::ArrayXXd& sMat, Eigen::ArrayXXd nnT, int lenu, int lenv);
 
-Eigen::ArrayXd regular_Heiviside_fun(Eigen::ArrayXd input, int lenu, int lenv);
+Eigen::ArrayXXd regular_Heiviside_fun(Eigen::ArrayXXd input, int lenu, int lenv);
 
 void stiffMatSetupBCID(Eigen::MatrixXd& coll_Lhs, Eigen::MatrixXd& coll_Rhs, Eigen::MatrixXd bcid, Eigen::MatrixXd N, int lenu, int lenv);
+
+Eigen::MatrixXd N1mulNN(Eigen::MatrixXd N1, Eigen::MatrixXd NN);
+
+Eigen::MatrixXd N1divNN(Eigen::MatrixXd N1, Eigen::MatrixXd NN);
 
 #endif

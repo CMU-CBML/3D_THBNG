@@ -434,12 +434,13 @@ std::vector<Eigen::MatrixXd> vectorMatInit(int n, int rows, int cols)
 }
 
 // Creating a vector of zero arraies
-std::vector<Eigen::ArrayXd> arrayMatInit(int n, int rows, int cols)
+std::vector<Eigen::ArrayXXd> arrayMatInit(int n, int rows, int cols)
 {
-    std::vector<Eigen::ArrayXd> output;
-    for (int i = 0; i < n; ++i) // constructing 7 vars: NuNv, N1uNv, NuN1v, N1uN1v, N2uNv, NuN2v, N2uN2v
+    std::vector<Eigen::ArrayXXd> output;
+    for (int i = 0; i < n; ++i) 
     {
-        output.push_back(Eigen::ArrayXd::Zero(rows, cols));
+        std::cout << i << std::endl;
+        output.push_back(Eigen::ArrayXXd::Zero(rows, cols));
     }
     return output;
 }
@@ -454,9 +455,9 @@ Eigen::MatrixXd linSol(Eigen::MatrixXd A, Eigen::MatrixXd b)
 }
 
 // calculate element-wise atan2
-Eigen::MatrixXd getAtan2(Eigen::MatrixXd A, Eigen::MatrixXd b, int lenu, int lenv)
+Eigen::ArrayXXd getAtan2(Eigen::ArrayXXd A, Eigen::ArrayXXd b, int lenu, int lenv)
 {
-    Eigen::MatrixXd output = Eigen::MatrixXd::Zero(lenu*lenv,1);
+    Eigen::ArrayXXd output = Eigen::ArrayXXd::Zero(lenu*lenv,1);
     for (int i = 0; i < lenu*lenv; i++)
     {
         output(i) = atan2(A(i), b(i));
@@ -464,56 +465,52 @@ Eigen::MatrixXd getAtan2(Eigen::MatrixXd A, Eigen::MatrixXd b, int lenu, int len
     return output;
 }
 
-// calculate element-wise cos
-Eigen::MatrixXd getCos(Eigen::MatrixXd input, int lenu, int lenv)
-{
-    Eigen::MatrixXd output = Eigen::MatrixXd::Zero(lenu*lenv,1);
-    for (int i = 0; i < lenu*lenv; i++)
-    {
-        output(i) = cos(input(i));
-    }
-    return output;
-}
+// // calculate element-wise cos
+// Eigen::MatrixXd getCos(Eigen::MatrixXd input, int lenu, int lenv)
+// {
+//     Eigen::MatrixXd output = Eigen::MatrixXd::Zero(lenu*lenv,1);
+//     for (int i = 0; i < lenu*lenv; i++)
+//     {
+//         output(i) = cos(input(i));
+//     }
+//     return output;
+// }
 
-// calculate element-wise sin
-Eigen::MatrixXd getSin(Eigen::MatrixXd input, int lenu, int lenv)
-{
-    Eigen::MatrixXd output = Eigen::MatrixXd::Zero(lenu*lenv,1);
-    for (int i = 0; i < lenu*lenv; i++)
-    {
-        output(i) = sin(input(i));
-    }
-    return output;
-}
+// // calculate element-wise sin
+// Eigen::MatrixXd getSin(Eigen::MatrixXd input, int lenu, int lenv)
+// {
+//     Eigen::MatrixXd output = Eigen::MatrixXd::Zero(lenu*lenv,1);
+//     for (int i = 0; i < lenu*lenv; i++)
+//     {
+//         output(i) = sin(input(i));
+//     }
+//     return output;
+// }
 
-// calculate element-wise atan
-Eigen::MatrixXd getAtan(Eigen::MatrixXd input, int lenu, int lenv)
-{
-    Eigen::MatrixXd output = Eigen::MatrixXd::Zero(lenu*lenv,1);
-    for (int i = 0; i < lenu*lenv; i++)
-    {
-        output(i) = atan(input(i));
-    }
-    return output;
-}
+// // calculate element-wise atan
+// Eigen::MatrixXd getAtan(Eigen::MatrixXd input, int lenu, int lenv)
+// {
+//     Eigen::MatrixXd output = Eigen::MatrixXd::Zero(lenu*lenv,1);
+//     for (int i = 0; i < lenu*lenv; i++)
+//     {
+//         output(i) = atan(input(i));
+//     }
+//     return output;
+// }
 
 // calculates epsilon and aap (a*a') based on phi, theta, NuN1v, and N1uNv.
 void getEpsilonAndAap(std::vector<Eigen::MatrixXd>& output, float epsilonb, float delta, Eigen::MatrixXd phi, Eigen::MatrixXd xtheta, std::vector<Eigen::MatrixXd>& cm, int lenu, int lenv)
 {
     // output: 0 - epsilon, 1 - epsilon_deriv, 2 - aap, 3 - P_dy, 4 - P_dx
-
     int aniso = 6;
 
     output[3] = (cm[1]*phi).reshaped(lenu*lenv,1); // P_dx = N1uNv*phi;
     output[4] = (cm[2]*phi).reshaped(lenu*lenv,1); // P_dy = NuN1v*phi;
 
-    Eigen::MatrixXd atheta = getAtan2(output[4], output[3], lenu, lenv);
-    Eigen::MatrixXd epbMat = matInit(lenu*lenv,1,epsilonb);
-    Eigen::MatrixXd anisoMat = matInit(lenu*lenv,1,aniso);
-    Eigen::MatrixXd deltaMat = matInit(lenu*lenv,1,delta);
+    Eigen::ArrayXXd atheta = getAtan2(output[4].array(), output[3].array(), lenu, lenv);
 
-    output[0] = epbMat.cwiseProduct(matInit(lenu*lenv,1,1)+deltaMat.cwiseProduct(getCos((anisoMat.cwiseProduct(atheta-xtheta)),lenu,lenv))); // epsilon
-    output[1] = -epbMat.cwiseProduct(anisoMat.cwiseProduct(deltaMat.cwiseProduct(getSin((anisoMat.cwiseProduct(atheta-xtheta)),lenu,lenv)))); // epsilon_deriv
+    output[0] = epsilonb*(1+delta*cos((aniso*(atheta-xtheta.array())))).matrix(); // epsilon
+    output[1] = -epsilonb*(aniso*(delta*(sin((aniso*(atheta-xtheta.array())))))).matrix(); // epsilon_deriv
     output[2] = output[0].cwiseProduct(output[1]); // aap
 
     output[0] = output[0].reshaped(lenu*lenv,1);
@@ -521,7 +518,7 @@ void getEpsilonAndAap(std::vector<Eigen::MatrixXd>& output, float epsilonb, floa
 }
 
 // update r g based on nnT
-void updateRgSg(Eigen::ArrayXd& rMat, Eigen::ArrayXd& sMat, Eigen::ArrayXd nnT, int lenu, int lenv)
+void updateRgSg(Eigen::ArrayXXd& rMat, Eigen::ArrayXXd& sMat, Eigen::ArrayXXd nnT, int lenu, int lenv)
 {
     for (int i = 0; i < lenu*lenv; i++)
     {
@@ -533,11 +530,11 @@ void updateRgSg(Eigen::ArrayXd& rMat, Eigen::ArrayXd& sMat, Eigen::ArrayXd nnT, 
     }
 }
 
-Eigen::ArrayXd regular_Heiviside_fun(Eigen::ArrayXd input, int lenu, int lenv)
+Eigen::ArrayXXd regular_Heiviside_fun(Eigen::ArrayXXd input, int lenu, int lenv)
 {
     float epsilon = 0.0001; // the number is not fixed.
     // H1E = 0.5*(1+(2/pi)*atan(X./epsilon));
-    Eigen::ArrayXd output = Eigen::ArrayXd::Zero(lenu*lenv,1);
+    Eigen::ArrayXXd output = Eigen::ArrayXXd::Zero(lenu*lenv,1);
     for (int i = 0; i < lenu*lenv; i++)
     {
         output(i) =  0.5*(1+(2/M_PI)*atan(input(i)/epsilon));
@@ -559,4 +556,24 @@ void stiffMatSetupBCID(Eigen::MatrixXd& coll_Lhs, Eigen::MatrixXd& coll_Rhs, Eig
             coll_Rhs(i) = N(i);
         }
     }
+}
+
+Eigen::MatrixXd N1mulNN(Eigen::MatrixXd N1, Eigen::MatrixXd NN)
+{
+	Eigen::MatrixXd output = Eigen::MatrixXd::Zero(NN.rows(), NN.cols());
+    for (int i = 0; i < NN.rows(); i++)
+    {
+        output.row(i) = N1(i) * NN.array().row(i);
+    }
+    return output;
+}
+
+Eigen::MatrixXd N1divNN(Eigen::MatrixXd N1, Eigen::MatrixXd NN)
+{
+	Eigen::MatrixXd output = Eigen::MatrixXd::Zero(NN.rows(), NN.cols());
+    for (int i = 0; i < NN.rows(); i++)
+    {
+        output.row(i) = N1(i) / NN.array().row(i);
+    }
+    return output;
 }

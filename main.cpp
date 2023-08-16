@@ -118,6 +118,7 @@ int main(int argc, char **argv)
 
 	// initializing initial phi,theta,tempr for boundary condition (Dirichlet)
 	Eigen::MatrixXd phi_initial = phi;
+	Eigen::MatrixXd conct_initial = conct;
 	Eigen::MatrixXd theta_initial = theta;
 	Eigen::MatrixXd tempr_initial = tempr;
 	// std::cout << "test2.5" << std::endl;
@@ -133,6 +134,7 @@ int main(int argc, char **argv)
 	// }
 
 	phi_initial = phi_initial.reshaped(lenu*lenv,1);
+	conct_initial  = conct_initial.reshaped(lenu*lenv,1);
 	theta_initial  = theta_initial.reshaped(lenu*lenv,1);
 	tempr_initial  = tempr_initial.reshaped(lenu*lenv,1);
 
@@ -203,28 +205,22 @@ int main(int argc, char **argv)
 
 	Eigen::MatrixXd dist = Eigen::MatrixXd::Zero(lenu, lenv);
 
+	Eigen::MatrixXd phiK, R, dR, dp, temprLHS, temprRHS, tempr_new, nnpk, conct_LHS, conct_RHS, conct_new, bcid_t;
+
+	Eigen::ArrayXXd E, rMat, gMat, nnT, theta_ori, term_change, C1, NNa, N1Na, NN1a, NNaap, N1Naap, NN1aap, t5, t6,\
+		NNpk, N1Npk, NN1pk, N1N1pk, LAPpk, NNtempr, NNct, MphiMat, a2, adx, ady, nl, term_diff, term_alph,\
+		term_beta, term_source, NNp;
+	rMat = matInit(lenu*lenv, 1, r).array();
+	gMat = matInit(lenu*lenv, 1, g).array();
+	theta_ori = matInit(lenu*lenv, 1, 1).array();
+	MphiMat = matInit(lenu*lenv, 1, M_phi).array();
+
+	int ind_check, sum_lap_phi;
+
 	std::cout << "Iterating Variable Initialization - Done!" << std::endl;
 	std::cout << "**********************************************************" << std::endl;
 
 	std::cout << "Starting Neuron Growth Model transient iterations..." << std::endl;
-
-	Eigen::MatrixXd phiK, R, dR, dp;
-
-	Eigen::ArrayXd E, rMat, gMat, nnT, theta_ori, term_change, aOpMat, gammaMat, C1,\
-		NNa, N1Na, NN1a, NNaap, N1Naap, NN1aap, t5, t6, oneMat, twoMat, threeMat,\
-		NNpk, N1Npk, NN1pk, N1N1pk, LAPpk, NNtempr, NNct, MphiMat, tauMat;
-	aOpMat = matInit(lenu*lenv, 1, alphOverPix).array();
-	gammaMat = matInit(lenu*lenv, 1, gamma).array();
-	rMat = matInit(lenu*lenv, 1, r).array();
-	gMat = matInit(lenu*lenv, 1, g).array();
-	theta_ori = matInit(lenu*lenv, 1, 1).array();
-	oneMat = matInit(lenu*lenv, 1, 1).array();
-	twoMat = matInit(lenu*lenv, 1, 2).array();
-	threeMat = matInit(lenu*lenv, 1, 3).array();
-	MphiMat = matInit(lenu*lenv, 1, M_phi).array();
-	tauMat = matInit(lenu*lenv, 1, tau).array();
-
-	int ind_check;
 
 	for (int iter = 0; iter < end_iter; iter++)
 	{
@@ -236,14 +232,14 @@ int main(int argc, char **argv)
 
 		if (iter<=100)
 		{      
-			E = aOpMat*(getAtan(gammaMat*(oneMat-NNtempr), lenu, lenv).array());
+			E = alphOverPix*(atan(gamma*(1-NNtempr)));
 		} else {
 			nnT = theta_ori.reshaped(lenu*lenv,1);
 			// adjust tip r g value
 			updateRgSg(rMat, gMat, nnT, lenu, lenv); // rMat(nnT==1) = 50; gMat(nnT==1) = 0;
 			term_change = regular_Heiviside_fun(rMat*(NNct) - gMat, lenu, lenv);
 
-			E = aOpMat*(getAtan(gammaMat*(term_change*(oneMat-NNtempr)), lenu, lenv).array());
+			E = alphOverPix*(atan(gamma*(term_change*(1-NNtempr))));
 		}
 		
 		std::cout << "Done E" << std::endl;
@@ -254,9 +250,13 @@ int main(int argc, char **argv)
 		// initial residual for NR method
 		residual = 2*tol;
 
+		std::cout << "test tol" << std::endl;
+
 		// splitted C0 from C1 because E mag_grad_theta dimension mismatch
 		// during domain expansion. Compute here to fix conflict
 		C1 = E-C0.array();
+
+		std::cout << "C1" << std::endl;
 
 		// NR method calculation
 		ind_check = 0;
@@ -267,7 +267,8 @@ int main(int argc, char **argv)
 		N1Naap = (cm[1]*ep_aap[2]).array();
 		NN1aap = (cm[2]*ep_aap[2]).array();
 
-		std::vector<Eigen::ArrayXd> out = arrayMatInit(4, lenu*lenv, lenu*lenv);
+		// std::vector<Eigen::ArrayXXd> out = arrayMatInit(4, lenu*lenv, lenu*lenv);
+
 		float dt_t = 0;
 		std::cout << "NR iter" << std::endl;
 		while (residual >= tol)
@@ -278,42 +279,52 @@ int main(int argc, char **argv)
 			N1N1pk = (cm[3]*phiK).array();
 			LAPpk = (lap*phiK).array();
 			
-			std::cout << "test1" << std::endl;
+			std::cout << "test" << std::endl;
 
 			// term a2
-			out[0]  = twoMat*(NNa*N1Na*N1Npk)+(NNa*NNa*LAPpk)+twoMat*(NNa*NN1a*NN1pk);
-			std::cout << "test1 - a2" << std::endl;
+			// a2  = twoMat*(NNa*N1Na*N1Npk)+(NNa*NNa*LAPpk)+twoMat*(NNa*NN1a*NN1pk);
+			a2  = 2*(NNa*N1Na*N1Npk)+(NNa*NNa*LAPpk)+2*(NNa*NN1a*NN1pk);
+			std::cout << "test - a2" << std::endl;
 
 			// termadx
-			out[1] = N1Naap*NN1pk+NNaap*N1N1pk;
-			std::cout << "test1 - adx" << std::endl;
+			adx = N1Naap*NN1pk+NNaap*N1N1pk;
+			std::cout << "test - adx" << std::endl;
 
 			// termady
-			out[2] = NN1aap*N1Npk+NNaap*N1N1pk;
-			std::cout << "test1 - ady" << std::endl;
+			ady = NN1aap*N1Npk+NNaap*N1N1pk;
+			std::cout << "test - ady" << std::endl;
 
 			// termNL
-			out[3] = -NNpk*NNpk*NNpk+(oneMat-C1)*NNpk*NNpk+C1*NNpk;
-			std::cout << "test1 - out3" << std::endl;
+			nl = -NNpk*NNpk*NNpk+(1-C1)*NNpk*NNpk+C1*NNpk;
+			std::cout << "test - out3" << std::endl;
 
 			if (dt_t==0) // these terms only needs to be calculated once
 			{
-				std::cout << "test1 - dtt" << std::endl;
-
+				std::cout << "test - dtt" << std::endl;
 				// terma2_deriv
-				t5 =  ((twoMat*NNa*N1Na+N1Naap).matrix()*cm[1]).array()+\
-					((NNa*NNa).matrix()*lap).array()+((twoMat*NNa*NN1a-N1Naap).matrix()*cm[2]).array();
-				std::cout << "test1 - t5" << std::endl;
+				// std::cout << cm[0].rows() << "|" << cm[0].cols() << std::endl;
+				// std::cout << (2*NNa*N1Na+N1Naap).rows() << "|" << (2*NNa*N1Na+N1Naap).cols() << std::endl;
+				t5 = (N1mulNN((2*NNa*N1Na+N1Naap).matrix(), cm[1]) + N1mulNN((NNa*NNa).matrix(), lap) + N1mulNN((2*NNa*NN1a-N1Naap).matrix(), cm[2])).array();
+				// std::cout << t5.rows() << "|" << t5.cols() << std::endl;
 
+				// t5 =  ((2*NNa*N1Na+N1Naap).matrix()*cm[1]).array()+\
+				// 	((NNa*NNa).matrix()*lap).array()+((2*NNa*NN1a-N1Naap).matrix()*cm[2]).array();
+				std::cout << "test - t5 | " << t5.rows() << "|" << t5.cols() << std::endl;
 			}
-			std::cout << "test1 - NL" << std::endl;
+			std::cout << "test - NL" << std::endl;
 
 		    	// termNL_deriv
-			t6 = (- threeMat*NNpk*NNpk+twoMat*(oneMat-C1)*NNpk+C1).matrix()*cm[0];
-			std::cout << "test1 - NL_deriv" << std::endl;
+			t6 = (N1mulNN((-3*NNpk*NNpk+2*(1-C1)*NNpk+C1).matrix(), cm[0])).array();
+			// t6 = cm[0].array().rowwise() * (-3*NNpk*NNpk+2*(1-C1)*NNpk+C1).transpose();
+			std::cout << "test - NL_deriv" << std::endl;
 
-			R = ((MphiMat/tauMat*(out[0]+out[1]+out[2]+out[3]))*dtime-NNpk).matrix()+cm[0]*phi;;
-			dR = ((MphiMat/tauMat*(t5+t6))*dtime).matrix()-cm[0];
+			R = ((MphiMat/tau*(a2+adx+ady+nl))*dtime-NNpk).matrix()+cm[0]*phi;;
+			std::cout << "R" << std::endl;
+
+			// std::cout << (t5+t6).rows() << "|" << (t5+t6).cols() << std::endl;
+			// std::cout << MphiMat.rows() << "|" << MphiMat.cols() << std::endl;
+			dR = (N1divNN(MphiMat, tau*(t5+t6))*dtime).matrix();
+			std::cout << "dR" << std::endl;
 
 			// check residual and update guess
 			R = R - dR*phi_initial;
@@ -321,17 +332,77 @@ int main(int argc, char **argv)
 			dp = linSol(dR,-R);
 			phiK = phiK + dp;
 			
-		//     max_phi_R = full(max(abs(R)));
-		//     if (ind_check >= 100 || max(abs(R))>1e20)
-		//         error('Phi NR method NOT converging!-Max residual: %.2d\n',...
-		//             max_phi_R);
-		//     end
-
+			residual = R.cwiseAbs().maxCoeff();
+			std::cout << "Residual:" << residual << "| ind: " << ind_check << std::endl;
+			if (ind_check >= 100 || residual>1e20)
+			{				
+				std::cout << "Phi NR method NOT converging!-Max residual: " << residual << std::endl;
+			}
 			ind_check += 1;
 			dt_t += dtime;
 			std::cout << ind_check << std::endl;
 		}
+
+		// Temperature (Implicit method)
+		std::cout << "test Tempr" << std::endl;
+		temprLHS = (cm[0].array()-3*dt_t*lap.array()).matrix();
+		std::cout << "test Tempr - LHS" << std::endl;
+
+		temprRHS = (kappa*(cm[0]*phiK-cm[0]*phi).array()+NNtempr).matrix();
+		std::cout << "test Tempr - RHS" << std::endl;
+
+		stiffMatSetupBCID(temprLHS, temprRHS, bcid, tempr_initial, lenu, lenv);
+		tempr_new = linSol(temprLHS, temprRHS);
+		std::cout << "test Tempr - solve" << std::endl;
+
+		// Tubulin concentration (Implicit method)
+		std::cout << "test Tub" << std::endl;
+		NNp = (cm[0]*phi).array();
+		nnpk = round(NNpk);
+
+		std::cout << "test Tub - nnpk" << std::endl;
+
+		LAPpk = (lap*phi).array();
+		sum_lap_phi = (LAPpk*LAPpk).sum();
+		std::cout << "test Tub - sum_lap_phi" << std::endl;
+
+		term_diff = Diff*((N1mulNN(N1Npk.matrix(),cm[1]) + N1mulNN(NNpk.matrix(),lap) + N1mulNN(NN1pk.matrix(),cm[2])));
+		std::cout << "test Tub - diff" << std::endl;
+
+		term_alph = alpha_t*(N1mulNN(N1Npk.matrix(), cm[0]) + N1mulNN(NNpk.matrix(), cm[1]) + N1mulNN(NN1pk.matrix(), cm[0]) + N1mulNN(NNpk.matrix(), cm[2]));
+		std::cout << "test Tub - alph" << std::endl;
+
+		term_beta = beta_t*N1mulNN(NNpk.matrix(), cm[0]);
+		std::cout << "test Tub - beta" << std::endl;
+
+		term_source = source_coeff/sum_lap_phi*(LAPpk*LAPpk);
+		std::cout << "test source - alph" << std::endl;
+
+		conct_LHS = N1mulNN(NNp.matrix(),cm[0])-(dtime/2*(term_diff-term_alph-term_beta)).matrix();
+		std::cout << "test Tub - LHS" << std::endl;
+
+		conct_RHS = (dtime/2*term_source-NNct*(NNpk-NNp)+NNp*NNct).matrix();
+		std::cout << "test Tub - RHS" << std::endl;
+
+		bcid_t = (abs(round(NNpk)-2)).matrix();
+		std::cout << "test Tub - bcid_t" << std::endl;
+
+		stiffMatSetupBCID(conct_LHS, conct_RHS, bcid, conct_initial, lenu, lenv);
+
+		std::cout << "test Tub - bcid_t" << std::endl;
+
+		conct_new = linSol(conct_LHS, conct_RHS);
+		std::cout << "test Tub - solve" << std::endl;
+
+		// iteration update
+		// update variables in this iteration
+		phi = phiK;
+		tempr = tempr_new;
+		conct = conct_new;
+
 	}
+
+	// Growth cone operations
 
 	std::cout << "**********************************************************" << std::endl;
 	std::cout << "All simulations complete!" << std::endl;
