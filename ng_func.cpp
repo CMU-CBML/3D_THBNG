@@ -577,3 +577,43 @@ Eigen::MatrixXd N1divNN(Eigen::MatrixXd N1, Eigen::MatrixXd NN)
     }
     return output;
 }
+
+Eigen::MatrixXd conv2D(Eigen::ArrayXXd input, int kernel_sz)
+{
+    int lenu, lenv;
+    lenu = input.rows(); lenv = input.cols();
+
+    Eigen::ArrayXXd kernel;
+    kernel = Eigen::ArrayXXd::Constant(kernel_sz,kernel_sz,1);
+    Eigen::MatrixXd output = Eigen::MatrixXd::Zero(lenu-kernel_sz,lenu-kernel_sz);
+
+    // int padding = ceil(kernel_sz/2)
+    // int quotient = (int)lenu / kernel_sz;
+    // int remainder = lenu % kernel_sz;
+
+    for (int i = 0; i <= (lenu-kernel_sz); i++)
+    {
+        for (int j = 0; j <= (lenv-kernel_sz); j++)
+        {
+            output(i,j) = (input.block(i,j,lenu,lenv)*kernel).sum();
+        }
+    }
+
+    return output;
+}
+
+Eigen::MatrixXd sum_filter(Eigen::ArrayXXd phi, int tip_threshould, int cutoff)
+{
+    // get size of input
+    int Nx, Ny;
+    Nx = phi.rows(); Ny = phi.cols();
+    // round phi -> discrete
+    phi = phi.round();
+    // initialize
+    Eigen::MatrixXd intensity = conv2D(phi, 20);
+
+    // intensity(isnan(phi_sum))=0;
+    // intensity(intensity>tip_threshould)=0;
+
+    return intensity;
+}

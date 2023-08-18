@@ -63,4 +63,8 @@ Eigen::MatrixXd N1mulNN(Eigen::MatrixXd N1, Eigen::MatrixXd NN);
 
 Eigen::MatrixXd N1divNN(Eigen::MatrixXd N1, Eigen::MatrixXd NN);
 
+Eigen::MatrixXd conv2D(Eigen::ArrayXd input, int kernel_sz);
+
+Eigen::MatrixXd sum_filter(Eigen::ArrayXXd phi, int tip_threshould, int cutoff);
+
 #endif

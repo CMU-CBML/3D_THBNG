@@ -207,13 +207,17 @@ int main(int argc, char **argv)
 
 	Eigen::MatrixXd phiK, R, dR, dp, temprLHS, temprRHS, tempr_new, nnpk, conct_LHS, conct_RHS, conct_new, bcid_t;
 
-	Eigen::ArrayXXd E, rMat, gMat, nnT, theta_ori, term_change, C1, NNa, N1Na, NN1a, NNaap, N1Naap, NN1aap, t5, t6,\
-		NNpk, N1Npk, NN1pk, N1N1pk, LAPpk, NNtempr, NNct, MphiMat, a2, adx, ady, nl, term_diff, term_alph,\
+	Eigen::ArrayXXd E, nnT, term_change, C1, NNa, N1Na, NN1a, NNaap, N1Naap, NN1aap, t5, t6,\
+		NNpk, N1Npk, NN1pk, N1N1pk, LAPpk, NNtempr, NNct, a2, adx, ady, nl, term_diff, term_alph,\
 		term_beta, term_source, NNp;
-	rMat = matInit(lenu*lenv, 1, r).array();
-	gMat = matInit(lenu*lenv, 1, g).array();
-	theta_ori = matInit(lenu*lenv, 1, 1).array();
-	MphiMat = matInit(lenu*lenv, 1, M_phi).array();
+	// rMat = matInit(lenu*lenv, 1, r).array();
+	// gMat = matInit(lenu*lenv, 1, g).array();
+	// theta_ori = matInit(lenu*lenv, 1, 1).array();
+	// MphiMat = matInit(lenu*lenv, 1, M_phi).array();
+	Eigen::ArrayXXd rMat = Eigen::ArrayXXd::Constant(lenu*lenv, 1, r);
+	Eigen::ArrayXXd gMat = Eigen::ArrayXXd::Constant(lenu*lenv, 1, g);
+	Eigen::ArrayXXd theta_ori = Eigen::ArrayXXd::Zero(lenu*lenv, 1);
+	Eigen::ArrayXXd MphiMat = Eigen::ArrayXXd::Constant(lenu*lenv, 1, M_phi);
 
 	int ind_check, sum_lap_phi;
 
@@ -269,6 +273,7 @@ int main(int argc, char **argv)
 
 		// std::vector<Eigen::ArrayXXd> out = arrayMatInit(4, lenu*lenv, lenu*lenv);
 
+		// solving newton ralphson - non-linear terms in the phase field governing equation
 		float dt_t = 0;
 		std::cout << "NR iter" << std::endl;
 		while (residual >= tol)
@@ -379,20 +384,20 @@ int main(int argc, char **argv)
 		std::cout << "test source - alph" << std::endl;
 
 		conct_LHS = N1mulNN(NNp.matrix(),cm[0])-(dtime/2*(term_diff-term_alph-term_beta)).matrix();
-		std::cout << "test Tub - LHS" << std::endl;
+		std::cout << "test conct - LHS" << std::endl;
 
 		conct_RHS = (dtime/2*term_source-NNct*(NNpk-NNp)+NNp*NNct).matrix();
-		std::cout << "test Tub - RHS" << std::endl;
+		std::cout << "test conct - RHS" << std::endl;
 
 		bcid_t = (abs(round(NNpk)-2)).matrix();
-		std::cout << "test Tub - bcid_t" << std::endl;
+		std::cout << "test conct - bcid_t" << std::endl;
 
 		stiffMatSetupBCID(conct_LHS, conct_RHS, bcid, conct_initial, lenu, lenv);
 
-		std::cout << "test Tub - bcid_t" << std::endl;
+		std::cout << "test conct - stiff" << std::endl;
 
 		conct_new = linSol(conct_LHS, conct_RHS);
-		std::cout << "test Tub - solve" << std::endl;
+		std::cout << "test conct - solve" << std::endl;
 
 		// iteration update
 		// update variables in this iteration
@@ -403,6 +408,9 @@ int main(int argc, char **argv)
 	}
 
 	// Growth cone operations
+	Eigen::MatrixXd tips = sum_filter(phi, 175, 20);
+
+	printArray2TXT(tips, "./tips.txt");
 
 	std::cout << "**********************************************************" << std::endl;
 	std::cout << "All simulations complete!" << std::endl;
