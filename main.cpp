@@ -28,7 +28,7 @@ int main(int argc, char **argv)
 	ierr = PetscFinalize(); CHKERRQ(ierr);
 
 	// Start Simulation Model
-	std::cout << "**********************************************************" << std::endl;
+	std::cout << "\n" << std::endl;
 	std::cout << "2D Phase-field Neuron Growth solver using IGA-Collocation" << std::endl;
 
 	// auto start = std::chrono::system_clock::now();
@@ -222,7 +222,7 @@ int main(int argc, char **argv)
 	int ind_check, sum_lap_phi;
 
 	std::cout << "Iterating Variable Initialization - Done!" << std::endl;
-	std::cout << "**********************************************************" << std::endl;
+	std::cout << "\n" << std::endl;
 
 	std::cout << "Starting Neuron Growth Model transient iterations..." << std::endl;
 
@@ -412,9 +412,9 @@ int main(int argc, char **argv)
 
 	printArray2TXT(tips, "./tips.txt");
 
-	std::cout << "**********************************************************" << std::endl;
+	std::cout << "\n" << std::endl;
 	std::cout << "All simulations complete!" << std::endl;
-	std::cout << "**********************************************************" << std::endl;
+	std::cout << "\n" << std::endl;
 
 	return 0;
 }

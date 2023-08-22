@@ -62,7 +62,7 @@ void gen_knotvector(Eigen::VectorXd& knotvector, int lo, int hi, int N, int orde
 // Printing the vector
 void printVector1D(Eigen::VectorXd& vec)
 {
-    std::cout << "**********************************************************" << std::endl;
+	std::cout << "\n" << std::endl;
     std::cout << "Vector testing | Printing vector..." << std::endl;
     std::cout << "Vector size: " << vec.rows() << std::endl;
     std::cout << "Vector content:";
@@ -75,7 +75,7 @@ void printVector1D(Eigen::VectorXd& vec)
 
 void printMatrix2D(Eigen::MatrixXd& vec)
 {
-    std::cout << "**********************************************************" << std::endl;
+	std::cout << "\n" << std::endl;
     std::cout << "Matrix testing | Printing Matrix..." << std::endl;
     std::cout << "Matrix size: " << vec.size() << std::endl;
     std::cout << "Matrix content:";
