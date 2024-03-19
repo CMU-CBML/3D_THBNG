@@ -3876,6 +3876,7 @@ void TruncatedTspline_2D::run_surf_XP(string fn, vector<int> ids)
 	BezierExtract_Unstruct(bzmesh);
 	// BezierControlMesh_Unstruct(fn + "bzmesh_2",bzmesh);
 	// BezierVTK_Unstruct(fn + "bzmesh_3",bzmesh);
+
 	OutputMesh(bzmesh, fn);
 }
 
@@ -4052,7 +4053,7 @@ void TruncatedTspline_2D::runXP_complex(string fn)
 {
 	SetProblem_complex(fn);
 	CollectActives();
-	//VisualizeControlMesh("complex/fertility_CM_5");
+	VisualizeControlMesh("../iotest/output");
 }
 
 void TruncatedTspline_2D::SetBezier3TranMat(int N, vector<vector<double>>& bmat)
@@ -4835,6 +4836,7 @@ void TruncatedTspline_2D::SetProblem_complex(string fn)
 			fin>>itmp>>tmesh[i].cnct[0]>>tmesh[i].cnct[1]>>tmesh[i].cnct[2]>>tmesh[i].cnct[3];
 		}
 		fin.close();
+		std::cout << "Read " << fname << std::endl;
 	}
 	else
 	{
@@ -5191,7 +5193,7 @@ void TruncatedTspline_2D::Refine_Surf_Test_0(vector<int> ids)
 	rfid.clear();
 	rftype.clear();
 	
-	// Refine_Surf_Select_0(rfid, rftype, ids);
+	// Refine_Surf_Select_0(rfid, rftype);
 
 	// rfid = ids;
 	// for (int i = 0; i<ids.size(); i++) {

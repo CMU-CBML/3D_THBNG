@@ -12,7 +12,8 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 include ${PETSC_DIR}/lib/petsc/conf/variables
-CFLAGS= ${PETSC_CC_INCLUDES} ${CXX_FLAGS} ${CXXFLAGS} ${CPPFLAGS} ${PSOURCECXX} -ffast-math -O3 -march=native -std=c++17 -fopenmp -Wall -I ${EIGEN_DIR}
+CFLAGS= ${PETSC_CC_INCLUDES} ${CXX_FLAGS} ${CXXFLAGS} ${CPPFLAGS} ${PSOURCECXX} -O2 -march=native -march=native -std=c++17 -fopenmp -I ${EIGEN_DIR}
+# -ffast-math -O3 
 
 all: 3DNG
 

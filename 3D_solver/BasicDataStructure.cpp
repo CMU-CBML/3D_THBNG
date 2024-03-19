@@ -20,12 +20,12 @@ Element3D::Element3D(int p)
 	}
 }
 
-void Element3D::BezierPolyn(double u, vector<double>& Nu, vector<double>& dNdu) const
+void Element3D::BezierPolyn(float u, vector<float>& Nu, vector<float>& dNdu) const
 {
 	if (degree == 3)
 	{
-		double Nu0[4] = { (1. - u)*(1. - u)*(1. - u),3.*(1. - u)*(1. - u)*u,3.*(1. - u)*u*u,u*u*u };
-		double dNdu0[4] = { -3.*(1. - u)*(1. - u),3. - 12.*u + 9.*u*u,3.*(2. - 3.*u)*u,3.*u*u };
+		float Nu0[4] = { (1. - u)*(1. - u)*(1. - u),3.*(1. - u)*(1. - u)*u,3.*(1. - u)*u*u,u*u*u };
+		float dNdu0[4] = { -3.*(1. - u)*(1. - u),3. - 12.*u + 9.*u*u,3.*(2. - 3.*u)*u,3.*u*u };
 		Nu.resize(order);
 		dNdu.resize(order);
 		for (int i = 0; i<order; i++)
@@ -36,8 +36,8 @@ void Element3D::BezierPolyn(double u, vector<double>& Nu, vector<double>& dNdu) 
 	}
 	else if (degree == 4)
 	{
-		double Nu0[5] = { (1. - u)*(1. - u)*(1. - u)*(1. - u),4.*(1. - u)*(1. - u)*(1. - u)*u,6.*(1. - u)*(1. - u)*u*u,4.*(1. - u)*u*u*u,u*u*u*u };
-		double dNdu0[5] = { -4.*(1. - u)*(1. - u)*(1. - u),4.*(1. - u)*(1. - u)*(1. - 4.*u),12.*u*(1. - 3.*u + 2.*u*u),4.*(3. - 4.*u)*u*u,4.*u*u*u };
+		float Nu0[5] = { (1. - u)*(1. - u)*(1. - u)*(1. - u),4.*(1. - u)*(1. - u)*(1. - u)*u,6.*(1. - u)*(1. - u)*u*u,4.*(1. - u)*u*u*u,u*u*u*u };
+		float dNdu0[5] = { -4.*(1. - u)*(1. - u)*(1. - u),4.*(1. - u)*(1. - u)*(1. - 4.*u),12.*u*(1. - 3.*u + 2.*u*u),4.*(3. - 4.*u)*u*u,4.*u*u*u };
 		Nu.resize(order);
 		dNdu.resize(order);
 		for (int i = 0; i<order; i++)
@@ -48,9 +48,9 @@ void Element3D::BezierPolyn(double u, vector<double>& Nu, vector<double>& dNdu) 
 	}
 }
 
-void Element3D::Basis(double u, double v, double w, vector<double>& Nt, vector<array<double, 3>>& dNdt) const
+void Element3D::Basis(float u, float v, float w, vector<float>& Nt, vector<array<float, 3>>& dNdt) const
 {
-	vector<double> Nu, Nv, Nw, dNdu, dNdv, dNdw;
+	vector<float> Nu, Nv, Nw, dNdu, dNdv, dNdw;
 	BezierPolyn(u, Nu, dNdu);
 	BezierPolyn(v, Nv, dNdv);
 	BezierPolyn(w, Nw, dNdw);
@@ -73,10 +73,10 @@ void Element3D::Basis(double u, double v, double w, vector<double>& Nt, vector<a
 	}
 }
 
-void Element3D::Para2Phys(double u, double v, double w, double pt[3]) const
+void Element3D::Para2Phys(float u, float v, float w, float pt[3]) const
 {
-	vector<double> Nt;
-	vector<array<double, 3>> dNdt;
+	vector<float> Nt;
+	vector<array<float, 3>> dNdt;
 	Basis(u, v, w, Nt, dNdt);
 	pt[0] = 0.; pt[1] = 0.; pt[2] = 0.;
 	for (int i = 0; i<nbf; i++)
@@ -90,9 +90,9 @@ void Element3D::Para2Phys(double u, double v, double w, double pt[3]) const
 void Raw2Vtk_hex(string fn)
 {
 	unsigned int npt, nel;
-	vector<array<double, 3>> pts;
+	vector<array<float, 3>> pts;
 	vector<array<int, 8>> cnct;
-	double tmp;
+	float tmp;
 	string fn1(fn + ".raw");
 	ifstream fin;
 	fin.open(fn1);
@@ -154,9 +154,9 @@ void Raw2Vtk_hex(string fn)
 void Rawn2Vtk_hex(string fn)
 {
 	unsigned int npt, nel;
-	vector<array<double, 3>> pts;
+	vector<array<float, 3>> pts;
 	vector<array<int, 8>> cnct;
-	double tmp;
+	float tmp;
 	string fn1(fn + ".rawn");
 	ifstream fin;
 	fin.open(fn1);

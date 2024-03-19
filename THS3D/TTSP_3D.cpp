@@ -37,6 +37,11 @@ TruncatedTspline_3D::TruncatedTspline_3D()
 	//tmesh.clear();
 }
 
+int TruncatedTspline_3D::getLevels()
+{
+	return hcp.size();
+}
+
 void TruncatedTspline_3D::CreateUniformCube(string fn)
 {
 	int nsmp(5);
@@ -119,6 +124,11 @@ double TruncatedTspline_3D::PartionOfUnity(int eid, const array<double, 3>& u)
 
 void TruncatedTspline_3D::VisualizeControlMesh(string fn)
 {
+	std::cout << hcp.size() << std::endl;
+	for (int i = 0; i < hcp.size(); i++) {
+		std::cout << i << " " << hcp[i].size() << std::endl;
+	}
+
 	string fname(fn+".vtk");
 	ofstream fout;
 	fout.open(fname.c_str());
@@ -191,6 +201,109 @@ void TruncatedTspline_3D::VisualizeControlMesh(string fn)
 		{
 			fout<<cp[i].trun<<"\n";
 		}
+
+		fout.close();
+	}
+	else
+	{
+		cout<<"Cannot open "<<fname<<"!\n";
+	}
+}
+
+void TruncatedTspline_3D::VisualizeControlMesh_hierarchical(string fn)
+{
+	vector<Vertex3D> tmp_cpt;
+	vector<Element3D> tmp_ele;
+	
+	for (uint lev = 0; lev < hcp.size(); lev++) {
+		for (uint pid = 0; pid < hcp[lev].size(); pid++) {
+			if (hcp[lev][pid].act == 1 /*&& (hmesh[lev][eid].type == 1 || hmesh[lev][eid].type == 2)*/) {
+				tmp_cpt.push_back(hcp[lev][pid]);
+			}
+		}
+	}
+
+	for (uint lev = 0; lev < hmesh.size(); lev++) {
+		for (uint eid = 0; eid < hmesh[lev].size(); eid++) {
+			if (hmesh[lev][eid].act == 1 /*&& (hmesh[lev][eid].type == 1 || hmesh[lev][eid].type == 2)*/) {
+				tmp_ele.push_back(hmesh[lev][eid]);
+			}
+		}
+	}
+
+	string fname(fn+"_hierarchical.vtk");
+	ofstream fout;
+	fout.open(fname.c_str());
+	if(fout.is_open())
+	{
+		fout<<"# vtk DataFile Version 2.0\nSquare plate test\nASCII\nDATASET UNSTRUCTURED_GRID\n";
+		fout<<"POINTS "<<tmp_cpt.size()<<" float\n";
+		for(uint i=0;i<tmp_cpt.size();i++)
+		{
+			fout<<tmp_cpt[i].coor[0]<<" "<<tmp_cpt[i].coor[1]<<" "<<tmp_cpt[i].coor[2]<<"\n";
+		}
+		// int nel_act(0);
+		// for(uint i=0; i<tmesh.size(); i++)
+		// {
+		// 	if (tmesh[i].act == 1 /*&& tmesh[i].type == 2*/ /*&& tmesh[i].type != 2 && tmesh[i].type != 3*/) nel_act++;
+		// }
+		fout<<"\nCELLS "<<tmp_ele.size()<<" "<<9*tmp_ele.size()<<'\n';
+		for(uint i=0; i<tmp_ele.size(); i++)
+		{
+			// if (tmesh[i].act == 1 /*&& tmesh[i].type == 2*/ /*&& tmesh[i].type != 2 && tmesh[i].type != 3*/)
+			// {
+				fout<<"8 ";
+				for(int j=0; j<8; j++)
+				{
+					fout<<tmp_ele[i].cnct[j]<<' ';
+				}
+				fout<<'\n';
+			// }
+		}
+		fout<<"\nCELL_TYPES "<<tmp_ele.size()<<'\n';
+		for(uint i=0; i<tmp_ele.size(); i++)
+		{
+			fout<<"12\n";
+		}
+		//fout<<"\nCELLS "<<eleH[lev].size()<<" "<<5*eleH[lev].size()<<'\n';
+		//for(uint i=0;i<eleH[lev].size();i++)
+		//{
+		//	fout<<"4 "<<eleH[lev][i].cnct[0]<<" "<<eleH[lev][i].cnct[1]<<" "<<eleH[lev][i].cnct[2]<<" "<<eleH[lev][i].cnct[3]<<'\n';
+		//}
+		//fout<<"\nCELL_TYPES "<<eleH[lev].size()<<'\n';
+		//for(uint i=0;i<eleH[lev].size();i++)
+		//{
+		//	fout<<"9\n";
+		//}
+		//fout<<"\nCELL_DATA "<<eleH[lev].size()<<"\nSCALARS eact float 1\nLOOKUP_TABLE default\n";
+		//for(uint i=0;i<eleH[lev].size();i++)
+		//{
+		//	fout<<eleH[lev][i].act<<"\n";
+		//	//fout<<eleH[lev][i].type<<"\n";
+		//}
+		//fout<<"POINT_DATA "<<cp.size()<<"\nSCALARS pact float 1\nLOOKUP_TABLE default\n";
+		//for(uint i=0;i<cp.size();i++)
+		//{
+		//	fout<<cp[i].act<<"\n";
+		//}
+
+
+		//fout<<"\nCELLS "<<cp.size()<<" "<<2*cp.size()<<'\n';
+		//for(uint i=0;i<cp.size();i++)
+		//{
+		//	fout<<"1 "<<i<<'\n';
+		//}
+		//fout<<"\nCELL_TYPES "<<cp.size()<<'\n';
+		//for(uint i=0;i<cp.size();i++)
+		//{
+		//	fout<<"1\n";
+		//}
+
+		// fout<<"POINT_DATA "<<cp.size()<<"\nSCALARS pact float 1\nLOOKUP_TABLE default\n";
+		// for(uint i=0;i<cp.size();i++)
+		// {
+		// 	fout<<cp[i].trun<<"\n";
+		// }
 
 		fout.close();
 	}
@@ -463,7 +576,7 @@ void TruncatedTspline_3D::CollectActives()
 
 void TruncatedTspline_3D::VisualizeTMesh(string fn)
 {
-	string fname(fn+".vtk");
+	string fname(fn+"_tmesh.vtk");
 	ofstream fout;
 	fout.open(fname.c_str());
 	if(fout.is_open())
@@ -10720,7 +10833,7 @@ void TruncatedTspline_3D::Refine(vector<array<int, 2>>& rfid, vector<array<int, 
 
 void TruncatedTspline_3D::OutputCM(int lev, string fn)
 {
-	string fname(fn + "_CM.vtk");
+	string fname(fn + "_" + to_string(lev) + "_CM.vtk");
 	ofstream fout;
 	fout.open(fname.c_str());
 	if (fout.is_open())
@@ -10767,6 +10880,76 @@ void TruncatedTspline_3D::OutputCM(int lev, string fn)
 			//fout<<hmesh[lev][i].act<<"\n";
 			fout << hmesh[lev][i].type << "\n";
 		}
+
+		fout.close();
+	}
+	else
+	{
+		cout << "Cannot open " << fname << "!\n";
+	}
+}
+
+
+void TruncatedTspline_3D::OutputControlPoints(string fn)
+{
+	vector<Vertex3D> all_cpt;
+	int numPts(0);
+	for (uint lev = 0; lev < hcp.size(); lev++) {
+		for (uint pid = 0; pid<hcp[lev].size(); pid++) {
+			if (hcp[lev][pid].act == 1 /* && (hcp[lev][pid].type == 1 || hcp[lev][pid].type == 2) */) {
+				all_cpt.push_back(hcp[lev][pid]);
+				// std::cout << sizeof(hcp[lev][pid].coor) / sizeof(hcp[lev][pid].coor[0]) << std::endl;
+				numPts += 1;
+			}
+		}
+	}
+	// vector<Element3D> all_ele;
+	// int numEle(0);
+	// for (uint lev = 0; lev < hmesh.size(); lev++) {
+	// 	for (uint eid = 0; eid < hmesh[lev].size(); eid++) {
+	// 		if (hmesh[lev][eid].act == 1/* && (hmesh[lev][eid].type == 1 || hmesh[lev][eid].type == 2) */) {
+	// 			all_ele.push_back(hmesh[lev][eid]);
+	// 			numEle += 1;
+	// 		}
+	// 	}
+	// }
+
+	string fname(fn + "controlPoints.vtk");
+	ofstream fout;
+	fout.open(fname.c_str());
+	if (fout.is_open())
+	{
+		fout << "# vtk DataFile Version 2.0\nSquare plate test\nASCII\nDATASET UNSTRUCTURED_GRID\n";
+		fout << "POINTS " << numPts << " float\n";
+		for (uint i = 0; i<numPts; i++)
+		{
+			fout << all_cpt[i].coor[0] << " " << all_cpt[i].coor[1] << " " << all_cpt[i].coor[2] << "\n";
+		}
+
+		// fout << "\nCELLS " << numEle << " " << 9 * numEle << '\n';
+		// for (uint i = 0; i<numEle; i++)
+		// {
+		// 	fout << "8 ";
+		// 	for (int j = 0; j<8; j++)
+		// 	{
+		// 		fout << all_ele[i].cnct[j] << ' ';
+		// 	}
+		// 	fout << '\n';
+		// }
+		
+		// fout << "\nCELL_TYPES " << numEle << '\n';
+		// for (uint i = 0; i<numEle; i++)
+		// {
+		// 	fout << "12\n";
+		// }
+
+
+		// fout << "POINT_DATA " << numPts << "\nSCALARS pact float 1\nLOOKUP_TABLE default\n";
+		// for (uint i = 0; i<numPts; i++)
+		// {
+		// 	fout << err << "\n";
+		// }
+
 
 		fout.close();
 	}
@@ -11624,6 +11807,90 @@ void TruncatedTspline_3D::AnalysisInterface_Poisson_1(vector<BezierElement3D>& b
 					}
 				}
 				//bzmesh.push_back(bztmp);
+			}
+		}
+	}
+}
+
+
+void TruncatedTspline_3D::GetBezierMesh(vector<BezierElement3D>& bzmesh)
+{
+	bzmesh.clear();
+
+	int loc(0);
+	vector<vector<int>> aloc(hcp.size());
+	for (uint i = 0; i < hcp.size(); i++)
+	{
+		aloc[i].resize(hcp[i].size(), -1);
+		for (uint j = 0; j < hcp[i].size(); j++)
+		{
+			if (hcp[i][j].act == 1)
+			{
+				aloc[i][j] = loc++;
+			}
+		}
+	}
+
+	for (int i = 0; i < hmesh.size(); i++)
+	{
+		for (int j = 0; j < hmesh[i].size(); j++)
+		{
+			if (hmesh[i][j].act == 1 /*&& hmesh[i][j].type!=1*/)
+			{
+				BezierElement3D bztmp;
+				bztmp.prt[0] = i; bztmp.prt[1] = j;
+				bztmp.trun = hmesh[i][j].trun;
+				if (hmesh[i][j].type == 1) bztmp.type = 1;
+				if (hmesh[i][j].trun == 0)
+				{
+					bztmp.IEN.resize(hmesh[i][j].IEN.size());
+					bztmp.cmat.resize(hmesh[i][j].IEN.size(), vector<double>(64));
+					for (int k = 0; k < hmesh[i][j].IEN.size(); k++)
+					{
+						bztmp.IEN[k] = aloc[i][hmesh[i][j].IEN[k]];
+						for (int k1 = 0; k1 < 64; k1++)
+						{
+							bztmp.cmat[k][k1] = hmesh[i][j].bemat[k][k1];
+							bztmp.pts[k1][0] += hmesh[i][j].bemat[k][k1] * hcp[i][hmesh[i][j].IEN[k]].coor[0];
+							bztmp.pts[k1][1] += hmesh[i][j].bemat[k][k1] * hcp[i][hmesh[i][j].IEN[k]].coor[1];
+							bztmp.pts[k1][2] += hmesh[i][j].bemat[k][k1] * hcp[i][hmesh[i][j].IEN[k]].coor[2];
+						}
+					}
+				}
+				else
+				{
+					bztmp.IEN.resize(hmesh[i][j].IEN_act.size());
+					bztmp.cmat.resize(hmesh[i][j].IEN_act.size(), vector<double>(64));
+					for (int k = 0; k < hmesh[i][j].IEN_act.size(); k++)
+					{
+						int lev(hmesh[i][j].IEN_act[k][0]);
+						int pid(hmesh[i][j].IEN_act[k][1]);
+						if (aloc[lev][pid] == -1)
+						{
+							cout << "wrong aloc!\n";
+							getchar();
+						}
+						bztmp.IEN[k] = aloc[lev][pid];
+						for (int k1 = 0; k1 < 64; k1++)
+						{
+							bztmp.cmat[k][k1] = 0.;
+							for (int k2 = 0; k2 < hmesh[i][j].IEN.size(); k2++)
+							{
+								bztmp.cmat[k][k1] += hmesh[i][j].tmat[k][k2] * hmesh[i][j].bemat[k2][k1];
+							}
+						}
+					}
+					for (int k = 0; k < hmesh[i][j].IEN.size(); k++)
+					{
+						for (int k1 = 0; k1 < 64; k1++)
+						{
+							bztmp.pts[k1][0] += hmesh[i][j].bemat[k][k1] * hcp[i][hmesh[i][j].IEN[k]].coor[0];
+							bztmp.pts[k1][1] += hmesh[i][j].bemat[k][k1] * hcp[i][hmesh[i][j].IEN[k]].coor[1];
+							bztmp.pts[k1][2] += hmesh[i][j].bemat[k][k1] * hcp[i][hmesh[i][j].IEN[k]].coor[2];
+						}
+					}
+				}
+				bzmesh.push_back(bztmp);
 			}
 		}
 	}

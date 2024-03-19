@@ -1,5 +1,6 @@
 #include "kernel.h"
 #include <ctime>
+ #include <numeric>
 
 // void kernel::run()
 // {
@@ -159,9 +160,306 @@
 // 	//output_err(fld + fn + "err", dof_list, err_list);
 // }
 
-void kernel::run_complex_fit()
+
+void kernel::OutputMesh(const vector<BezierElement3D>& bzmesh, string fn)
 {
-	int niter(2);
+	int cn[8] = { 0, 3, 15, 12, 48, 51, 63, 60 };
+	string fname = fn + "bzmesh.vtk";
+	ofstream fout;
+	fout.open(fname.c_str());	
+
+	// std::cout << "ck2" << std::endl;
+
+	if (fout.is_open())
+	{
+		fout << "# vtk DataFile Version 2.0\nBezier mesh\nASCII\nDATASET UNSTRUCTURED_GRID\n";
+		fout << "POINTS " << 8 * bzmesh.size() << " float\n";		
+		for (int i = 0; i<bzmesh.size(); i++)
+		{
+			for (int j = 0; j < 8; j++)
+			{
+				fout << bzmesh[i].pts[cn[j]][0] << " " << bzmesh[i].pts[cn[j]][1] << " " << bzmesh[i].pts[cn[j]][2] << "\n";
+			}
+		}
+		fout << "\nCELLS " << bzmesh.size() << " " << 9 * bzmesh.size() << '\n';
+		for (int i = 0; i<bzmesh.size(); i++)
+		{
+			fout << "8 " << 8 * i << " " << 8 * i + 1 << " " << 8 * i + 2 << " " << 8 * i + 3
+				<< " " << 8 * i + 4 << " " << 8 * i + 5 << " " << 8 * i + 6 << " " << 8 * i + 7 << '\n';
+		}
+		fout << "\nCELL_TYPES " << bzmesh.size() << '\n';
+		for (int i = 0; i<bzmesh.size(); i++)
+		{
+			fout << "12\n";
+		}
+		//fout << "POINT_DATA " << sdisp.size() << "\nSCALARS err float 1\nLOOKUP_TABLE default\n";
+		//for (int i = 0; i<sdisp.size(); i++)
+		//{
+		//	fout << sdisp[i] << "\n";
+		//}
+		fout << "\nCELL_DATA " << bzmesh.size() << "\nSCALARS Error float 1\nLOOKUP_TABLE default\n";
+		for (int i = 0; i < bzmesh.size(); i++)
+		{
+			fout << bzmesh[i].type << "\n";
+		}
+		fout.close();
+	}
+	else
+	{
+		cout << "Cannot open " << fname << "!\n";
+	}
+	
+	// std::cout << "ck3" << std::endl;
+
+	string fname3(fn + "bzmeshinfo.txt");
+	//ofstream fout;
+	fout.open(fname3.c_str());
+	if (fout.is_open())
+	{
+		fout << bzmesh.size() << "\n";
+		for (int i = 0; i<bzmesh.size(); i++)
+		{
+			for (int l = 0; l < bzmesh[i].IEN.size(); l++)
+			{
+				fout << bzmesh[i].IEN[l] + 1;
+				if (l == bzmesh[i].IEN.size() - 1)
+				{
+					fout << "\n";
+				}
+				else
+				{
+					fout << " ";
+				}
+			}
+		}
+		fout.close();
+	}
+	else
+	{
+		cerr << "Can't open " << fname3 << '\n';
+	}
+
+	// std::cout << "ck4" << std::endl;
+
+	string fname1(fn + "cmat.txt");
+	//ofstream fout;
+	fout.open(fname1.c_str());
+	if (fout.is_open())
+	{
+		fout << bzmesh.size() << "\n";
+		for (int i = 0; i<bzmesh.size(); i++)
+		{
+			fout << i << " " << bzmesh[i].IEN.size() << " " << bzmesh[i].type << "\n";
+			for (int l = 0; l < bzmesh[i].IEN.size(); l++)
+			{
+				fout << bzmesh[i].IEN[l];
+				if (l == bzmesh[i].IEN.size() - 1)
+				{
+					fout << "\n";
+				}
+				else
+				{
+					fout << " ";
+				}
+			}
+			for (int j = 0; j < bzmesh[i].cmat.size(); j++)
+			{
+				for (int k = 0; k < bzmesh[i].cmat[j].size(); k++)
+				{
+					fout << bzmesh[i].cmat[j][k];
+					if (k == bzmesh[i].cmat[j].size() - 1)
+					{
+						fout << "\n";
+					}
+					else
+					{
+						fout << " ";
+					}
+				}
+			}
+
+		}
+		fout.close();
+	}
+	else
+	{
+		cerr << "Can't open " << fname1 << '\n';
+	}
+
+	// std::cout << "ck5" << std::endl;
+
+	string fname2(fn + "bzpt.txt");
+	//ofstream fout;
+	fout.open(fname2.c_str());
+	if (fout.is_open())
+	{
+		fout << bzmesh.size() * 64 << "\n";
+		for (int i = 0; i<bzmesh.size(); i++)
+		{
+			for (int j = 0; j < 64; j++)
+			{
+				fout << bzmesh[i].pts[j][0] << " " << bzmesh[i].pts[j][1] << " " << bzmesh[i].pts[j][2] << "\n";
+			}
+		}
+		fout.close();
+	}
+	else
+	{
+		cerr << "Can't open " << fname2 << '\n';
+	}
+}
+
+void kernel::OutputMesh(const vector<BezierElement3D>& bzmesh, string fn, int itr)
+{
+	int cn[8] = { 0, 3, 15, 12, 48, 51, 63, 60 };
+	string fname = fn + to_string(itr) + "_bzmesh.vtk";
+	ofstream fout;
+	fout.open(fname.c_str());	
+
+	// std::cout << "ck2" << std::endl;
+
+	if (fout.is_open())
+	{
+		fout << "# vtk DataFile Version 2.0\nBezier mesh\nASCII\nDATASET UNSTRUCTURED_GRID\n";
+		fout << "POINTS " << 8 * bzmesh.size() << " float\n";		
+		for (int i = 0; i<bzmesh.size(); i++)
+		{
+			for (int j = 0; j < 8; j++)
+			{
+				fout << bzmesh[i].pts[cn[j]][0] << " " << bzmesh[i].pts[cn[j]][1] << " " << bzmesh[i].pts[cn[j]][2] << "\n";
+			}
+		}
+		fout << "\nCELLS " << bzmesh.size() << " " << 9 * bzmesh.size() << '\n';
+		for (int i = 0; i<bzmesh.size(); i++)
+		{
+			fout << "8 " << 8 * i << " " << 8 * i + 1 << " " << 8 * i + 2 << " " << 8 * i + 3
+				<< " " << 8 * i + 4 << " " << 8 * i + 5 << " " << 8 * i + 6 << " " << 8 * i + 7 << '\n';
+		}
+		fout << "\nCELL_TYPES " << bzmesh.size() << '\n';
+		for (int i = 0; i<bzmesh.size(); i++)
+		{
+			fout << "12\n";
+		}
+		//fout << "POINT_DATA " << sdisp.size() << "\nSCALARS err float 1\nLOOKUP_TABLE default\n";
+		//for (int i = 0; i<sdisp.size(); i++)
+		//{
+		//	fout << sdisp[i] << "\n";
+		//}
+		fout << "\nCELL_DATA " << bzmesh.size() << "\nSCALARS Error float 1\nLOOKUP_TABLE default\n";
+		for (int i = 0; i < bzmesh.size(); i++)
+		{
+			fout << bzmesh[i].type << "\n";
+		}
+		fout.close();
+	}
+	else
+	{
+		cout << "Cannot open " << fname << "!\n";
+	}
+	
+	// std::cout << "ck3" << std::endl;
+
+	string fname3(fn + to_string(itr) + "_bzmeshinfo.txt");
+	//ofstream fout;
+	fout.open(fname3.c_str());
+	if (fout.is_open())
+	{
+		fout << bzmesh.size() << "\n";
+		for (int i = 0; i<bzmesh.size(); i++)
+		{
+			for (int l = 0; l < bzmesh[i].IEN.size(); l++)
+			{
+				fout << bzmesh[i].IEN[l] + 1;
+				if (l == bzmesh[i].IEN.size() - 1)
+				{
+					fout << "\n";
+				}
+				else
+				{
+					fout << " ";
+				}
+			}
+		}
+		fout.close();
+	}
+	else
+	{
+		cerr << "Can't open " << fname3 << '\n';
+	}
+
+	// std::cout << "ck4" << std::endl;
+
+	string fname1(fn + to_string(itr) + "_cmat.txt");
+	//ofstream fout;
+	fout.open(fname1.c_str());
+	if (fout.is_open())
+	{
+		fout << bzmesh.size() << "\n";
+		for (int i = 0; i<bzmesh.size(); i++)
+		{
+			fout << i << " " << bzmesh[i].IEN.size() << " " << bzmesh[i].type << "\n";
+			for (int l = 0; l < bzmesh[i].IEN.size(); l++)
+			{
+				fout << bzmesh[i].IEN[l];
+				if (l == bzmesh[i].IEN.size() - 1)
+				{
+					fout << "\n";
+				}
+				else
+				{
+					fout << " ";
+				}
+			}
+			for (int j = 0; j < bzmesh[i].cmat.size(); j++)
+			{
+				for (int k = 0; k < bzmesh[i].cmat[j].size(); k++)
+				{
+					fout << bzmesh[i].cmat[j][k];
+					if (k == bzmesh[i].cmat[j].size() - 1)
+					{
+						fout << "\n";
+					}
+					else
+					{
+						fout << " ";
+					}
+				}
+			}
+
+		}
+		fout.close();
+	}
+	else
+	{
+		cerr << "Can't open " << fname1 << '\n';
+	}
+
+	// std::cout << "ck5" << std::endl;
+
+	string fname2(fn + to_string(itr) + "_bzpt.txt");
+	//ofstream fout;
+	fout.open(fname2.c_str());
+	if (fout.is_open())
+	{
+		fout << bzmesh.size() * 64 << "\n";
+		for (int i = 0; i<bzmesh.size(); i++)
+		{
+			for (int j = 0; j < 64; j++)
+			{
+				fout << bzmesh[i].pts[j][0] << " " << bzmesh[i].pts[j][1] << " " << bzmesh[i].pts[j][2] << "\n";
+			}
+		}
+		fout.close();
+	}
+	else
+	{
+		cerr << "Can't open " << fname2 << '\n';
+	}
+}
+
+void kernel::run_complex_fit(string path_in)
+{
+	int niter(3);
 	double thresh(0.25);//cube
 	unsigned int i;
 	double xy[3][2], nm[3], a(50.);
@@ -169,7 +467,7 @@ void kernel::run_complex_fit()
 
 	clock_t begin = clock();
 
-	tt3.SetProblem("../io/hex_input/cube5");
+	tt3.SetProblem("../ioTHS3D/hex_input/cube5");
 	// tt3.SetProblem("./io/plate_input/input_CM");
 
 	string fld("../io/kk_test/");
@@ -183,9 +481,10 @@ void kernel::run_complex_fit()
 
 	int itr;
 	double errL2(1.e6);
+	vector<BezierElement3D> bzmesh;
 	for (itr = 0; itr < niter; itr++)
 	{
-		vector<BezierElement3D> bzmesh;
+		// vector<BezierElement3D> bzmesh;
 		vector<int> IDBC;
 		vector<double> gh, err;
 
@@ -224,8 +523,8 @@ void kernel::run_complex_fit()
 			vector<array<int, 2>> rfid, gst;
 			// tt3.Identify_Poisson_1(eh, err, rfid, gst);
 			tt3.Identify_Laplace(eh, err, rfid, gst);			
-			tt3.OutputRefineID(fld + fn + ss.str(), rfid, gst);
-			tt3.InputRefineID("../io/kk_test/base_" + ss.str(), rfid, gst);
+			// tt3.OutputRefineID(fld + fn + ss.str(), rfid, gst);
+			// tt3.InputRefineID("../ioTHS3D/kk_test/base_" + ss.str(), rfid, gst);
 			tt3.Refine(rfid, gst);
 			cout << "Refining done\n";
 
@@ -240,6 +539,299 @@ void kernel::run_complex_fit()
 
 	//output error
 	//output_err(fld + fn + "err", dof_list, err_list);
+}
+
+int kernel::run_neuronGrowth(string path_in)
+{
+	int niter(4);
+	double thresh(0.25);//cube
+	unsigned int i;
+	double xy[3][2], nm[3], a(50.);
+	TruncatedTspline_3D tt3;
+
+	clock_t begin = clock();
+
+	tt3.SetProblem(path_in + "controlmesh_initial");
+	// tt3.SetProblem(path_in + "cube5");
+
+	string fld(path_in);
+
+	// string fn("base_");
+	string fn("outputmesh");
+
+	tt3.SetDomainRange(xy, nm, a);
+
+	vector<int> dof_list(niter, 0);
+	vector<double> err_list(niter, 0.);
+
+	// std::cout << "ck1" << std::endl;
+	int itr;
+	double errL2(1.e6);
+	vector<BezierElement3D> bzmesh;
+	cout << "Start refining...\n";
+
+	vector<int> IDBC;
+	vector<double> gh;
+	tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
+	// tt3.GetBezierMesh(bzmesh);
+
+	vector<BezierElement3D> bzmesh_old = bzmesh;
+
+	// vector<double> phi = readVectorFromFile("../ioTHS3D/phi.txt", false);
+	vector<double> phi = readVectorFromFile(path_in + "phi.txt", false);
+	// int sum_of_elems = std::accumulate(phi.begin(), phi.end(),
+        //                         decltype(phi)::value_type(0));
+	// std::cout << "#refine phi read: " << sum_of_elems << std::endl;
+	vector<double> phi_old = phi;
+
+	for (itr = 0; itr <= niter; itr++)
+	// itr = 0;
+	// while (tt3.getLevels() < 2)
+	{
+		std::cout << "+++++++++++++++++++++" << std::endl;
+		cout << "Refine iter " << itr << "...\n";
+
+		// vector<BezierElement3D> bzmesh_old = bzmesh;
+		// vector<double> phi_old = phi;
+		// vector<BezierElement3D> bzmesh;
+		// vector<int> IDBC;
+		// // vector<double> gh, err;
+		// vector<double> gh, err(bzmesh.size(), 0);
+		vector<double> err(bzmesh.size(), 0);
+
+		// std::cout << "level: " << tt3.getLevels() << std::endl;
+		if(itr > 0) {
+			cout << "Reading bzmesh...\n";
+			tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
+			// tt3.GetBezierMesh(bzmesh);
+			// tt3.VisualizeControlMesh("../ioTHS3D/controlmesh");
+			// OutputMesh(bzmesh, "../ioTHS3D/", itr);	
+			// tt3.OutputControlPoints("../ioTHS3D/controlmesh", itr);
+			// OutputMesh(bzmesh, "../ioTHS3D/");
+			// tt3.OutputControlPoints("../ioTHS3D/");
+			OutputMesh(bzmesh, path_in);
+			tt3.OutputControlPoints(path_in);
+			// if (tt3.getLevels() == 3) {
+			if (itr == niter-1) {
+				std::cout << niter << std::endl;
+				return 0;		
+			}		
+		}
+		// itr += 1;
+
+		// int ini_bzmesh_size;
+		// if (itr == 0) {
+		// 	ini_bzmesh_size = bzmesh.size();
+		// }
+
+ 		// Laplace lap;
+		// lap.SetProblem(IDBC, gh);
+		stringstream ss;
+		ss << itr;
+		// lap.GetEqParameter(xy, nm, a);
+		// lap.Run(bzmesh, fld + fn + ss.str(), err);
+
+		phi = InterpolateValues(bzmesh_old, phi_old, bzmesh);
+		writeVectorToFile(phi, "./phi_refine.txt", false);
+		// err.clear();
+		err = phi;
+		// std::cout << "ck2 " << bzmesh.size() << " " << err.size() << " " << ids.size() << std::endl;
+
+		std::cout << "bzmesh size: " << bzmesh.size() << " phi size: " << phi.size() << std::endl;
+		
+		// lap.VisualizeError(bzmesh, err, fld + fn + ss.str());
+
+		// std::cout << "+++++++++++++++++++++" << std::endl;
+		// std::cout << err.size() << std::endl;
+		// cout << "Refining iter " << itr << "...\n";
+		// std::cout << "+++++++++++++++++++++" << std::endl;
+
+		errL2 = 0.;
+		for (i = 0; i < err.size(); i++) errL2 += err[i];
+		errL2 = sqrt(errL2);
+		dof_list[itr] = IDBC.size();
+		err_list[itr] = errL2;
+
+		std::cout << "err size: " << err.size() << std::endl;;
+
+		// output_err(fld + fn + ss.str() + "_err", dof_list, err);
+
+	
+		// cout << itr << " refining...\n";
+		// distribute error
+		vector<array<double, 2>> eh(bzmesh.size());
+		for (i = 0; i < bzmesh.size(); i++)
+		{
+			eh[i][0] = bzmesh[i].prt[0]; eh[i][1] = bzmesh[i].prt[1];
+		}
+		
+		vector<array<int, 2>> rfid, gst;
+		// tt3.Identify_Poisson_1(eh, err, rfid, gst);
+		tt3.Identify_Laplace(eh, err, rfid, gst);			
+		// tt3.OutputRefineID(fld + fn + ss.str(), rfid, gst);
+		// tt3.InputRefineID(fld + fn + ss.str(), rfid, gst);
+		tt3.Refine(rfid, gst);
+		// cout << "Refining done\n";
+
+		tt3.OutputGeom_All(fld + fn + "_" + ss.str() + "_geom");
+		// cout << "Output Geom done!\n";
+
+		cout << "Refine iter " << itr << " done!\n";
+
+		// std::cout << "ck0" << std::endl;
+
+		// if (itr == niter) { // update bzmesh for outputmesh
+		// 	tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
+		// }
+		// tt3.VisualizeControlMesh("../ioTHS3D/controlmesh");
+		// tt3.OutputCM(itr, "../ioTHS3D/controlmesh");
+
+		// OutputMesh(bzmesh, "../ioTHS3D/");
+		// std::cout << eh.size() << " " << err.size() << std::endl;
+
+		// tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
+		// // tt3.OutputCM(itr, "../ioTHS3D/controlmesh");
+		// OutputMesh(bzmesh, "../ioTHS3D/", itr);	
+		// tt3.OutputControlPoints("../ioTHS3D/controlmesh", itr);
+
+	}
+	// tt3.OutputControlPoints("../ioTHS3D/controlmesh");
+	// tt3.VisualizeControlMesh("../ioTHS3D/controlmesh");
+
+	// tt3.OutputCM_allLevel("../ioTHS3D/controlmesh");
+	// std::cout << "Writing Hierarachical mesh ..." << std::endl;
+	// tt3.VisualizeControlMesh_hierarchical("../ioTHS3D/controlmesh");
+	// std::cout << "Writing Tmesh ..." << std::endl;
+	// tt3.VisualizeTMesh("../ioTHS3D/controlmesh");
+	// std::cout << "Writing CM ..." << std::endl;
+	// tt3.OutputCM("../ioTHS3D/controlmesh");
+
+	// std::cout << "ck1" << std::endl;
+	// tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
+	// OutputMesh(bzmesh, "../ioTHS3D/");
+
+	clock_t end = clock();
+	double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+	cout << "\nElapsed time: " << elapsed_secs << "\n";
+
+	return 0;
+}
+
+// Function to find the index of the nearest neighbor in the old mesh
+int kernel::FindNearestNeighbor(const std::vector<BezierElement3D>& bzmesh_old, const BezierElement3D& target_element, double& min_distance, const std::vector<double>& phi_old)
+{
+	int nearest_index = 0;
+	min_distance = std::numeric_limits<double>::max();
+	// double min_distance = std::numeric_limits<double>::max();
+
+	for (int i = 0; i < bzmesh_old.size(); ++i) {
+		// if (phi_old[i] != 0) {
+			// Calculate the Euclidean distance between target_element and elements in bzmesh_old
+			double distance = 0.0;
+			for (int j = 0; j < 3; ++j)
+			{
+				double diff = target_element.pts[0][j] - bzmesh_old[i].pts[0][j];
+				distance += diff * diff;
+			}
+			distance = std::sqrt(distance);
+
+			// Update nearest neighbor if a closer one is found
+			if (distance < min_distance) {
+				min_distance = distance;
+				nearest_index = i;
+			}
+		// }
+	}
+
+	return nearest_index;
+}
+
+// Function to perform interpolation from old mesh to new mesh
+std::vector<double> kernel::InterpolateValues(const std::vector<BezierElement3D>& bzmesh_old,
+                                     const std::vector<double>& phi_old,
+                                     const std::vector<BezierElement3D>& bzmesh_new)
+{
+	std::vector<double> phi_new(bzmesh_new.size(), 0.0);
+
+	for (int i = 0; i < bzmesh_new.size(); ++i) {
+		// Find the nearest neighbor in the old mesh for each element in bzmesh_new
+		double dist(10);
+		int nearest_index = FindNearestNeighbor(bzmesh_old, bzmesh_new[i], dist, phi_old);
+		// std::cout << dist << std::endl;
+		// Interpolate the value based on the nearest neighbor
+		// phi_new[i] = phi_old[nearest_index];
+		if (dist <= 2) {
+			phi_new[i] = phi_old[nearest_index];
+		} else {
+			phi_new[i] = 0;
+		}
+			
+	}
+
+	return phi_new;
+}
+
+void kernel::writeVectorToFile(const std::vector<double>& data, const std::string& filename, bool binary) {
+	std::ofstream outfile;
+
+	if (binary) {
+		outfile.open(filename, std::ios::out | std::ios::binary);
+	} else {
+		outfile.open(filename);
+	}
+
+	if (!outfile) {
+		std::cerr << "Error opening file: " << filename << std::endl;
+		return;
+	}
+
+	if (binary) {
+		outfile.write(reinterpret_cast<const char*>(data.data()), data.size() * sizeof(double));
+	} else {
+		for (const auto& value : data) {
+			outfile << value << " ";
+		}
+	}
+
+	std::cout << "Vector successfully written to " << filename << std::endl;
+	outfile.close();
+}
+
+std::vector<double> kernel::readVectorFromFile(const std::string& filename, bool binary) {
+	std::ifstream infile;
+
+	if (binary) {
+		infile.open(filename, std::ios::in | std::ios::binary);
+	} else {
+		infile.open(filename);
+	}
+
+	if (!infile) {
+		std::cerr << "Error opening file: " << filename << std::endl;
+		return {};
+	}
+
+	std::vector<double> data;
+
+	if (binary) {
+		infile.seekg(0, std::ios::end);
+		size_t fileSize = infile.tellg();
+		infile.seekg(0, std::ios::beg);
+
+		data.resize(fileSize / sizeof(double));
+		infile.read(reinterpret_cast<char*>(data.data()), fileSize);
+	} else {
+		double value;
+
+		while (infile >> value) {
+			data.push_back(value);
+		}
+	}
+
+	std::cout << "Vector successfully read from " << filename << std::endl;
+	infile.close();
+
+	return data;
 }
 
 // void kernel::run_complex_glb()
@@ -671,9 +1263,13 @@ void kernel::output_err(string fn, const vector<int>& dof, const vector<double>&
 	unsigned int i;
 	if (fout.is_open())
 	{
-		for (i = 0; i < dof.size(); i++)
+		// for (i = 0; i < dof.size(); i++)
+		// {
+		// 	fout << dof[i] << " " << err[i] << "\n";
+		// }
+		for (i = 0; i < err.size(); i++)
 		{
-			fout << dof[i] << " " << err[i] << "\n";
+			fout << err[i] << "\n";
 		}
 		fout.close();
 	}

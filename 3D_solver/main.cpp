@@ -9,74 +9,7 @@
 
 using namespace std;
 
-static char help[] = "Solve 2DNG\n";
-
-// int main(int argc, char **argv)
-// {
-// 	if (argc == 3)
-// 	{
-// 		stringstream ss, stmp;
-// 		string path_in;
-// 		ss << argv[1];
-// 		ss >> path_in;
-// 		stmp << argv[2];
-// 		int n_process = atoi(argv[2]);
-
-// 		int rank, nProcs;
-// 		PetscErrorCode ierr;
-// 		/// start up petsc
-// 		ierr = PetscInitialize(&argc, &argv, (char*)0, help); if (ierr) return ierr;
-// 		MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-// 		MPI_Comm_size(PETSC_COMM_WORLD, &nProcs);
-
-// 		// ===============================================================
-// 		// NG initialization
-// 		NGfunc *ngfunc = new NGfunc;
-// 		// ngfunc->Run(1);
-// 		int Nx, Ny, numNeuron(1);
-// 		ngfunc->neuron_domain_setup(numNeuron, Nx, Ny);
-
-// 		int n_bzmesh;
-// 		vector<double> var;
-// 		vector<Vertex3D> cpts;
-// 		vector<array<double, 3>> velocity_node;
-// 		vector<vector<int>> ele_process;
-// 		vector<Element3D> tmesh;
-// 		vector<double>  N0_ini, Nplus_ini, Nminus_ini;
-// 		ele_process.resize(nProcs);
-		
-// 		/// Set simulation parameters and mesh
-// 		string fn_mesh(path_in + "controlmesh.vtk");
-// 		string fn_bz(path_in + "bzmeshinfo.txt.epart." + stmp.str());
-// 		string fn_velocity(path_in + "velocityfield.txt");		
-// 		string fn_parameter(path_in+"simulation_parameter.txt");
-// 		string path_out(path_in);
-		
-// 		UserSetting *user = new UserSetting;
-// 		user->ReadMesh(fn_mesh, cpts, tmesh);
-// 		user->ReadVelocityField(fn_velocity, cpts.size(), velocity_node);
-// 		user->AssignProcessor(fn_bz, n_bzmesh, ele_process);
-// 		user->SetVariables(fn_parameter, var, path_out);
-// 		user->SetInitialCondition(cpts, var, N0_ini, Nplus_ini, Nminus_ini);
-
-// 		///NS 3D steady Problem
-// 		Transport* transport = new Transport;
-// 		transport->InitializeProblem(n_bzmesh, velocity_node, N0_ini, Nplus_ini, Nminus_ini, var); //CA = CA0
-// 		transport->AssignProcessor(ele_process);
-// 		// transport->Run(cpts, velocity_node, tmesh, path_in, path_out);
-// 		transport->RunNG(cpts, velocity_node, tmesh, path_in, path_out);
-
-// 		PetscPrintf(PETSC_COMM_WORLD, "Done!\n");
-// 		ierr = PetscFinalize(); CHKERRQ(ierr);
-// 	}
-// 	else if (argc > 3) {
-// 		cout << "Too many arguments.\n";
-// 	}
-// 	else {
-// 		cout << "Two argument expected.\n";
-// 	}
-// 	return 0;
-// }
+static char help[] = "Solve 3DNG\n";
 
 int main(int argc, char **argv)
 {
@@ -102,12 +35,13 @@ int main(int argc, char **argv)
 	string path_in = argv[3];		// user input working directory
 
 	int NX, NY, NZ, originX(0), originY(0), originZ(0);
-	vector<array<int, 3>> seed; 
+	vector<array<float, 3>> seed; 
 	InitializeSoma(numNeuron, seed, NX, NY, NZ);
 
 	/// Set simulation parameters and mesh
 	string fn_mesh_initial(path_in + "controlmesh_initial.vtk");
 	string fn_mesh(path_in + "controlmesh.vtk");
+	// string fn_mesh(path_in + "controlPoints.vtk");
 	string fn_bz(path_in + "bzmeshinfo.txt.epart." + to_string(nProcs));
 	string path_out(path_in + "outputs/");
 
@@ -127,7 +61,7 @@ int main(int argc, char **argv)
 	bool localRefine = false;
 	// UserSetting *NGuser = new UserSetting;
 
-	int iter(0), state(1); // 0-end, 1-running, 2-expanding
+	int iter(0), state(1); // 0-end, 1-running, 2-expanding, 3-diverging simulation
 	while (iter <= end_iter) {
 		prev_cpts = cpts; // back up old control points for later NGvars interpolations (old cpts to new cpts)
 		cpts_initial.clear(); tmesh_initial.clear(); 
@@ -137,41 +71,63 @@ int main(int argc, char **argv)
 
 		if (rank == 0) {
 			// to make sure correct files are generated and then read later on
-			// std::remove("../io/controlmesh.vtk");
-			// std::remove("../io/controlmesh_initial.vtk");
-			// std::remove("../io/bzpt.txt");
-			// std::remove("../io/cmat.txt");
-			// std::remove("../io/bzmesh.vtk");
-			// std::remove("../io/bzmeshinfo.txt");
-			// string epart("../io/bzmeshinfo.txt.epart." + std::to_string(nProcs));
-			// string npart("../io/bzmeshinfo.txt.npart." + std::to_string(nProcs));
-			// std::remove(epart.c_str());
-			// std::remove(npart.c_str());
+			std::remove("../io/controlmesh.vtk");
+			std::remove("../io/controlPoints.vtk");
+			std::remove("../io/controlmesh_initial.vtk");
+			std::remove("../io/bzpt.txt");
+			std::remove("../io/cmat.txt");
+			std::remove("../io/bzmesh.vtk");
+			std::remove("../io/bzmeshinfo.txt");
+			string epart("../io/bzmeshinfo.txt.epart." + std::to_string(nProcs));
+			string npart("../io/bzmeshinfo.txt.npart." + std::to_string(nProcs));
+			std::remove(epart.c_str());
+			std::remove(npart.c_str());
+			std::remove("../io/phi.txt");
 
 			gen3Dmesh(originX, originY, originZ, NX, NY, NZ, vertices, elements); // Generating 3D hex mesh
 			write_hex_toVTK(fn_mesh_initial.c_str(), vertices, elements);
+			// if (iter == 0) {
+			// 	vector<float> ele_refine(elements.size(), 0);
+			// 	writeVectorToFile(ele_refine, path_in + "phi.txt", false);
+			// }
 
 			if (localRefine != true) {
 				write_hex_toVTK(fn_mesh.c_str(), vertices, elements);
 				bzmesh3D(path_in); // generating 3D bezier mesh information (bzmeshinfo.txt)
 			} 
-			// else {
-			// 	ReadMesh(fn_mesh_initial, cpts_initial, tmesh_initial);
-			// 	vector<float> tmp = InterpolateVars(NGvars[0], prev_cpts, cpts_initial, 1);
-			// 	ObtainRefineID(tmp, cpts_initial, NX, NY, originX, originY, rfid, rftype);
-			// 	THS2D(path_in, rfid, rftype);
-			// }
+			else {
+				THS3D(path_in);
+			}
+			// write_hex_toVTK(fn_mesh.c_str(), vertices, elements);
+			// THS3D(path_in);
+
 			mpmetis(nProcs, path_in); // partitioning bzmeshinfo using mpmetis for parallelization
 		}
 		ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRQ(ierr);
 
-		ReadMesh(fn_mesh_initial, cpts_initial, tmesh_initial);
-		ReadMesh(fn_mesh, cpts, tmesh);
+		// ReadMesh(fn_mesh_initial, cpts_initial, tmesh_initial);
+		// ReadMesh(fn_mesh, cpts, tmesh);
+	
+		if (localRefine == true) {
+			fn_mesh = path_in + "controlPoints.vtk";
+		}
+
+		ReadControlPoints(fn_mesh_initial, cpts_initial);
+		ReadControlPoints(fn_mesh, cpts);
+
 		AssignProcessor(fn_bz, n_bzmesh, ele_process);
 		PetscPrintf(PETSC_COMM_WORLD, "Processor Assigned!----------------------------------------------------------\n");
-	
-		state = RunNG(n_bzmesh, ele_process, cpts_initial, tmesh_initial, cpts, prev_cpts, tmesh, path_in, path_out,
+
+		// state = RunNG(n_bzmesh, ele_process, cpts_initial, tmesh_initial, cpts, prev_cpts, tmesh, path_in, path_out,
+		// 	iter, end_iter, NGvars, NX, NY, NZ, seed, originX, originY, originZ, localRefine);
+		state = RunNG(n_bzmesh, ele_process, cpts_initial, cpts, prev_cpts, path_in, path_out,
 			iter, end_iter, NGvars, NX, NY, NZ, seed, originX, originY, originZ, localRefine);
+		// return 0;
+
+		if (state == 3) {
+			PetscPrintf(PETSC_COMM_WORLD, "Simulation divering, ending program.\n");
+			return 0;
+		}
 	}
 
 	PetscPrintf(PETSC_COMM_WORLD, "Done - Main reached end iteration!\n");

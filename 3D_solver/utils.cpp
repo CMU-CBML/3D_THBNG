@@ -18,9 +18,12 @@ void gen3Dmesh(int originX, int originY, int originZ, int Nx, int Ny, int Nz, ve
         for (int j = originY; j <= (originY + Ny); j++) {
             for (int i = originX; i <= (originX + Nx); i++) {
                 tmp_vtx.clear();
-                tmp_vtx.push_back(i);
-                tmp_vtx.push_back(j);
-                tmp_vtx.push_back(k);
+		// tmp_vtx.push_back((float)i/4);
+                // tmp_vtx.push_back((float)j/4);
+                // tmp_vtx.push_back((float)k/4);
+		tmp_vtx.push_back((float)i);
+                tmp_vtx.push_back((float)j);
+                tmp_vtx.push_back((float)k);
                 vertices.push_back(tmp_vtx);
             }
         }
@@ -141,36 +144,71 @@ void write_hex_toVTK(const char* qs, vector<vector<float>>& vertices, vector<vec
 // 
 // }
 
-void PrintVec2TXT(std::vector<float>& v, std::string fn, bool visualization)
+void PrintVec2TXT(const std::vector<float>& v, const std::string& fn, bool visualization)
 {
-	std::ofstream fout;
+    std::ofstream fout(fn);
+    if (!fout.is_open()) {
+        std::cerr << "Failed to open file: " << fn << std::endl;
+        return; // Exit if file cannot be opened
+    }
 
-	fout.open(fn);
+    fout << std::setprecision(2) << std::fixed;
 
-	fout << std::setprecision(2) << std::fixed;
+    if (!visualization) {
+        // Print each element on a new line for non-visualization mode
+        for (size_t i = 0; i < v.size(); i++) {
+            fout << v[i] << std::endl;
+        }
+    } else {
+        // Visualization mode assumes a square layout
+        int sq_sz = static_cast<int>(std::sqrt(v.size()));
+        for (int i = 0; i < sq_sz; i++) {
+            for (int j = 0; j < sq_sz; j++) {
+                // Print with alignment, ensure spacing for zero and non-zero values
+                fout << std::setw(5);
+                if (v[i * sq_sz + j] == 0) {
+                    fout << " "; // Use a single space for zero values for better visibility
+                } else {
+                    fout << v[i * sq_sz + j];
+                }
+            }
+            fout << std::endl;
+        }
+    }
 
-	int v_size = v.size();
-	if (visualization == 0) {
-		for (int i = 0; i < v.size(); i++) {
-			fout << v[i] << std::endl;
-		}
-	} else {
-		int sq_sz = (int)sqrt(v_size);
-		int ind = 0;
-		for (int i = 0; i < sq_sz; i++) {
-			for (int j = 0; j < sq_sz; j++) {
-				if (v[ind] == 0) {
-					fout << "     ";
-				} else {
-					fout << v[ind] << " ";
-				}
-				ind += 1;
-			}
-		fout << std::endl;
-		}
-	}
-	fout.close();
+    fout.close();
 }
+
+// void PrintVec2TXT(std::vector<float>& v, std::string fn, bool visualization)
+// {
+// 	std::ofstream fout;
+
+// 	fout.open(fn);
+
+// 	fout << std::setprecision(2) << std::fixed;
+
+// 	int v_size = v.size();
+// 	if (visualization == 0) {
+// 		for (int i = 0; i < v.size(); i++) {
+// 			fout << v[i] << std::endl;
+// 		}
+// 	} else {
+// 		int sq_sz = (int)sqrt(v_size);
+// 		int ind = 0;
+// 		for (int i = 0; i < sq_sz; i++) {
+// 			for (int j = 0; j < sq_sz; j++) {
+// 				if (v[ind] == 0) {
+// 					fout << "     ";
+// 				} else {
+// 					fout << v[ind] << " ";
+// 				}
+// 				ind += 1;
+// 			}
+// 		fout << std::endl;
+// 		}
+// 	}
+// 	fout.close();
+// }
 
 // // Export hex mesh to vtk for visualization
 // void write_hex_toVTK(const char* qs, vector<vector<float>>& vertices, vector<vector<int>>& elements)
@@ -218,7 +256,7 @@ void bzmesh2D(string path_in){
 // generating 3D bezier mesh using spline_src
 void bzmesh3D(string path_in){
 	std::cout << "******************************************************************************" << std::endl;
-	string spline_cmd_tmd("../spline3D_src/spline -i " + path_in);
+	string spline_cmd_tmd("../spline3D_src/spline " + path_in);
 	const char* spline_cmd = spline_cmd_tmd.c_str();
 	system(spline_cmd);
 } 
@@ -230,68 +268,73 @@ void mpmetis(int n_process, string path_in){
 	system(mpmetis_cmd);
 }
 
-// // partitioning mesh using mpmetis
-// void THS3D(string path_in, vector<int> rfid, vector<int> rftype){
-// 	std::cout << "******************************************************************************" << std::endl;
-// 	std::cout << "Local refinement based on Xiaodong's THS3D code ... " << std::endl;
-// 	std::cout << "  - see: Truncated T-splines: Fundamentals and methods (2017)" << std::endl << std::endl;
-// 	std::cout << "-----------------------------------------------------------------------------" << std::endl;
-// 	std::cout << "Calling command | input mesh directory | refine ID | refine element type" << std::endl << std::endl;
-// 	string ths2d_cmd_tmp("../THS3D/THS3D " + path_in + " ");
-// 	for (int i = 0; i < rfid.size(); i++) {
-// 		ths2d_cmd_tmp = ths2d_cmd_tmp + std::to_string(rfid[i]) + " ";
-// 	}
-// 	for (int i = 0; i < rftype.size(); i++) {
-// 		ths2d_cmd_tmp = ths2d_cmd_tmp + std::to_string(rftype[i]) + " ";
-// 	}
-// 	std::cout << ths2d_cmd_tmp << std::endl;
-// 	const char* ths2d_cmd = ths2d_cmd_tmp.c_str();
-// 	system(ths2d_cmd);
-// }
+// partitioning mesh using mpmetis
+void THS3D(string path_in){
+	std::cout << "******************************************************************************" << std::endl;
+	std::cout << "Local refinement based on Xiaodong's THS3D code ... " << std::endl;
+	std::cout << "  - see: Truncated hierarchical " << std::endl << std::endl;
+	std::cout << "-----------------------------------------------------------------------------" << std::endl;
+	std::cout << "Calling command | input mesh directory | refine ID | refine element type" << std::endl << std::endl;
+	string ths2d_cmd_tmp("../THS3D/THS3D " + path_in);
+	// for (int i = 0; i < rfid.size(); i++) {
+	// 	ths2d_cmd_tmp = ths2d_cmd_tmp + std::to_string(rfid[i]) + " ";
+	// }
+	// for (int i = 0; i < rftype.size(); i++) {
+	// 	ths2d_cmd_tmp = ths2d_cmd_tmp + std::to_string(rftype[i]) + " ";
+	// }
+	std::cout << ths2d_cmd_tmp << std::endl;
+	const char* ths2d_cmd = ths2d_cmd_tmp.c_str();
+	system(ths2d_cmd);
+}
 
 //
-void InitializeSoma(int numNeuron, vector<array<int, 3>> &seed, int &NX, int &NY, int &NZ){
-    seed.resize(numNeuron);
-    // 2D neuron soma initialization
-    switch (numNeuron) {
-        case 1:
-            NX = 40;
-            NY = 40;
-	    NZ = 40;
-            seed[0][0] = 20;	seed[0][1] = 20;	seed[0][2] = 20;
-            break;
-        case 2:
-            NX = 140;
-            NY = 70;
-            seed[0][0] = 35;    seed[0][1] = 35;
-            seed[1][0] = 105;   seed[1][1] = 35;
-            break;
-        case 3:
-            NX = 140;
-            NY = 130;
-            seed[0][0] = 35;    seed[0][1] = 35;
-            seed[1][0] = 105;   seed[1][1] = 35;
-            seed[2][0] = 70;    seed[2][1] = 95;
-            break;
-        case 4:
-            NX = 140;
-            NY = 140;
-            seed[0][0] = 35;    seed[0][1] = 35;
-            seed[1][0] = 105;   seed[1][1] = 35;
-            seed[2][0] = 35;    seed[2][1] = 105;
-            seed[3][0] = 105;   seed[3][1] = 105;
-            break;
-        case 5:
-            NX = 140;
-            NY = 140;
-            seed[0][0] = 35;    seed[0][1] = 35;
-            seed[1][0] = 105;   seed[1][1] = 35;
-            seed[2][0] = 35;    seed[2][1] = 105;
-            seed[3][0] = 105;   seed[3][1] = 105;
-            seed[4][0] = 70;    seed[4][1] = 70;
-            break;
-    }
+void InitializeSoma(int numNeuron, vector<array<float, 3>> &seed, int &NX, int &NY, int &NZ){
+	seed.resize(numNeuron);
+	// 2D neuron soma initialization
+	switch (numNeuron) {
+	case 1:
+		// NX = 10;
+		// NY = 10;
+		// NZ = 10;
+		// seed[0][0] = 5*4;		seed[0][1] = 5*4;		seed[0][2] = 5*4;
 
+		NX = 20;
+		NY = 20;
+		NZ = 20;
+		seed[0][0] = 10;		seed[0][1] = 10;		seed[0][2] = 10;
+		
+		break;
+	case 2:
+		NX = 140;
+		NY = 70;
+		seed[0][0] = 35;    seed[0][1] = 35;
+		seed[1][0] = 105;   seed[1][1] = 35;
+		break;
+	case 3:
+		NX = 140;
+		NY = 130;
+		seed[0][0] = 35;    seed[0][1] = 35;
+		seed[1][0] = 105;   seed[1][1] = 35;
+		seed[2][0] = 70;    seed[2][1] = 95;
+		break;
+	case 4:
+		NX = 140;
+		NY = 140;
+		seed[0][0] = 35;    seed[0][1] = 35;
+		seed[1][0] = 105;   seed[1][1] = 35;
+		seed[2][0] = 35;    seed[2][1] = 105;
+		seed[3][0] = 105;   seed[3][1] = 105;
+		break;
+	case 5:
+		NX = 140;
+		NY = 140;
+		seed[0][0] = 35;    seed[0][1] = 35;
+		seed[1][0] = 105;   seed[1][1] = 35;
+		seed[2][0] = 35;    seed[2][1] = 105;
+		seed[3][0] = 105;   seed[3][1] = 105;
+		seed[4][0] = 70;    seed[4][1] = 70;
+		break;
+	}
 }
 
 void ReadMesh(string fn, vector<Vertex3D>& pts, vector<Element3D>& mesh)//need vtk file with point label
@@ -335,6 +378,48 @@ void ReadMesh(string fn, vector<Vertex3D>& pts, vector<Element3D>& mesh)//need v
 	}
 }
 
+void ReadControlPoints(string fn, vector<Vertex3D>& pts)
+{
+	string fname(fn), stmp;
+	int npts, neles, itmp;
+	ifstream fin;
+	fin.open(fname);
+	if (fin.is_open())
+	{
+		for (int i = 0; i < 4; i++) getline(fin, stmp);//skip lines
+		fin >> stmp >> npts >> stmp;
+		pts.resize(npts);
+		for (int i = 0; i < npts; i++)
+		{
+			fin >> pts[i].coor[0] >> pts[i].coor[1] >> pts[i].coor[2];
+		}
+		getline(fin, stmp);
+		// fin >> stmp >> neles >> itmp;
+		// mesh.resize(neles);
+		// for (int i = 0; i < neles; i++)
+		// {
+		// 	fin >> itmp >> mesh[i].IEN[0] >> mesh[i].IEN[1] >> mesh[i].IEN[2] >> mesh[i].IEN[3] >>
+		// 		mesh[i].IEN[4] >> mesh[i].IEN[5] >> mesh[i].IEN[6] >> mesh[i].IEN[7];
+		// 	for (int j = 0; j < 8; j++)
+		// 	{
+		// 		mesh[i].pts[j][0] = pts[mesh[i].IEN[j]].coor[0];
+		// 		mesh[i].pts[j][1] = pts[mesh[i].IEN[j]].coor[1];
+		// 		mesh[i].pts[j][2] = pts[mesh[i].IEN[j]].coor[2];
+		// 	}
+
+		// }
+		// for (int i = 0; i < neles + 5; i++) getline(fin, stmp);//skip lines
+		// for (int i = 0; i < npts; i++)	fin >> pts[i].label;
+		fin.close();
+		PetscPrintf(PETSC_COMM_WORLD, "Control Points Loaded!\n");
+	}
+	else
+	{
+		PetscPrintf(PETSC_COMM_WORLD, "Cannot open %s!\n", fname.c_str());
+	}
+}
+
+
 void AssignProcessor(string fn, int &n_bzmesh, vector<vector<int>> &ele_process)
 {
 	int tmp;
@@ -360,3 +445,558 @@ void AssignProcessor(string fn, int &n_bzmesh, vector<vector<int>> &ele_process)
 		PetscPrintf(PETSC_COMM_WORLD, "Cannot open %s!\n", fname.c_str());
 	}
 }
+
+vector<float> Convert3DIntTo1DFloatVector(const vector<vector<vector<int>>> input) 
+{
+	vector<float> output;
+
+	for (const auto& matrix : input) {
+		for (const auto& row : matrix) {
+			for (int value : row) {
+				output.push_back(static_cast<float>(value)); // Cast int value to float and add to the 1D vector
+			}
+		}
+	}
+
+	return output;
+}
+
+vector<float> Convert3DFloatTo1DFloatVector(const vector<vector<vector<float>>> input) 
+{
+	vector<float> output;
+
+	for (const auto& matrix : input) {
+		for (const auto& row : matrix) {
+			for (float value : row) {
+				output.push_back(value); // Add float value to the 1D vector
+			}
+		}
+	}
+
+	return output;
+}
+
+// Function to search for a particular x, y, and z in the vector of Vertex3D
+bool SearchPair3D(const vector<Vertex3D> prev_cpts, float targetX, float targetY, float targetZ, int &ind) {
+	for (int i = 0; i < prev_cpts.size(); i++) {
+		if (prev_cpts[i].coor[0] == targetX && prev_cpts[i].coor[1] == targetY && prev_cpts[i].coor[2] == targetZ) {
+			ind = i;
+			return true; // Found the triplet (targetX, targetY, targetZ) in the vector
+		}
+	}
+	return false; // Triplet not found in the vector
+}
+
+// vector<float> InterpolateVars3D(vector<vector<vector<int>>> input, vector<Vertex2D> cpts_initial, vector<Vertex2D> cpts, int type) 
+// {   
+//     vector<float> output;
+//     output.resize(cpts.size());
+//     vector<float> tmp = Convert3DTo1DFloatVector(input);
+
+//     for (int i = 0; i < cpts.size(); i++) {
+//         float x = cpts[i].coor[0];
+//         if (abs(remainder(x, 1)) != 0.5) {
+//             x = round(x);
+//         }
+//         float y = cpts[i].coor[1];
+//         if (abs(remainder(y, 1)) != 0.5) {
+//             y = round(y);
+//         }
+//         float z = cpts[i].coor[2];
+//         if (abs(remainder(z, 1)) != 0.5) {
+//             z = round(z);
+//         }
+
+//         int ind;
+//         if (SearchPair3D(cpts_initial, x, y, z, ind)) {
+//             output[i] = tmp[ind];
+//         } 
+//         else {
+//             int indDownX, indUpX, indDownY, indUpY, indDownZ, indUpZ;
+//             if ((abs(remainder(x, 1)) == 0.5) && (abs(remainder(y, 1)) != 0.5) && (abs(remainder(z, 1)) != 0.5)) {
+//                 if (SearchPair3D(cpts_initial, floorf(x), round(y), round(z), indDownX) &&
+//                     SearchPair3D(cpts_initial, floorf(x) + 1, round(y), round(z), indUpX)) {
+//                     if (type == 0) {
+//                         output[i] = max(tmp[indDownX], tmp[indUpX]);
+//                     } else if (type == 1) {
+//                         output[i] = (tmp[indDownX] + tmp[indUpX]) / 2;
+//                     } else if (type == 2) {
+//                         output[i] = 0;
+//                     }
+//                 }
+//                 else {
+//                     PetscPrintf(PETSC_COMM_WORLD, "Failed to find pts (ck0)!\n");
+//                 }
+//             } 
+//             else if ((abs(remainder(x, 1)) != 0.5) && (abs(remainder(y, 1)) == 0.5) && (abs(remainder(z, 1)) != 0.5)) {
+//                 if (SearchPair3D(cpts_initial, round(x), floorf(y), round(z), indDownY) &&
+//                     SearchPair3D(cpts_initial, round(x), floorf(y) + 1, round(z), indUpY)) {
+//                     if (type == 0) {
+//                         output[i] = max(tmp[indDownY], tmp[indUpY]);
+//                     } else if (type == 1) {
+//                         output[i] = (tmp[indDownY] + tmp[indUpY]) / 2;
+//                     } else if (type == 2) {
+//                         output[i] = 0;
+//                     }
+//                 } 
+//                 else {
+//                     PetscPrintf(PETSC_COMM_WORLD, "Failed to find pts (ck1)!\n");
+//                 }
+//             } 
+//             else if ((abs(remainder(x, 1)) != 0.5) && (abs(remainder(y, 1)) != 0.5) && (abs(remainder(z, 1)) == 0.5)) {
+//                 if (SearchPair3D(cpts_initial, round(x), round(y), floorf(z), indDownZ) &&
+//                     SearchPair3D(cpts_initial, round(x), round(y), floorf(z) + 1, indUpZ)) {
+//                     if (type == 0) {
+//                         output[i] = max(tmp[indDownZ], tmp[indUpZ]);
+//                     } else if (type == 1) {
+//                         output[i] = (tmp[indDownZ] + tmp[indUpZ]) / 2;
+//                     } else if (type == 2) {
+//                         output[i] = 0;
+//                     }
+//                 } 
+//                 else {
+//                     PetscPrintf(PETSC_COMM_WORLD, "Failed to find pts (ck2)!\n");
+//                 }
+//             }
+//         }
+//     }
+//     return output;
+// }
+
+// // vector<float> InterpolateVars3D(vector<vector<int>> input, vector<Vertex2D> cpts_initial, vector<Vertex2D> cpts, int type) 
+// // {	
+// // 	vector<float> output;
+// // 	output.resize(cpts.size());
+// // 	vector<float> tmp = ConvertTo1DFloatVector(input);
+
+// // 	for (int i = 0; i < cpts.size(); i++) {
+// // 		// float x = cpts[i].coor[0];
+// // 		// float y = cpts[i].coor[1];
+
+// // 		float x = cpts[i].coor[0];
+// // 		if (abs(remainder(x,1)) != 0.5) {
+// // 			x = round(x);
+// // 		}
+// // 		float y = cpts[i].coor[1];
+// // 		if (abs(remainder(y,1)) != 0.5) {
+// // 			y = round(y);
+// // 		}
+
+// // 		int ind;
+// // 		// if (SearchPair(cpts_initial, round(x), round(y), ind)) {
+// // 		if (SearchPair(cpts_initial, x, y, ind)) {
+// // 			output[i] = tmp[ind];
+// // 		} 
+// // 		else {
+// // 			int indDown, indUp, indLeft, indRight;
+// // 			if ((abs(remainder(x,1)) == 0.5) && (abs(remainder(y,1)) != 0.5)) {
+// // 				if (SearchPair(cpts_initial, floorf(x), round(y), indDown) &&
+// // 					SearchPair(cpts_initial, floorf(x)+1, round(y), indUp)) {
+// // 					if (type == 0) {
+// // 						output[i] = max(tmp[indDown], tmp[indUp]);
+// // 					} else if (type == 1) {
+// // 						output[i] = (tmp[indDown] + tmp[indUp])/2;
+// // 					} else if (type == 2) {
+// // 						output[i] = 0;
+// // 					}
+// // 				} else {
+// // 					PetscPrintf(PETSC_COMM_WORLD, "Failed to find pts (ck0)!\n");
+// // 				}
+// // 			} else if ((abs(remainder(x,1)) != 0.5) && (abs(remainder(y,1)) == 0.5)) {
+// // 				if (SearchPair(cpts_initial, round(x), floorf(y), indLeft) &&
+// // 					SearchPair(cpts_initial, round(x), floorf(y)+1, indRight)) {
+// // 					if (type == 0) {
+// // 						output[i] = max(tmp[indLeft], tmp[indRight]);
+// // 					} else if (type == 1) {
+// // 						output[i] = (tmp[indLeft] + tmp[indRight])/2;
+// // 					} else if (type == 2) {
+// // 						output[i] = 0;
+// // 					}
+// // 				} else {
+// // 					PetscPrintf(PETSC_COMM_WORLD, "Failed to find pts (ck1)!\n");
+// // 				}
+// // 			} else if ((abs(remainder(x,1)) == 0.5) && (abs(remainder(y,1)) == 0.5)) {
+// // 				if (SearchPair(cpts_initial, floorf(x), floorf(y), indDown) &&
+// // 					SearchPair(cpts_initial, floorf(x)+1, floorf(y), indUp) &&
+// // 					SearchPair(cpts_initial, floorf(x), floorf(y), indLeft) &&
+// // 					SearchPair(cpts_initial, floorf(x), floorf(y)+1, indRight)) {
+// // 					if (type == 0) {
+// // 						output[i] = max(max(tmp[indDown], tmp[indUp]), max(tmp[indLeft], tmp[indRight]));
+// // 					} else if (type == 1) {
+// // 						output[i] = (tmp[indDown] + tmp[indUp] + tmp[indLeft] + tmp[indRight])/4;
+// // 					} else if (type == 2) {
+// // 						output[i] = 0;
+// // 					}
+// // 				} else {
+// // 					PetscPrintf(PETSC_COMM_WORLD, "Failed to find pts (ck2)!\n");
+// // 				}
+// // 			}
+// // 		}			
+// // 	}
+// // 	return output;
+// // }
+
+// vector<float> InterpolateVars3D(vector<float> input, vector<Vertex2D> cpts_initial, vector<Vertex2D> cpts, int type) 
+// {	
+// 	vector<float> output;
+// 	output.resize(cpts.size());
+
+// 	for (int i = 0; i < cpts_initial.size(); i++) {
+// 		if (abs(remainder(cpts_initial[i].coor[0],1)) != 0.5)
+// 			cpts_initial[i].coor[0] = round(cpts_initial[i].coor[0]);
+// 		if (abs(remainder(cpts_initial[i].coor[1],1)) != 0.5)
+// 			cpts_initial[i].coor[1] = round(cpts_initial[i].coor[1]);
+// 	}
+	
+// 	for (int i = 0; i < cpts.size(); i++) {
+// 		// float x = cpts[i].coor[0];
+// 		// float y = cpts[i].coor[1];
+
+// 		float x = cpts[i].coor[0];
+// 		if (abs(remainder(x,1)) != 0.5) {
+// 			x = round(x);
+// 		}
+// 		float y = cpts[i].coor[1];
+// 		if (abs(remainder(y,1)) != 0.5) {
+// 			y = round(y);
+// 		}
+
+// 		int ind;
+// 		// if (SearchPair(cpts_initial, round(x), round(y), ind)) {
+// 		if (SearchPair(cpts_initial, x, y, ind)) {
+// 			output[i] = input[ind];
+// 		} 
+// 		else {
+// 			int indDown, indUp, indLeft, indRight;
+// 			if ((abs(remainder(x,1)) == 0.5) && (abs(remainder(y,1)) != 0.5)) {
+// 				if (SearchPair(cpts_initial, floorf(x), round(y), indDown) &&
+// 					SearchPair(cpts_initial, floorf(x)+1, round(y), indUp)) {
+// 					if (type == 0) {
+// 						output[i] = max(input[indDown], input[indUp]);
+// 					} else if (type == 1) {
+// 						output[i] = (input[indDown] + input[indUp])/2;
+// 					} else if (type == 2) {
+// 						output[i] = 0;
+// 					}
+// 				} else {
+// 					PetscPrintf(PETSC_COMM_WORLD, "Failed to find pts (ck0)!\n");
+// 				}
+// 			} else if ((abs(remainder(x,1)) != 0.5) && (abs(remainder(y,1)) == 0.5)) {
+// 				if (SearchPair(cpts_initial, round(x), floorf(y), indLeft) &&
+// 					SearchPair(cpts_initial, round(x), floorf(y)+1, indRight)) {
+// 					if (type == 0) {
+// 						output[i] = max(input[indLeft], input[indRight]);
+// 					} else if (type == 1) {
+// 						output[i] = (input[indLeft] + input[indRight])/2;
+// 					} else if (type == 2) {
+// 						output[i] = 0;
+// 					}
+// 				} else {
+// 					PetscPrintf(PETSC_COMM_WORLD, "Failed to find pts (ck1)!\n");
+// 				}
+// 			} else if ((abs(remainder(x,1)) == 0.5) && (abs(remainder(y,1)) == 0.5)) {
+// 				if (SearchPair(cpts_initial, floorf(x), floorf(y), indDown) &&
+// 					SearchPair(cpts_initial, floorf(x)+1, floorf(y), indUp) &&
+// 					SearchPair(cpts_initial, floorf(x), floorf(y), indLeft) &&
+// 					SearchPair(cpts_initial, floorf(x), floorf(y)+1, indRight)) {
+// 					if (type == 0) {
+// 						output[i] = max(max(input[indDown], input[indUp]), max(input[indLeft], input[indRight]));
+// 					} else if (type == 1) {
+// 						output[i] = (input[indDown] + input[indUp] + input[indLeft] + input[indRight])/4;
+// 					} else if (type == 2) {
+// 						output[i] = 0;
+// 					}
+// 				} else {
+// 					PetscPrintf(PETSC_COMM_WORLD, "Failed to find pts (ck2)!\n");
+// 				}
+// 			}
+// 		}			
+// 	}
+// 	return output;
+// }
+
+vector<float> InterpolateVars3D(vector<vector<vector<int>>> input, vector<Vertex3D> cpts_initial, vector<Vertex3D> cpts, int type) 
+{   
+	vector<float> output;
+	output.resize(cpts.size());
+	vector<float> tmp = Convert3DIntTo1DFloatVector(input);
+
+	for (int i = 0; i < cpts.size(); i++) {
+		float x = cpts[i].coor[0];
+		if (abs(remainder(x, 1)) != 0.5) {
+			x = round(x);
+		}
+		float y = cpts[i].coor[1];
+		if (abs(remainder(y, 1)) != 0.5) {
+			y = round(y);
+		}
+		float z = cpts[i].coor[2];
+		if (abs(remainder(z, 1)) != 0.5) {
+			z = round(z);
+		}
+
+		int ind;
+		if (SearchPair3D(cpts_initial, x, y, z, ind)) {
+			output[i] = tmp[ind];
+		} 
+		else {
+			int indDownX, indUpX, indDownY, indUpY, indDownZ, indUpZ;
+			float weightDownX, weightUpX, weightDownY, weightUpY, weightDownZ, weightUpZ;
+
+			// Calculate interpolation weights
+			weightDownX = abs(x - floor(x));
+			weightUpX = 1.0 - weightDownX;
+			weightDownY = abs(y - floor(y));
+			weightUpY = 1.0 - weightDownY;
+			weightDownZ = abs(z - floor(z));
+			weightUpZ = 1.0 - weightDownZ;
+
+			// Find neighboring points
+			indDownX = SearchNeighbor(cpts_initial, floor(x), round(y), round(z));
+			indUpX = SearchNeighbor(cpts_initial, floor(x) + 1, round(y), round(z));
+			indDownY = SearchNeighbor(cpts_initial, round(x), floor(y), round(z));
+			indUpY = SearchNeighbor(cpts_initial, round(x), floor(y) + 1, round(z));
+			indDownZ = SearchNeighbor(cpts_initial, round(x), round(y), floor(z));
+			indUpZ = SearchNeighbor(cpts_initial, round(x), round(y), floor(z) + 1);
+
+			// Perform linear interpolation
+			float interpolatedValue = 0.0;
+
+			interpolatedValue += weightDownX * weightDownY * weightDownZ * tmp[indDownX];
+			interpolatedValue += weightDownX * weightDownY * weightUpZ * tmp[indUpZ];
+			interpolatedValue += weightDownX * weightUpY * weightDownZ * tmp[indDownY];
+			interpolatedValue += weightDownX * weightUpY * weightUpZ * tmp[indUpY];
+			interpolatedValue += weightUpX * weightDownY * weightDownZ * tmp[indDownX];
+			interpolatedValue += weightUpX * weightDownY * weightUpZ * tmp[indUpZ];
+			interpolatedValue += weightUpX * weightUpY * weightDownZ * tmp[indDownY];
+			interpolatedValue += weightUpX * weightUpY * weightUpZ * tmp[indUpY];
+
+			output[i] = interpolatedValue;
+		}
+	}
+	return output;
+}
+
+int SearchNeighbor(const vector<Vertex3D>& cpts, float targetX, float targetY, float targetZ) {
+	float epsilon = 1e-5;  // A small value to handle floating-point precision issues
+
+	for (int i = 0; i < cpts.size(); i++) {
+		float diffX = abs(cpts[i].coor[0] - targetX);
+		float diffY = abs(cpts[i].coor[1] - targetY);
+		float diffZ = abs(cpts[i].coor[2] - targetZ);
+
+		if (diffX < epsilon && diffY < epsilon && diffZ < epsilon) {
+			return i;  // Found the neighbor with matching coordinates
+		}
+	}
+
+	// If no exact match is found, you may need to handle this case based on your requirements
+	// You might consider more sophisticated search algorithms or handle interpolation differently
+	return -1;  // Return -1 to indicate that no exact match is found
+}
+
+// Function to perform linear interpolation between two values
+float Lerp(float a, float b, float t) {
+	return a + t * (b - a);
+}
+
+// Function to search for a particular vertex in the vector of Vertex3D
+bool SearchVertex(const vector<Vertex3D>& vertices, float targetX, float targetY, float targetZ, int& ind) {
+	for (int i = 0; i < vertices.size(); i++) {
+		if (vertices[i].coor[0] == targetX && vertices[i].coor[1] == targetY && vertices[i].coor[2] == targetZ) {
+			ind = i;
+			return true; // Found the vertex (targetX, targetY, targetZ) in the vector
+		}
+	}
+	return false; // Vertex not found in the vector
+}
+
+// Function to interpolate values for a new mesh based on coordinates
+vector<float> InterpolateValues3D(const vector<Vertex3D>& cpts_initial, const vector<float>& input,
+                                      const vector<Vertex3D>& cpts_new) {
+	vector<float> output;
+	output.resize(cpts_new.size());
+
+	for (int i = 0; i < cpts_new.size(); i++) {
+		// std::cout << i << std::endl;
+		float x = cpts_new[i].coor[0];
+		float y = cpts_new[i].coor[1];
+		float z = cpts_new[i].coor[2];
+
+		int ind;
+		if (SearchVertex(cpts_initial, x, y, z, ind)) {
+			// Exact match found, no need for interpolation
+			output[i] = input[ind];
+			// std::cout << ind << " ";
+		} 
+		else {
+			// Linear interpolation for the new coordinates
+			// Find the vertices around the target coordinates
+			float x1 = floor(x), x2 = ceil(x);
+			float y1 = floor(y), y2 = ceil(y);
+			float z1 = floor(z), z2 = ceil(z);
+
+			// Find the corresponding indices in the initial mesh
+			int ind111, ind112, ind121, ind122, ind211, ind212, ind221, ind222;
+			SearchVertex(cpts_initial, x1, y1, z1, ind111);
+			SearchVertex(cpts_initial, x1, y1, z2, ind112);
+			SearchVertex(cpts_initial, x1, y2, z1, ind121);
+			SearchVertex(cpts_initial, x1, y2, z2, ind122);
+			SearchVertex(cpts_initial, x2, y1, z1, ind211);
+			SearchVertex(cpts_initial, x2, y1, z2, ind212);
+			SearchVertex(cpts_initial, x2, y2, z1, ind221);
+			SearchVertex(cpts_initial, x2, y2, z2, ind222);
+
+			// Interpolate along each dimension separately
+			float interpX1 = Lerp(input[ind111], input[ind112], (x - x1));
+			float interpX2 = Lerp(input[ind121], input[ind122], (x - x1));
+			float interpY1 = Lerp(interpX1, interpX2, (y - y1));
+
+			float interpX3 = Lerp(input[ind211], input[ind212], (x - x2));
+			float interpX4 = Lerp(input[ind221], input[ind222], (x - x2));
+			float interpY2 = Lerp(interpX3, interpX4, (y - y1));
+
+			// Interpolate along the z dimension
+			output[i] = Lerp(interpY1, interpY2, (z - z1));
+
+			// std::cout << ind << " ";
+		}
+	}
+	return output;
+}
+
+// Function to compute the average of surrounding points
+std::vector<float> ComputeRefine(const std::vector<float>& phi, int NX, int NY, int NZ) 
+{
+	std::vector<float> ele_refine(NX * NY * NZ, 0.0);
+	float maxPhi(0), phi_average;
+	for (int i = 0; i < phi.size(); i++) {
+		maxPhi = max(maxPhi, phi[i]);
+	}
+	
+	// std::cout << maxPhi << std::endl;
+	for (int i = 0; i < NX; i++) {
+		for (int j = 0; j < NY; j++) {
+			for (int k = 0; k < NZ; k++) {
+
+				int index_in = i * (NY + 1) * (NZ + 1) + j * (NZ + 1) + k;
+				int index_out = i * NY * NZ + j * NZ + k;
+
+				// // Compute the average of surrounding points
+				// float phi_average = (phi[index_in - 1] + phi[index_in + 1] +
+				// 			phi[index_in - (NZ + 1)] + phi[index_in + (NZ + 1)] +
+				// 			phi[index_in - (NY + 1) * (NZ + 1)] + phi[index_in + (NY + 1) * (NZ + 1)]) / 6.0;
+
+				// if ((phi_average < (0.5 * maxPhi)) && (phi_average > (0.001 * maxPhi))) {
+				// 	ele_refine[index_out] = 1;
+				// } else {
+				// 	ele_refine[index_out] = 0;
+				// }
+
+				ele_refine.push_back(0);
+			}
+		}
+	}
+
+	return ele_refine;
+}
+
+// // Function to reshape the input 3D vector to a new size
+// std::vector<float> Reshape3DGrid(const std::vector<float>& phi, int NX, int NY, int NZ)
+// {
+//     // Check if the original size matches the expected size
+//     if (phi.size() != (NX + 1) * (NY + 1) * (NZ + 1)) {
+//         std::cerr << "Error: Incorrect input size!" << std::endl;
+//         return std::vector<float>();
+//     }
+
+//     std::vector<float> phi_out;
+//     phi_out.reserve(NX * NY * NZ);
+
+//     for (int i = 0; i < NX; ++i) {
+//         for (int j = 0; j < NY; ++j) {
+//             for (int k = 0; k < NZ; ++k) {
+//                 int index = i * (NY + 1) * (NZ + 1) + j * (NZ + 1) + k;
+//                 phi_out.push_back(phi[index]);
+//             }
+//         }
+//     }
+
+//     return phi_out;
+// }
+
+void writeVectorToFile(const std::vector<float>& data, const std::string& filename, bool binary) {
+	std::ofstream outfile;
+
+	if (binary) {
+		outfile.open(filename, std::ios::out | std::ios::binary);
+	} else {
+		outfile.open(filename);
+	}
+
+	if (!outfile) {
+		std::cerr << "Error opening file: " << filename << std::endl;
+		return;
+	}
+
+	if (binary) {
+		outfile.write(reinterpret_cast<const char*>(data.data()), data.size() * sizeof(float));
+	} else {
+		for (const auto& value : data) {
+			outfile << value << " ";
+		}
+	}
+
+	std::cout << "Vector successfully written to " << filename << std::endl;
+	// std::cout << "ckck0" << std::endl;
+	outfile.close();
+	// std::cout << "ckck1" << std::endl;
+}
+
+std::vector<float> readVectorFromFile(const std::string& filename, bool binary) {
+	std::ifstream infile;
+
+	if (binary) {
+		infile.open(filename, std::ios::in | std::ios::binary);
+	} else {
+		infile.open(filename);
+	}
+
+	if (!infile) {
+		std::cerr << "Error opening file: " << filename << std::endl;
+		return {};
+	}
+
+	std::vector<float> data;
+
+	if (binary) {
+		infile.seekg(0, std::ios::end);
+		size_t fileSize = infile.tellg();
+		infile.seekg(0, std::ios::beg);
+
+		data.resize(fileSize / sizeof(float));
+		infile.read(reinterpret_cast<char*>(data.data()), fileSize);
+	} else {
+		float value;
+
+		while (infile >> value) {
+			data.push_back(value);
+		}
+	}
+
+	std::cout << "Vector successfully read from " << filename << std::endl;
+	infile.close();
+
+	return data;
+}
+
+
+// int FindCptID(const vector<Vertex3D> cpts, float x, float y, float z) {
+	
+// 	int id;
+// 	for (int i = 0; i < cpts.size(); i++) {
+
+// 	}
+
+// 	return id;
+// }

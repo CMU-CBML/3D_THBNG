@@ -12,8 +12,12 @@ class TruncatedTspline_3D
 {
 public:
 	TruncatedTspline_3D();
+
+	int getLevels();
+
 	void CreateUniformCube(string fn);
 	void VisualizeControlMesh(string fn);
+	void VisualizeControlMesh_hierarchical(string fn); // added by Kuanren 01/18/2024
 	double PartionOfUnity(int eid, const array<double, 3>& u);
 	void CollectActives();
 
@@ -175,6 +179,8 @@ public:
 	double BasisSum(int lev, int eid, const array<double,3>& u);
 
 	void OutputCM(int lev, string fn);
+	void OutputControlPoints(string fn); // added by Kuanren 01/18/2024
+
 	void OutputFace(int lev, string fn);
 	void OutputEdge(int lev, string fn);
 	void OutputGeom(int lev, string fn);
@@ -191,6 +197,9 @@ public:
 	void AnalysisInterface_Elastic(vector<BezierElement3D>& bzmesh, vector<int>& DrchBC, vector<double>& gh);
 	void AnalysisInterface_Poisson(vector<BezierElement3D>& bzmesh, vector<int>& DrchBC, vector<double>& gh);//only for cube domain [0,1]^3
 	void AnalysisInterface_Poisson_1(vector<BezierElement3D>& bzmesh, vector<int>& DrchBC, vector<double>& gh);//for arbitrary shapes
+	
+	void GetBezierMesh(vector<BezierElement3D>& bzmesh);
+
 	void AnalysisInterface_Laplace(const vector<array<int, 2>>& pbc, const vector<double>& pdisp, vector<BezierElement3D>& bzmesh, vector<int>& DrchBC, vector<double>& gh);
 	void AnalysisInterface_LeastSquare(vector<BezierElement3D>& bzmesh, vector<int>& DrchBC, vector<double>& gh);
 	double SpecifyDirichBC(double x[3]);
