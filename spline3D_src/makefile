@@ -6,7 +6,7 @@
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
 	Compiler=g++
-	EIGEN_DIR = /home/kuanrenqian/Research/eigen-3.4.0
+	EIGEN_DIR = /home/kuanrenqian/Research/THBNG/eigen-3.4.0
 endif
 ifeq ($(UNAME_S),Darwin)
 	Compiler=/opt/homebrew/Cellar/gcc/13.2.0/bin/aarch64-apple-darwin23-g++-13

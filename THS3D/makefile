@@ -2,7 +2,7 @@
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
 	PETSC_DIR = /home/kuanrenqian/Research/petsc
-	EIGEN_DIR = /home/kuanrenqian/Research/eigen-3.4.0
+	EIGEN_DIR = /home/kuanrenqian/Research/THBNG/eigen-3.4.0
 	Compiler=g++
 endif
 ifeq ($(UNAME_S),Darwin)

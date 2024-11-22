@@ -887,13 +887,13 @@ std::vector<float> ComputeRefine(const std::vector<float>& phi, int NX, int NY, 
 				// 			phi[index_in - (NZ + 1)] + phi[index_in + (NZ + 1)] +
 				// 			phi[index_in - (NY + 1) * (NZ + 1)] + phi[index_in + (NY + 1) * (NZ + 1)]) / 6.0;
 
-				// if ((phi_average < (0.5 * maxPhi)) && (phi_average > (0.001 * maxPhi))) {
-				// 	ele_refine[index_out] = 1;
-				// } else {
-				// 	ele_refine[index_out] = 0;
-				// }
+				if ((phi_average < (0.5 * maxPhi)) && (phi_average > (0.001 * maxPhi))) {
+					ele_refine[index_out] = 1;
+				} else {
+					ele_refine[index_out] = 0;
+				}
 
-				ele_refine.push_back(0);
+				// ele_refine.push_back(0);
 			}
 		}
 	}
