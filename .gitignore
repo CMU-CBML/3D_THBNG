@@ -1,4 +1,5 @@
 *.o
+*.vtk
 io3D/
 io2D/
 io/

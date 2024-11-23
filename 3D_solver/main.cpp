@@ -47,8 +47,7 @@ int main(int argc, char **argv)
 
 	int n_bzmesh;
 	vector<vector<float>> vertices;
-	vector<vector<int>> elements;
-	vector<vector<int>> ele_process;
+	vector<vector<int>> elements, ele_process;
 	vector<Vertex3D> cpts_initial, cpts, prev_cpts;
 	vector<Element3D> tmesh_initial, tmesh;
 	ele_process.resize(nProcs);

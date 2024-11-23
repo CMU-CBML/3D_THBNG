@@ -318,10 +318,10 @@ void InitializeSoma(int numNeuron, vector<array<float, 3>> &seed, int &NX, int &
 		// NZ = 10;
 		// seed[0][0] = 5*4;		seed[0][1] = 5*4;		seed[0][2] = 5*4;
 
-		NX = 10;
-		NY = 10;
-		NZ = 10;
-		seed[0][0] = 0;		seed[0][1] = 0;		seed[0][2] = 0;
+		NX = 20;
+		NY = 20;
+		NZ = 20;
+		seed[0][0] = 10;		seed[0][1] = 10;		seed[0][2] = 10;
 		
 		break;
 	case 2:

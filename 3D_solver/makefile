@@ -7,8 +7,8 @@ ifeq ($(UNAME_S),Linux)
 endif
 ifeq ($(UNAME_S),Darwin)
 	PETSC_DIR = /Users/kuanrenqian/petsc
-	EIGEN_DIR = /Users/kuanrenqian/eigen-3.4.0
-	Compiler=/opt/homebrew/Cellar/gcc/13.2.0/bin/aarch64-apple-darwin23-g++-13
+	EIGEN_DIR = ../eigen-3.4.0
+	Compiler=/opt/homebrew/Cellar/gcc/14.2.0_1/bin/aarch64-apple-darwin24-g++-14
 endif
 
 include ${PETSC_DIR}/lib/petsc/conf/variables
