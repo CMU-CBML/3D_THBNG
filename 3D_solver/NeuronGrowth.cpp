@@ -73,7 +73,7 @@ NeuronGrowth::NeuronGrowth(){
 	sum_grad_phi0_global = 0;
 
 	// // integer variable setup
-	expandCK_invl		= 5000; 		// var_save_invl
+	expandCK_invl		= 1; 		// var_save_invl
 	// integer variable setup
 	var_save_invl		= 25; 		// var_save_invl
 	numNeuron 		= 1;	     	// numNeuron
@@ -1697,6 +1697,103 @@ void NeuronGrowth::prepareBasis() {
 	}
 	MPI_Barrier(PETSC_COMM_WORLD);
 }
+
+// void NeuronGrowth::preparePhaseField() 
+// {
+//     // Clear previous data
+//     pre_eleEP.clear();
+//     pre_eleEEP.clear();
+//     pre_dAdx.clear();
+//     pre_dAdy.clear();
+//     pre_dAdz.clear();  // Added for 3D
+//     pre_eleP.clear();
+//     pre_eleTh.clear();
+//     pre_eleMp.clear();
+//     pre_C1.clear();
+
+//     // Initialize variables
+//     float eleEP(0), eleEEP(0), dAdx(0), dAdy(0), dAdz(0), // Added dAdz
+//           eleP(0), eleTh(0), eleS(0), eleTb(0), eleTp(0), eleE(0);
+//     uint ind(0);
+
+//     // Loop over elements
+//     for (size_t e = 0; e < bzmesh_process.size(); e++) {
+//         size_t nen = bzmesh_process[e].IEN.size();
+
+//         // Initialize element-wise variables
+//         vector<float> elePhi(nen, 0), eleTheta(nen, 0), eleEpsilon(nen, 0), eleEpsilonP(nen, 0);
+//         vector<float> eleSyn(nen, 0), eleTubulin(nen, 0), eleTips(nen, 0);
+
+//         // Extract nodal values for the current element
+//         for (size_t i = 0; i < nen; i++) {
+//             size_t nodeIndex = bzmesh_process[e].IEN[i];
+//             elePhi[i]    = phi[nodeIndex];       // elePhi
+//             eleTheta[i]  = theta[nodeIndex];     // eleTheta
+//             eleSyn[i]    = syn[nodeIndex];       // eleSyn
+//             eleTubulin[i]= tub[nodeIndex];       // eleTubulin
+//             eleTips[i]   = tips[nodeIndex];      // eleTips
+//         }
+
+//         // Loop over Gaussian quadrature points in 3D
+//         for (size_t i = 0; i < Gpt.size(); i++) {
+//             for (size_t j = 0; j < Gpt.size(); j++) {
+//                 for (size_t k = 0; k < Gpt.size(); k++) { // Added k-loop for 3D
+
+//                     // Evaluate orientation and compute element variables
+//                     EvaluateOrientation(nen, pre_Nx[ind], pre_dNdx[ind], elePhi, eleTheta, eleEpsilon, eleEpsilonP);
+// 					EvaluateOrientation(nen, pre_Nx[ind], pre_dNdx[ind], elePhi, eleTheta, eleAniso, dA_dPdx, dA_dPdy, dA_dPdz)
+
+//                     // Compute element values and derivatives
+//                     ElementValue(pre_Nx[ind], eleEpsilon, eleEP);
+//                     pre_eleEP.push_back(eleEP);
+
+//                     ElementValue(pre_Nx[ind], eleEpsilonP, eleEEP);
+//                     pre_eleEEP.push_back(eleEEP);
+
+//                     ElementDeriv(nen, pre_dNdx[ind], eleEpsilonP, dAdx, dAdy, dAdz); // Modified to include dAdz
+//                     pre_dAdx.push_back(dAdx);
+//                     pre_dAdy.push_back(dAdy);
+//                     pre_dAdz.push_back(dAdz); // Added for 3D
+
+//                     ElementValue(pre_Nx[ind], elePhi, eleP);
+//                     pre_eleP.push_back(eleP);
+
+//                     ElementValue(pre_Nx[ind], eleTheta, eleTh);
+//                     pre_eleTh.push_back(eleTh);
+
+//                     ElementValue(pre_Nx[ind], eleSyn, eleS);
+//                     ElementValue(pre_Nx[ind], eleTubulin, eleTb);
+//                     ElementValue(pre_Nx[ind], eleTips, eleTp);
+
+//                     // Adjust assembly and disassembly rates based on detected tips
+//                     if (n < 50) { // Assuming 'n' is a time step or iteration count; ensure it's properly defined
+//                         eleE = alphaOverPi * atan(gamma * (c_opt - eleS));
+//                         pre_eleMp.push_back(M_neurite);
+//                     } else {
+//                         if (eleTp != 0) {
+//                             eleE = alphaOverPi * atan(gamma * Regular_Heiviside_fun(50 * eleTb) * (c_opt - eleS));
+//                             if (eleTp < 0) {
+//                                 pre_eleMp.push_back(M_axon);
+//                             } else {
+//                                 pre_eleMp.push_back(M_neurite);
+//                             }
+//                         } else {
+//                             eleE = alphaOverPi * atan(gamma * Regular_Heiviside_fun(r * eleTb - g) * (c_opt - eleS));
+//                             pre_eleMp.push_back(5);
+//                         }
+//                     }
+
+//                     // Calculate C1 variable for the phase-field energy term
+//                     float C1 = eleE - pre_C0[ind]; // Update pre_C0[ind] if necessary to include 3D effects
+//                     pre_C1.push_back(C1);
+
+//                     // Increment the index for precomputed variables
+//                     ind += 1;
+//                 }
+//             }
+//         }
+//     }
+// }
 
 void NeuronGrowth::prepareTerm_source() {
 	int ind(0);
@@ -3346,6 +3443,11 @@ int RunNG(int n_bzmesh, vector<vector<int>> ele_process_in, vector<Vertex3D> cpt
 	NG.n = iter;
 	NG.numNeuron = seed.size();
 	NG.end_iter = end_iter_in;
+
+	NG.InitializeProblemNG(n_bzmesh, cpts, prev_cpts, NGvars, seed);
+	NG.ToPETScVec(NG.phi, NG.temp_phi); // initial guess for SNES (optional)
+	PetscPrintf(PETSC_COMM_WORLD, "Set initial guess!-----------------------------------------------------------\n");	
+	
 	NG.AssignProcessor(ele_process_in);
 	// Check MPI element assignments, and print out in orders
 	for (int i = 0; i < NG.nProcess; i++){
@@ -3360,10 +3462,6 @@ int RunNG(int n_bzmesh, vector<vector<int>> ele_process_in, vector<Vertex3D> cpt
 	NG.ReadBezierElementProcess(path_in);
 	PetscPrintf(PETSC_COMM_WORLD, "Read bzmesh!-----------------------------------------------------------------\n");	
 
-	NG.InitializeProblemNG(n_bzmesh, cpts, prev_cpts, NGvars, seed);
-	NG.ToPETScVec(NG.phi, NG.temp_phi); // initial guess for SNES (optional)
-	PetscPrintf(PETSC_COMM_WORLD, "Set initial guess!-----------------------------------------------------------\n");	
-	
 	NG.CheckVar(path_out + "/distI_", cpts, NG.distI);
 
 	/*========================================================*/

@@ -268,24 +268,44 @@ void mpmetis(int n_process, string path_in){
 	system(mpmetis_cmd);
 }
 
-// partitioning mesh using mpmetis
-void THS3D(string path_in){
-	std::cout << "******************************************************************************" << std::endl;
-	std::cout << "Local refinement based on Xiaodong's THS3D code ... " << std::endl;
-	std::cout << "  - see: Truncated hierarchical " << std::endl << std::endl;
-	std::cout << "-----------------------------------------------------------------------------" << std::endl;
-	std::cout << "Calling command | input mesh directory | refine ID | refine element type" << std::endl << std::endl;
-	string ths2d_cmd_tmp("../THS3D/THS3D " + path_in);
-	// for (int i = 0; i < rfid.size(); i++) {
-	// 	ths2d_cmd_tmp = ths2d_cmd_tmp + std::to_string(rfid[i]) + " ";
-	// }
-	// for (int i = 0; i < rftype.size(); i++) {
-	// 	ths2d_cmd_tmp = ths2d_cmd_tmp + std::to_string(rftype[i]) + " ";
-	// }
-	std::cout << ths2d_cmd_tmp << std::endl;
-	const char* ths2d_cmd = ths2d_cmd_tmp.c_str();
-	system(ths2d_cmd);
+// // partitioning mesh using mpmetis
+// void THS3D(string path_in){
+// 	std::cout << "******************************************************************************" << std::endl;
+// 	std::cout << "Local refinement based on Xiaodong's THS3D code ... " << std::endl;
+// 	std::cout << "  - see: Truncated hierarchical " << std::endl << std::endl;
+// 	std::cout << "-----------------------------------------------------------------------------" << std::endl;
+// 	std::cout << "Calling command | input mesh directory | refine ID | refine element type" << std::endl << std::endl;
+// 	string ths2d_cmd_tmp("../THS3D/THS3D " + path_in);
+// 	// for (int i = 0; i < rfid.size(); i++) {
+// 	// 	ths2d_cmd_tmp = ths2d_cmd_tmp + std::to_string(rfid[i]) + " ";
+// 	// }
+// 	// for (int i = 0; i < rftype.size(); i++) {
+// 	// 	ths2d_cmd_tmp = ths2d_cmd_tmp + std::to_string(rftype[i]) + " ";
+// 	// }
+// 	std::cout << ths2d_cmd_tmp << std::endl;
+// 	const char* ths2d_cmd = ths2d_cmd_tmp.c_str();
+// 	system(ths2d_cmd);
+// }
+void THS3D(const std::string &path_in) {
+    std::cout << "******************************************************************************" << std::endl;
+    std::cout << "Local refinement based on Xiaodong's THS3D code ..." << std::endl;
+    std::cout << "******************************************************************************" << std::endl;
+
+    // Construct the command
+    std::string ths3d_cmd = "../THS3D/THS3D " + path_in;
+
+    // Log the command for debugging
+    std::cout << "Executing THS3D command: " << ths3d_cmd << std::endl;
+
+    // Execute the command
+    int ret_code = std::system(ths3d_cmd.c_str());
+    if (ret_code != 0) {
+        std::cerr << "Error: THS3D command failed with return code " << ret_code << std::endl;
+    } else {
+        std::cout << "THS3D completed successfully." << std::endl;
+    }
 }
+
 
 //
 void InitializeSoma(int numNeuron, vector<array<float, 3>> &seed, int &NX, int &NY, int &NZ){
@@ -298,10 +318,10 @@ void InitializeSoma(int numNeuron, vector<array<float, 3>> &seed, int &NX, int &
 		// NZ = 10;
 		// seed[0][0] = 5*4;		seed[0][1] = 5*4;		seed[0][2] = 5*4;
 
-		NX = 20;
-		NY = 20;
-		NZ = 20;
-		seed[0][0] = 10;		seed[0][1] = 10;		seed[0][2] = 10;
+		NX = 10;
+		NY = 10;
+		NZ = 10;
+		seed[0][0] = 0;		seed[0][1] = 0;		seed[0][2] = 0;
 		
 		break;
 	case 2:
@@ -882,13 +902,15 @@ std::vector<float> ComputeRefine(const std::vector<float>& phi, int NX, int NY, 
 				int index_in = i * (NY + 1) * (NZ + 1) + j * (NZ + 1) + k;
 				int index_out = i * NY * NZ + j * NZ + k;
 
-				// // Compute the average of surrounding points
-				// float phi_average = (phi[index_in - 1] + phi[index_in + 1] +
-				// 			phi[index_in - (NZ + 1)] + phi[index_in + (NZ + 1)] +
-				// 			phi[index_in - (NY + 1) * (NZ + 1)] + phi[index_in + (NY + 1) * (NZ + 1)]) / 6.0;
+				// Compute the average of surrounding points
+				float phi_average = (phi[index_in - 1] + phi[index_in + 1] +
+							phi[index_in - (NZ + 1)] + phi[index_in + (NZ + 1)] +
+							phi[index_in - (NY + 1) * (NZ + 1)] + phi[index_in + (NY + 1) * (NZ + 1)]) / 6.0;
 
+				// cout << 'check' << endl;
 				if ((phi_average < (0.5 * maxPhi)) && (phi_average > (0.001 * maxPhi))) {
 					ele_refine[index_out] = 1;
+					// cout << 'check' << endl;
 				} else {
 					ele_refine[index_out] = 0;
 				}

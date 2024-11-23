@@ -25,7 +25,7 @@ void bzmesh3D(string path_in);
 // partitioning mesh using mpmetis
 void mpmetis(int n_process, string path_in);
 
-void THS3D(string path_in);
+void THS3D(const std::string &path_in);
 
 void InitializeSoma(int numNeuron, vector<array<float, 3>> &seed, int &NX, int &NY, int &NZ);
 

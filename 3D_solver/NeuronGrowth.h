@@ -42,7 +42,8 @@ public:
 	vector<vector<float>> pre_Nx;
 	vector<vector<array<float, 3>>> pre_dNdx;
 	vector<float> pre_detJ, pre_mag_grad_phi0, pre_C0, pre_C0_sp, pre_term_source;
-	vector<float> pre_eleEP, pre_eleEEP, pre_dAdx, pre_dAdy, pre_dAPdx, pre_dAPdy;
+	vector<float> pre_eleEP, pre_eleEEP, pre_dAdx, pre_dAdy, pre_dAdz, pre_dAPdx, pre_dAPdy, pre_dAPdz;
+	vector<float> pre_eleP, pre_eleTh, pre_eleMp, pre_C1;
 	vector<float> pre_vars;
 	vector<vector<vector<float>>> pre_EMatrixSolve;
 	vector<vector<float>> pre_EVectorSolve;
@@ -75,9 +76,40 @@ public:
 	Vec GR_syn, GR_tub;			// Residual vector
 	Vec temp_phi, temp_syn, temp_tub;	// Solution vector
 
+	// // Parameters for neuron growth model
+	// int var_save_invl,expandCK_invl,numNeuron,gc_sz,end_iter,aniso,gamma;
+	// float seed_radius, kappa,dt,Dc,alpha,alphaOverPi,M_phi,s_coeff,delta,epsilonb,r,g,alphaT,betaT,Diff,source_coeff;
+	
 	// Parameters for neuron growth model
-	int var_save_invl,expandCK_invl,numNeuron,gc_sz,end_iter,aniso,gamma;
-	float seed_radius, kappa,dt,Dc,alpha,alphaOverPi,M_phi,s_coeff,delta,epsilonb,r,g,alphaT,betaT,Diff,source_coeff;
+	int var_save_invl;
+	int expandCK_invl;
+	int numNeuron;
+	int gc_sz;
+	int end_iter;
+	int aniso;
+	int gamma;
+	int seed_radius;
+
+	float kappa;
+	float dt;
+	float Dc;
+	float kp75;
+	float k2;
+	float c_opt;
+	float alpha;
+	float alphaOverPi;
+	float M_phi;
+	float M_axon;
+	float M_neurite;
+	float s_coeff;
+	float delta;
+	float epsilonb;
+	float r;
+	float g;
+	float alphaT;
+	float betaT;
+	float Diff;
+	float source_coeff;
 
 	// Initializations
 	NeuronGrowth();
@@ -158,6 +190,7 @@ public:
 
 	// pre-calculate variables to save computational cost
 	void prepareBasis();
+	void preparePhaseField();
 	void prepareTerm_source();
 	void prepareEpsilon();
 	// void prepareEE();

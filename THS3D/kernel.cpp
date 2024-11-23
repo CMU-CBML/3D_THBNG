@@ -543,7 +543,7 @@ void kernel::run_complex_fit(string path_in)
 
 int kernel::run_neuronGrowth(string path_in)
 {
-	int niter(4);
+	int niter(2);
 	double thresh(0.25);//cube
 	unsigned int i;
 	double xy[3][2], nm[3], a(50.);
@@ -632,7 +632,7 @@ int kernel::run_neuronGrowth(string path_in)
 		// lap.Run(bzmesh, fld + fn + ss.str(), err);
 
 		phi = InterpolateValues(bzmesh_old, phi_old, bzmesh);
-		writeVectorToFile(phi, "./phi_refine.txt", false);
+		writeVectorToFile(phi, path_in + "phi_refine.txt", false);
 		// err.clear();
 		err = phi;
 		// std::cout << "ck2 " << bzmesh.size() << " " << err.size() << " " << ids.size() << std::endl;
