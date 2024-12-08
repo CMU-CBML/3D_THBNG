@@ -1,29 +1,31 @@
-#include "NeuronGrowth.h"
-#include "utils.h"
-#include <cmath>
-#include <fstream>
-#include <iostream>
-#include <iomanip>
-#include <algorithm>
-#include <numeric>
-#include <stack>	// for tic toc
-#include <ctime>	// for tic toc
-#include <time.h>	// for srand
-#include <queue>	// for geodesic distance
-
-#include <cfloat>	// for FLT_MAX
-#include <limits>	// for numeric_limits
-
-#include <tuple>	// for find vertex with indices and distances
+#include "NeuronGrowth.h"               // Main header for NeuronGrowth class
+#include "utils.h"                      // Utility functions
+#include <cmath>                        // For mathematical operations
+#include <fstream>                      // For file operations
+#include <iostream>                     // For console I/O
+#include <iomanip>                      // For formatted I/O
+#include <algorithm>                    // For STL algorithms
+#include <numeric>                      // For numeric operations
+#include <stack>                        // For tic-toc timing
+#include <ctime>                        // For srand
+#include <queue>                        // For geodesic distance
+#include <cfloat>                       // For FLT_MAX
+#include <limits>                       // For numeric limits
+#include <tuple>                        // For handling tuples
+#include <chrono>                       // For modern timing
+#include "../nanoflann/1.5.5/include/nanoflann.hpp" // For KD-tree implementation
 
 using namespace std;
+
+// Type Definitions
 typedef unsigned int uint;
-const float PI = 3.1415926;
 
-std::stack<clock_t> tictoc_stack;
+// Constants
+constexpr float PI = 3.1415926f;        // Pi constant
+constexpr int INF = 1e9;               // Infinity constant for large integers
+
+stack<clock_t> tictoc_stack;
 float t_phi, t_syn, t_tub, t_collect, t_write(0), t_total(0);
-
-const int INF = 1e9;
 
 void tic() 
 {
@@ -61,56 +63,91 @@ void Matrix3DInverse(float dxdt[3][3], float dtdx[3][3])
 	dtdx[2][2] = 1 / det*(dxdt[0][0] * dxdt[1][1] - dxdt[0][1] * dxdt[1][0]);
 }
 
-NeuronGrowth::NeuronGrowth(){
-	comm = PETSC_COMM_WORLD; //MPI_COMM_WORLD;
-	mpiErr = MPI_Comm_rank(comm, &comRank);
-	mpiErr = MPI_Comm_size(comm, &comSize);
-	nProcess = comSize;
-	judge_phi = 0;
-	judge_syn = 0;
-	judge_tub = 0;
-	sum_grad_phi0_local = 0;
-	sum_grad_phi0_global = 0;
-
-	// // integer variable setup
-	expandCK_invl		= 1; 		// var_save_invl
-	// integer variable setup
-	var_save_invl		= 25; 		// var_save_invl
-	numNeuron 		= 1;	     	// numNeuron
-	// M_axon			= 100;		// M_axon
-	// M_neurites 		= 60;  		// M_neurites
-	aniso 			= 6;   		// aniso
-	gamma 			= 10;  		// gamma
-	// seed_radius 		= 2;		// seed radius
-	// seed_radius 		= 1;		// seed radius
-	// seed_radius 		= 8;		// seed radius
-	seed_radius 		= 4;		// seed radius
-
-	// variable setup
-	// kappa			= 2.0;		// kappa;
-	kappa			= 1.8;		// kappa;
-	dt			= 1e-2;		// time step
-	Dc			= 3;		// syn D
-	// Dc			= 0.1;		// syn D
-	alpha			= 0.9;		// alpha
-	alphaOverPi		= alpha / PI; 	// alphOverPix
-	M_phi			= 10;		// M_phi
-	s_coeff			= 0.007;	// s_coeff
-	// delta			= 0.20;		// delta
-	delta			= 0.50;		// delta
-	// epsilonb		= 0.04;		// epsilonb
-	epsilonb		= 0.01;		// epsilonb
-	r			= 5;		// r
-	g			= 0.1;		// g
-	alphaT 			= 0.001;	// alpha_t
-	betaT			= 0.001;	// beta_t
-	Diff			= 0.1;		// Diff
-	Diff			= 4;		// Diff
-	// Diff			= 60;		// Diff
-	source_coeff		= 15;		// source_coeff
-	// source_coeff		= 0.012;		// source_coeff
-	// source_coeff		= 2;		// source_coeff
+inline float SquaredDistance(const Vertex3D& first, const Vertex3D& other) {
+    const float dx = first.coor[0] - other.coor[0];
+    const float dy = first.coor[1] - other.coor[1];
+    const float dz = first.coor[2] - other.coor[2];
+    return dx * dx + dy * dy + dz * dz;
 }
+
+void CheckAndPrintThresholdExceedance(const vector<float>& input, float threshold) {
+    bool found = false;  // Flag to track if any value exceeds the threshold
+
+    for (size_t i = 0; i < input.size(); ++i) {
+        if (input[i] > threshold) {
+            cout << "Value " << input[i] << " at index " << i << " exceeds the threshold " << threshold << ".\n";
+            found = true;
+        }
+    }
+
+    if (!found) {
+        cout << "No values exceed the threshold " << threshold << ".\n";
+    }
+}
+
+NeuronGrowth::NeuronGrowth() {
+    // MPI setup
+    comm = PETSC_COMM_WORLD; // Initialize MPI communicator
+    mpiErr = MPI_Comm_rank(comm, &comRank); // Get rank of the process
+    mpiErr = MPI_Comm_size(comm, &comSize); // Get size of the communicator
+    nProcess = comSize; // Total number of processes
+
+    // Flags and initialization
+    judge_phi = 0; // Phase field judgment flag
+    judge_syn = 0; // Synapse judgment flag
+    judge_tub = 0; // Tubule judgment flag
+    sum_grad_phi0_local = 0; // Local gradient sum of phi
+    sum_grad_phi0_global = 0; // Global gradient sum of phi
+
+    // Integer variable setup
+    expandCK_invl = 10000;    // Interval for expanding computation kernels
+    var_save_invl = 10;     // Interval for saving variables
+    numNeuron = 1;          // Number of neurons
+    aniso = 6;              // Anisotropy factor
+    gamma = 10;             // Gamma parameter for equations
+    seed_radius = 4;        // Seed radius
+
+    // Variable setup
+    kappa = 1.8;            // Kappa parameter
+    dt = 1e-2;              // Time step size
+    Dc = 3;                 // Diffusion coefficient for synapse
+    alpha = 0.9;            // Alpha parameter
+    alphaOverPi = alpha / PI; // Alpha divided by PI
+    M_phi = 10;             // Mobility for phase field
+    s_coeff = 0.007;        // Source coefficient
+    delta = 0.50;           // Delta parameter
+    epsilonb = 0.01;        // Regularization parameter for boundary
+    r = 5;                  // Radius for initialization
+    g = 0.1;                // Growth factor
+    alphaT = 0.001;         // Temperature-related parameter alphaT
+    betaT = 0.001;          // Temperature-related parameter betaT
+    Diff = 4;               // Diffusion coefficient
+    source_coeff = 15;      // Source coefficient for boundary conditions
+}
+	// expandCK_invl		= 1; 		// var_save_invl
+	// var_save_invl		= 25; 		// var_save_invl
+	// numNeuron 			= 1;	     	// numNeuron
+	// aniso 			= 6;   		// aniso
+	// gamma 			= 10;  		// gamma
+	// seed_radius 		= 4;		// seed radius
+
+	// // variable setup
+	// kappa			= 1.8;		// kappa;
+	// dt			= 1e-2;		// time step
+	// Dc			= 3;		// syn D
+	// alpha			= 0.9;		// alpha
+	// alphaOverPi		= alpha / PI; 	// alphOverPix
+	// M_phi			= 10;		// M_phi
+	// s_coeff			= 0.007;	// s_coeff
+	// delta			= 0.50;		// delta
+	// epsilonb		= 0.01;		// epsilonb
+	// r			= 5;		// r
+	// g			= 0.1;		// g
+	// alphaT 			= 0.001;	// alpha_t
+	// betaT			= 0.001;	// beta_t
+	// Diff			= 0.1;		// Diff
+	// Diff			= 4;		// Diff
+	// source_coeff		= 15;		// source_coeff
 
 void NeuronGrowth::AssignProcessor(vector<vector<int>> &ele_proc)
 {
@@ -119,167 +156,189 @@ void NeuronGrowth::AssignProcessor(vector<vector<int>> &ele_proc)
 		ele_process.push_back(ele_proc[comRank][i]);
 }
 
-void NeuronGrowth::SetVariables(string fn_par)
-{
-	string fname(fn_par), stmp;
-	stringstream ss;
-	ifstream fin;
-	fin.open(fname);
-	if (fin.is_open()) {
-		fin >> stmp >> var_save_invl;
-		fin >> stmp >> expandCK_invl;
-		fin >> stmp >> gc_sz;
-		fin >> stmp >> aniso;
-		fin >> stmp >> gamma;
-		fin >> stmp >> seed_radius;
-		fin >> stmp >> kappa;
-		fin >> stmp >> dt;
-		fin >> stmp >> Dc;
-		fin >> stmp >> alpha;
-		alphaOverPi = alpha / PI; 	// alphOverPi
-		fin >> stmp >> M_phi;
-		fin >> stmp >> s_coeff;
-		fin >> stmp >> delta;
-		fin >> stmp >> epsilonb;
-		fin >> stmp >> r;
-		fin >> stmp >> g;
-		fin >> stmp >> alphaT;
-		fin >> stmp >> betaT;
-		fin >> stmp >> Diff;
-		fin >> stmp >> source_coeff;
-
-		fin.close();
-		PetscPrintf(PETSC_COMM_WORLD, "Parameter Loaded!\n");
-	} else {
-		PetscPrintf(PETSC_COMM_WORLD, "Cannot open %s!\n", fname.c_str());
+void NeuronGrowth::SetVariables(string fn_par) {
+	ifstream inputFile(fn_par);
+	if (!inputFile.is_open()) {
+		PetscPrintf(PETSC_COMM_WORLD, "Error: Unable to open file %s\n", fn_par.c_str());
+		return;
 	}
+
+	string line;
+
+	while (getline(inputFile, line)) {
+		istringstream iss(line);
+		string variableName;
+		char equalsSign;
+		if (!(iss >> variableName >> equalsSign)) {
+			PetscPrintf(PETSC_COMM_WORLD, "Error: Reading variable failed!\n");
+			break;
+		}
+		if (variableName == "expandCK_invl") iss >> expandCK_invl;
+		else if (variableName == "var_save_invl") iss >> var_save_invl;
+		else if (variableName == "numNeuron") iss >> numNeuron;
+		else if (variableName == "gc_sz") iss >> gc_sz;
+		else if (variableName == "aniso") iss >> aniso;
+		else if (variableName == "gamma") iss >> gamma;
+		else if (variableName == "seed_radius") iss >> seed_radius;
+		else if (variableName == "kappa") iss >> kappa;
+		else if (variableName == "dt") iss >> dt;
+		else if (variableName == "Dc") iss >> Dc;
+		else if (variableName == "kp75") iss >> kp75;
+		else if (variableName == "k2") iss >> k2;
+		else if (variableName == "c_opt") iss >> c_opt;
+		else if (variableName == "alpha") iss >> alpha;
+		else if (variableName == "M_phi") iss >> M_phi;
+		else if (variableName == "M_axon") iss >> M_axon;
+		else if (variableName == "M_neurite") iss >> M_neurite;
+		else if (variableName == "s_coeff") iss >> s_coeff;
+		else if (variableName == "delta") iss >> delta;
+		else if (variableName == "epsilonb") iss >> epsilonb;
+		else if (variableName == "r") iss >> r;
+		else if (variableName == "g") iss >> g;
+		else if (variableName == "alphaT") iss >> alphaT;
+		else if (variableName == "betaT") iss >> betaT;
+		else if (variableName == "Diff") iss >> Diff;
+		else if (variableName == "source_coeff") iss >> source_coeff;
+	}
+	inputFile.close();
+	PetscPrintf(PETSC_COMM_WORLD, "Parameter Loaded!\n");
+
+	// Calculate alphaOverPi after all variables are loaded
+	alphaOverPi = alpha / PI;
 }
 
 void NeuronGrowth::InitializeProblemNG(const int n_bz, vector<Vertex3D>& cpts, vector<Vertex3D> prev_cpts, vector<vector<float>> &NGvars, vector<array<float, 3>> &seed)
 {
+	// Synchronize all processes and start initialization
 	MPI_Barrier(PETSC_COMM_WORLD);
-	PetscPrintf(PETSC_COMM_WORLD, "Initializing-----------------------------------------------------------------\n");
+	PetscPrintf(PETSC_COMM_WORLD, "Initializing Neuron Growth Problem--------------------------------------------\n");
 
-	/*Initialize parameters*/
-	int cpt_sz = cpts.size();
-	// GaussInfo(3);
-	n_bzmesh = n_bz;
-	N_0.resize(cpt_sz);
+	// Initialize parameters
+	int cpt_sz = cpts.size(); // Number of control points
+	GaussInfo(3);
+	n_bzmesh = n_bz;          // Number of Bezier elements
+	N_0.resize(cpt_sz);       // Resize N_0 to match control points
 
-	// std::cout << cpts.size() << std::endl << std::endl << std::endl;
+	// Determine bounds for current control points
+	float max_x, min_x, max_y, min_y, max_z, min_z;
+	for (int i = 0; i < cpts.size(); ++i) {
+		const auto& coord = cpts[i].coor;
+		if (i == 0) {
+			// Initialize bounds with the first control point
+			max_x = min_x = coord[0];
+			max_y = min_y = coord[1];
+			max_z = min_z = coord[2];
+		} else {
+			// Update bounds for subsequent control points
+			max_x = max(coord[0], max_x);
+			min_x = min(coord[0], min_x);
+			max_y = max(coord[1], max_y);
+			min_y = min(coord[1], min_y);
+			max_z = max(coord[2], max_z);
+			min_z = min(coord[2], min_z);
+		}
+	}
+
+	// Determine bounds for previous control points
 	float max_px, min_px, max_py, min_py, max_pz, min_pz;
-	for (int i = 0; i<cpts.size(); i++) {
-		if (i==0) {
-			max_x = cpts[i].coor[0];
-			min_x = cpts[i].coor[0];
-			max_y = cpts[i].coor[1];
-			min_y = cpts[i].coor[1];
-			max_z = cpts[i].coor[2];
-			min_z = cpts[i].coor[2];
+	for (int i = 0; i < prev_cpts.size(); ++i) {
+		const auto& coord = prev_cpts[i].coor;
+		if (i == 0) {
+			// Initialize bounds with the first previous control point
+			max_px = min_px = coord[0];
+			max_py = min_py = coord[1];
+			max_pz = min_pz = coord[2];
 		} else {
-			max_x = max(cpts[i].coor[0],max_x);
-			min_x = min(cpts[i].coor[0],min_x);
-			max_y = max(cpts[i].coor[1],max_y);
-			min_y = min(cpts[i].coor[1],min_y);
-			max_z = max(cpts[i].coor[2],max_z);
-			min_z = min(cpts[i].coor[2],min_z);
+			// Update bounds for subsequent previous control points
+			max_px = max(coord[0], max_px);
+			min_px = min(coord[0], min_px);
+			max_py = max(coord[1], max_py);
+			min_py = min(coord[1], min_py);
+			max_pz = max(coord[2], max_pz);
+			min_pz = min(coord[2], min_pz);
 		}
-		// std::cout << cpts[i].coor[0] << " " << cpts[i].coor[1] << " " << cpts[i].coor[2] << std::endl;
 	}
 
-	for (int i = 0; i<prev_cpts.size(); i++) {
-		if (i==0) {
-			max_px = prev_cpts[i].coor[0];
-			min_px = prev_cpts[i].coor[0];
-			max_py = prev_cpts[i].coor[1];
-			min_py = prev_cpts[i].coor[1];
-			max_pz = prev_cpts[i].coor[2];
-			min_pz = prev_cpts[i].coor[2];
-		} else {
-			max_px = max(prev_cpts[i].coor[0],max_px);
-			min_px = min(prev_cpts[i].coor[0],min_px);
-			max_py = max(prev_cpts[i].coor[1],max_py);
-			min_py = min(prev_cpts[i].coor[1],min_py);
-			max_pz = max(prev_cpts[i].coor[2],max_pz);
-			min_pz = min(prev_cpts[i].coor[2],min_pz);
+	// Log the calculated bounds for debugging
+	PetscPrintf(PETSC_COMM_WORLD, "Bounds for current control points:\n");
+	PetscPrintf(PETSC_COMM_WORLD, "max x: %f, min x: %f | max y: %f, min y: %f | max z: %f, min z: %f\n", 
+				max_x, min_x, max_y, min_y, max_z, min_z);
+	PetscPrintf(PETSC_COMM_WORLD, "Bounds for previous control points:\n");
+	PetscPrintf(PETSC_COMM_WORLD, "max px: %f, min px: %f | max py: %f, min py: %f | max pz: %f, min pz: %f\n", 
+				max_px, min_px, max_py, min_py, max_pz, min_pz);
+
+	// Initialize parameters for the simulation
+	float r, x, y, z;  // Radius and spatial coordinates
+	int nx = sqrt(cpts.size());  // Assumes square mesh (only used at the beginning)
+	float dx = max_x / static_cast<float>(nx);  // Mesh cell size (used for square mesh initialization)
+	srand(static_cast<unsigned int>(time(NULL)));  // Seed for random number generator
+
+	float maxDistI = 0.0f;  // Maximum distance for normalization
+
+	if (n == 0) {  // Initialize simulation variables for the first run
+		// Initialize control point variables
+		for (int i = 0; i < cpts.size(); ++i) {
+			phi.push_back(0.0f);
+			tub.push_back(0.0f);
+			theta.push_back(static_cast<float>(rand() % 100) / 100.0f);  // Random orientation (theta)
+			syn.push_back(0.0f);  // Synaptogenesis variable
+			Mphi.push_back(M_phi);  // Mobility parameter
+			distI.push_back(0.0f);  // Distance initialization
 		}
-		// std::cout << cpts[i].coor[0] << " " << cpts[i].coor[1] << " " << cpts[i].coor[2] << std::endl;
-	}
 
-	PetscPrintf(PETSC_COMM_WORLD, "Checking maximum x, y, and z value-----------------------------------------------\n");
-	PetscPrintf(PETSC_COMM_WORLD, "max x: %f min x: %f | max y: %f min y %f | max z: %f min z %f\n", max_x, min_x, max_y, min_y, max_z, min_z);
-
-	float r, x, y, z; // radius, x, y
-	int nx = sqrt(cpts.size()); // only used at the beginning (square mesh)
-	float dx = max_x/(float)nx; // only used at the beginning (square mesh)
-	srand(time(NULL)); // random seed
-
-	float maxDistI(0);
-	// std::cout << dx << std::endl;
-	if (n == 0) { // Initialize
-		for (int i = 0; i<cpts.size(); i++) {
-			phi.push_back(0.f);
-			tub.push_back(0.f);
-			theta.push_back((float)(rand()%100)/(float)100); // orientation theta
-			// polar.push_back((float)(rand()%100)/(float)100); // orientation theta
-			// azimuth.push_back((float)(rand()%100)/(float)100); // orientation theta
-			syn.push_back(0.f); // synaptogenesis
-			Mphi.push_back(M_phi);
-			distI.push_back(0);
-		}
-		for (int i = 0; i<cpts.size(); i++) {
+		// Assign values and boundary labels for each control point
+		for (int i = 0; i < cpts.size(); ++i) {
 			x = cpts[i].coor[0];
 			y = cpts[i].coor[1];
 			z = cpts[i].coor[2];
 
-			// calculate new boundary label
-			if (x==min_x || x==max_x || y==min_y || y==max_y || z==min_z || z==max_z) {
-				cpts[i].label = 1;
-			} else {
-				cpts[i].label = 0;
-			}   
+			// Assign boundary labels based on spatial bounds
+			cpts[i].label = (x == min_x || x == max_x || y == min_y || y == max_y || z == min_z || z == max_z) ? 1 : 0;
 
-			for (int j = 0; j<seed.size(); j++) { // multiple neurons
-				r = sqrt( (x-(float)seed[j][0])*(x-(float)seed[j][0]) 
-					+(y-(float)seed[j][1])*(y-(float)seed[j][1])
-					+(z-(float)seed[j][2])*(z-(float)seed[j][2]) ); // radius of initial soma
-				if (r <= (seed_radius)) { // initial soma
-					phi[i] = 1.0f;
-					tub[i] = (0.5+0.5*tanh((sqrt(seed_radius)-r)/2)); // based eqn in literature
-				} 
-			} 
-
-			auto closestVertices = FindClosestVerticesWithIndicesAndDistances(cpts, cpts[i], 6);
-			for (const auto& item : closestVertices) {
-				// float distance = std::get<2>(item);
-				distI[i] += std::get<2>(item);;
+			// Check for initial soma placement around seeds
+			for (const auto& seed_point : seed) {
+				r = sqrt(pow(x - seed_point[0], 2) + pow(y - seed_point[1], 2) + pow(z - seed_point[2], 2));
+				if (r <= seed_radius) {  // Inside seed radius
+					phi[i] = 1.0f;  // Initial phi
+					tub[i] = 0.5f + 0.5f * tanh((sqrt(seed_radius) - r) / 2.0f);  // Based on literature equation
+				}
 			}
 
-			maxDistI = max(distI[i], maxDistI);
+			// Calculate distances to closest vertices
+			auto closestVertices = FindClosestVerticesWithIndicesAndDistances(cpts, cpts[i], 6);
+			for (const auto& item : closestVertices) {
+				distI[i] += get<2>(item);  // Accumulate distances
+			}
 
+			maxDistI = max(distI[i], maxDistI);  // Update maximum distance
 		}
-		phi_0 = phi; // initial phi
-		tub_0 = tub; // initial tub
-		
-	} else { // Collect from NGvars - continue simulation
-		phi.clear(); 	phi.resize(cpts.size());
-		syn.clear(); 	syn.resize(cpts.size());
-		tub.clear(); 	tub.resize(cpts.size());
-		theta.clear();	theta.resize(cpts.size());
-		phi_0.clear(); 	phi_0.resize(cpts.size());
-		tub_0.clear(); 	tub_0.resize(cpts.size());
-		distI.clear(); 	distI.resize(cpts.size());
 
-		for (int i = 0; i < cpts.size(); i++) {
-			if ((cpts[i].coor[0] > min_px) && (cpts[i].coor[0] < max_px)
-				&& (cpts[i].coor[1] > min_py) && (cpts[i].coor[1] < max_py)
-				&& (cpts[i].coor[2] > min_pz) && (cpts[i].coor[2] < max_pz)) {
-				
-				auto closestVertices = FindClosestVerticesWithIndicesAndDistances(prev_cpts, cpts[i], 6);
+		// Save initial phi and tub states
+		phi_0 = phi;
+		tub_0 = tub;
+
+	} else {  // Continue simulation using NGvars
+		// Clear and resize necessary variables
+		phi.clear();     phi.resize(cpts.size());
+		syn.clear();     syn.resize(cpts.size());
+		tub.clear();     tub.resize(cpts.size());
+		theta.clear();   theta.resize(cpts.size());
+		phi_0.clear();   phi_0.resize(cpts.size());
+		tub_0.clear();   tub_0.resize(cpts.size());
+		distI.clear();   distI.resize(cpts.size());
+
+		// Assign values from NGvars or interpolate if necessary
+		for (int i = 0; i < cpts.size(); ++i) {
+			const auto& cpt = cpts[i];
+			if (cpt.coor[0] > min_px && cpt.coor[0] < max_px &&
+				cpt.coor[1] > min_py && cpt.coor[1] < max_py &&
+				cpt.coor[2] > min_pz && cpt.coor[2] < max_pz) {
+
+				auto closestVertices = FindClosestVerticesWithIndicesAndDistances(prev_cpts, cpt, 6);
 
 				int index;
-				if (SearchVertex(prev_cpts, cpts[i].coor[0], cpts[i].coor[1], cpts[i].coor[2], index)) {
-					// Exact match found, no need for interpolation
+				if (SearchVertex(prev_cpts, cpt.coor[0], cpt.coor[1], cpt.coor[2], index)) {
+					// Exact match found
 					phi[i] = NGvars[0][index];
 					syn[i] = NGvars[1][index];
 					tub[i] = NGvars[2][index];
@@ -288,72 +347,56 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz, vector<Vertex3D>& cpts, v
 					tub_0[i] = NGvars[5][index];
 
 					for (const auto& item : closestVertices) {
-						int index = std::get<1>(item);
-						distI[i] += std::get<2>(item);
+						distI[i] += get<2>(item);  // Accumulate distances
 					}
-
-				} 
-				else {
-					// auto closestVertices = FindClosestVerticesWithIndices(prev_cpts, cpts[i], 8);
-
-					// for (const auto& vertex : closestVertices) {
-					// 	phi[i] += NGvars[0][vertex.second];
-					// 	syn[i] += NGvars[1][vertex.second];
-					// 	tub[i] += NGvars[2][vertex.second];
-					// 	theta[i] += NGvars[3][vertex.second];
-					// 	phi_0[i] += NGvars[4][vertex.second];
-					// 	tub_0[i] += NGvars[5][vertex.second];
-					// }
-
-					// auto closestVertices = FindClosestVerticesWithIndicesAndDistances(prev_cpts, cpts[i], 8);
-
+				} else {
+					// Interpolate using closest vertices
 					for (const auto& item : closestVertices) {
-						// const Vertex3D& vertex = std::get<0>(item);
-						int index = std::get<1>(item);
-						// float distance = std::get<2>(item);
-						phi[i] += NGvars[0][index];
-						syn[i] += NGvars[1][index];
-						tub[i] += NGvars[2][index];
-						theta[i] += NGvars[3][index];
-						phi_0[i] += NGvars[4][index];
-						tub_0[i] += NGvars[5][index];
-						distI[i] += std::get<2>(item);
+						int idx = get<1>(item);
+						phi[i] += NGvars[0][idx];
+						syn[i] += NGvars[1][idx];
+						tub[i] += NGvars[2][idx];
+						theta[i] += NGvars[3][idx];
+						phi_0[i] += NGvars[4][idx];
+						tub_0[i] += NGvars[5][idx];
+						distI[i] += get<2>(item);
 					}
 
-					phi[i] = phi[i] / closestVertices.size();
-					syn[i] = syn[i] / closestVertices.size();
-					tub[i] = tub[i] / closestVertices.size();
-					theta[i] = theta[i] / closestVertices.size();
-					phi_0[i] = phi_0[i] / closestVertices.size();
-					tub_0[i] = tub_0[i] / closestVertices.size();
+					// Average interpolated values
+					size_t numClosest = closestVertices.size();
+					phi[i] /= numClosest;
+					syn[i] /= numClosest;
+					tub[i] /= numClosest;
+					theta[i] /= numClosest;
+					phi_0[i] /= numClosest;
+					tub_0[i] /= numClosest;
 				}
 			} else {
-				phi[i] = 0;
-				syn[i] = 0;
-				tub[i] = 0;
-				theta[i] = (float)(rand()%100)/(float)100;
-				phi_0[i] = 0;
-				tub_0[i] = 0;
+				// Outside bounds, assign default values
+				phi[i] = 0.0f;
+				syn[i] = 0.0f;
+				tub[i] = 0.0f;
+				theta[i] = static_cast<float>(rand() % 100) / 100.0f;
+				phi_0[i] = 0.0f;
+				tub_0[i] = 0.0f;
 
-				auto closestVertices = FindClosestVerticesWithIndicesAndDistances(cpts, cpts[i], 6);
+				auto closestVertices = FindClosestVerticesWithIndicesAndDistances(cpts, cpt, 6);
 				for (const auto& item : closestVertices) {
-					// int index = std::get<1>(item);
-					// float distance = std::get<2>(item);
-					distI[i] += std::get<2>(item);
+					distI[i] += get<2>(item);  // Accumulate distances
 				}
 			}
 
-			maxDistI = max(distI[i], maxDistI);
-			
+			maxDistI = max(distI[i], maxDistI);  // Update maximum distance
 		}
-		// Mphi.push_back(M_phi);
 	}
 
-	for (int i = 0; i < distI.size(); i++) {
-		distI[i] = distI[i]/maxDistI;
+	// Normalize distances
+	for (auto& dist : distI) {
+		dist /= maxDistI;
 	}
 
-	this->cpts = cpts; // for passing into formFunction
+	// Assign control points for further processing
+	this->cpts = cpts;
 
 	// // writing initialized variables for debugging purposes
 	// bool visualization = true;
@@ -362,72 +405,83 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz, vector<Vertex3D>& cpts, v
 	// PrintVec2TXT(theta, "/home/kuanrenqian/Research/3D_NeuronGrowth/io/2DNG/var_check/theta_inital.txt", visualization);
 	// PrintVec2TXT(syn, "/home/kuanrenqian/Research/3D_NeuronGrowth/io/2DNG/var_check/syn_inital.txt", visualization);
 
-	/*Initialize petsc vector, matrix*/
-	PetscInt mat_dim = cpt_sz;
+	/* Initialize PETSc vectors and matrices */
+	PetscInt mat_dim = cpt_sz; // Dimension of PETSc matrices and vectors
 
-	// 250 = 2*5^3. (2 var, 5 basis, 3D) || 25 = 1*5^2. (1 var, 5 basis, 2D)	
+	// Temporary vector for phi
 	ierr = VecCreateMPI(PETSC_COMM_WORLD, PETSC_DECIDE, mat_dim, &temp_phi);
-	
+
+	// Initialize matrix J (Jacobian matrix or general-purpose matrix)
+	// 250 = 2 * 5^3 (3D: 2 variables, 5 basis functions) || 25 = 1 * 5^2 (2D: 1 variable, 5 basis functions)
 	ierr = MatCreate(PETSC_COMM_WORLD, &J);
 	ierr = MatSetSizes(J, PETSC_DECIDE, PETSC_DECIDE, mat_dim, mat_dim);
-	ierr = MatSetType(J, MATMPIAIJ);
-	ierr = MatMPIAIJSetPreallocation(J, 250, NULL, 250, NULL);
-	ierr = MatSetOption(J, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+	ierr = MatSetType(J, MATMPIAIJ); // Matrix type: MPIAIJ (sparse matrix)
+	ierr = MatMPIAIJSetPreallocation(J, 250, NULL, 250, NULL); // Preallocate non-zero entries
+	ierr = MatSetOption(J, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE); // Allow dynamic allocation
 	ierr = MatSetUp(J);
 
+	// Initialize matrices and vectors for synaptogenesis (GK_syn and GR_syn)
 	ierr = MatCreate(PETSC_COMM_WORLD, &GK_syn);
 	ierr = MatSetSizes(GK_syn, PETSC_DECIDE, PETSC_DECIDE, mat_dim, mat_dim);
 	ierr = MatSetType(GK_syn, MATMPIAIJ);
 	ierr = MatMPIAIJSetPreallocation(GK_syn, 250, NULL, 250, NULL);
 	ierr = MatSetOption(GK_syn, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
 	ierr = MatSetUp(GK_syn);
+
 	ierr = VecCreateMPI(PETSC_COMM_WORLD, PETSC_DECIDE, mat_dim, &GR_syn);
 	ierr = VecCreateMPI(PETSC_COMM_WORLD, PETSC_DECIDE, mat_dim, &temp_syn);
 
+	// Initialize matrices and vectors for tubule dynamics (GK_tub and GR_tub)
 	ierr = MatCreate(PETSC_COMM_WORLD, &GK_tub);
 	ierr = MatSetSizes(GK_tub, PETSC_DECIDE, PETSC_DECIDE, mat_dim, mat_dim);
 	ierr = MatSetType(GK_tub, MATMPIAIJ);
 	ierr = MatMPIAIJSetPreallocation(GK_tub, 250, NULL, 250, NULL);
 	ierr = MatSetOption(GK_tub, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
 	ierr = MatSetUp(GK_tub);
+
 	ierr = VecCreateMPI(PETSC_COMM_WORLD, PETSC_DECIDE, mat_dim, &GR_tub);
 	ierr = VecCreateMPI(PETSC_COMM_WORLD, PETSC_DECIDE, mat_dim, &temp_tub);
 
-	vars.reserve(21*sizeof(float));
-	vars.resize(21);
+	// Reserve memory for additional variables and clear pre-solve containers
+	vars.reserve(21 * sizeof(float)); // Preallocate space for 21 variables
+	vars.resize(21);                  // Resize to hold 21 entries
 
-	pre_EMatrixSolve.clear();
-	pre_EVectorSolve.clear();
+	pre_EMatrixSolve.clear(); // Clear pre-solve matrix container
+	pre_EVectorSolve.clear(); // Clear pre-solve vector container
 }
 
-
-void NeuronGrowth::CheckVar(string fn, vector<Vertex3D> cpts, vector<float> input)
-{
-	string fname(fn + "_" + to_string(n) + ".vtk");
-	ofstream fout;
-	fout.open(fname.c_str());
-	if (fout.is_open())
-	{
-		fout << "# vtk DataFile Version 2.0\nSquare plate test\nASCII\nDATASET UNSTRUCTURED_GRID\n";
-		fout << "POINTS " << cpts.size() << " float\n";
-		for (uint i = 0; i<cpts.size(); i++)
-		{
-			fout << cpts[i].coor[0] << " " << cpts[i].coor[1] << " " << cpts[i].coor[2] << "\n";
-		}
-
-		fout << "POINT_DATA " << input.size() << "\nSCALARS pact float 1\nLOOKUP_TABLE default\n";
-		for (uint i = 0; i<input.size(); i++)
-		{
-			fout << input[i] << "\n";
-		}
-
-
-		fout.close();
-	}
-	else
-	{
-		cout << "Cannot open " << fname << "!\n";
-	}
+void NeuronGrowth::CheckVar(const string& fn, const vector<Vertex3D>& cpts, const vector<float>& input) {
+    // Construct the output file name
+    string fname = fn + "_" + to_string(n) + ".vtk";
+    
+    // Open the output file
+    ofstream fout(fname.c_str());
+    if (fout.is_open()) {
+        // Write VTK file header
+        fout << "# vtk DataFile Version 2.0\n";
+        fout << "Square plate test\n";
+        fout << "ASCII\n";
+        fout << "DATASET UNSTRUCTURED_GRID\n";
+        
+        // Write control point coordinates
+        fout << "POINTS " << cpts.size() << " float\n";
+        for (const auto& point : cpts) {
+            fout << point.coor[0] << " " << point.coor[1] << " " << point.coor[2] << "\n";
+        }
+        
+        // Write scalar data associated with points
+        fout << "POINT_DATA " << input.size() << "\n";
+        fout << "SCALARS pact float 1\n";
+        fout << "LOOKUP_TABLE default\n";
+        for (const auto& value : input) {
+            fout << value << "\n";
+        }
+        
+        fout.close(); // Close the file
+    } else {
+        // Print an error message if the file cannot be opened
+        cerr << "Error: Cannot open file " << fname << " for writing.\n";
+    }
 }
 
 void NeuronGrowth::ToPETScVec(vector<float> input, Vec& petscVec)
@@ -594,75 +648,41 @@ void NeuronGrowth::ReadBezierElementProcess(string fn)
 // 	}
 // }
 
-void NeuronGrowth::GaussInfo(int ng)
-{
-	Gpt.clear();
-	wght.clear();
-	switch (ng)
-	{
-		case 2:
-		{
-			Gpt.resize(ng);
-			wght.resize(ng);
-			Gpt[0] = 0.2113248654051871;
-			Gpt[1] = 0.7886751345948129;
-			wght[0] = 1.;
-			wght[1] = 1.;
-			break;
-		}
-		case 3:
-		{
-			Gpt.resize(ng);
-			wght.resize(ng);
-			Gpt[0] = 0.1127016653792583;
-			Gpt[1] = 0.5;
-			Gpt[2] = 0.8872983346207417;
-			wght[0] = 0.5555555555555556;
-			wght[1] = 0.8888888888888889;
-			wght[2] = 0.5555555555555556;
-			break;
-		}
-		case 4:
-		{
-			Gpt.resize(ng);
-			wght.resize(ng);
-			Gpt[0] = 0.06943184420297371;
-			Gpt[1] = 0.33000947820757187;
-			Gpt[2] = 0.6699905217924281;
-			Gpt[3] = 0.9305681557970262;
-			wght[0] = 0.3478548451374539;
-			wght[1] = 0.6521451548625461;
-			wght[2] = 0.6521451548625461;
-			wght[3] = 0.3478548451374539;
-			break;
-		}
-		case 5:
-		{
-			Gpt.resize(ng);
-			wght.resize(ng);
-			Gpt[0] = 0.046910077030668;
-			Gpt[1] = 0.2307653449471585;
-			Gpt[2] = 0.5;
-			Gpt[3] = 0.7692346550528415;
-			Gpt[4] = 0.953089922969332;
-			wght[0] = 0.2369268850561891;
-			wght[1] = 0.4786286704993665;
-			wght[2] = 0.5688888888888889;
-			wght[3] = 0.4786286704993665;
-			wght[4] = 0.2369268850561891;
-			break;
-		}
-		default:
-		{
-			Gpt.resize(2);
-			wght.resize(2);
-			Gpt[0] = 0.2113248654051871;
-			Gpt[1] = 0.7886751345948129;
-			wght[0] = 1.;
-			wght[1] = 1.;
-			break;
-		}
-	}
+void NeuronGrowth::GaussInfo(int ng) {
+    // Clear existing data
+    Gpt.clear();
+    wght.clear();
+
+    // Resize vectors based on the number of Gauss points
+    Gpt.resize(ng);
+    wght.resize(ng);
+
+    switch (ng) {
+        case 2:
+            Gpt = {0.2113248654051871, 0.7886751345948129};
+            wght = {1.0, 1.0};
+            break;
+
+        case 3:
+            Gpt = {0.1127016653792583, 0.5, 0.8872983346207417};
+            wght = {0.5555555555555556, 0.8888888888888889, 0.5555555555555556};
+            break;
+
+        case 4:
+            Gpt = {0.06943184420297371, 0.33000947820757187, 0.6699905217924281, 0.9305681557970262};
+            wght = {0.3478548451374539, 0.6521451548625461, 0.6521451548625461, 0.3478548451374539};
+            break;
+
+        case 5:
+            Gpt = {0.046910077030668, 0.2307653449471585, 0.5, 0.7692346550528415, 0.953089922969332};
+            wght = {0.2369268850561891, 0.4786286704993665, 0.5688888888888889, 0.4786286704993665, 0.2369268850561891};
+            break;
+
+        default: // Fallback to 2 Gauss points
+            Gpt = {0.2113248654051871, 0.7886751345948129};
+            wght = {1.0, 1.0};
+            break;
+    }
 }
 
 void NeuronGrowth::BasisFunction(float u, float v, float w, const vector<array<float, 3>>& pt, const vector<array<float, 64>> &cmat, vector<float> &Nx, vector<array<float, 3>> &dNdx, float dudx[3][3], float& detJ)
@@ -891,7 +911,7 @@ void NeuronGrowth::VisualizeVTK_ControlMesh(const vector<Vertex3D> &spt, const v
 {
 	string fname;
 	stringstream ss;
-	ss << std::setw(6) << std::setfill('0') << step;
+	ss << setw(6) << setfill('0') << step;
 	ofstream fout;
 	unsigned int i;
 	fname = fn + "/controlmesh_" + varName + ss.str() + ".vtk";
@@ -1973,7 +1993,7 @@ void NeuronGrowth::EvaluateOrientation(const int nen, const vector<float> &Nx, c
 			tmp = epsilonb * (1 - 3 * delta) + epsilonb * 4 * delta * dP4 / (md4 + stable);
 
 			if ((isnan(tmp) == 1) || (abs(tmp) > 10)) {
-				std::cout << "nan 1: " << tmp << std::endl;
+				cout << "nan 1: " << tmp << endl;
 				tmp = 0;
 			}
 			eleAniso += tmp;
@@ -1983,7 +2003,7 @@ void NeuronGrowth::EvaluateOrientation(const int nen, const vector<float> &Nx, c
 			tmp = epsilonb * 4 * delta * ( (4 * dPdx3) / (pow(C2x + dPdx2, 2) + stable)
 				- (4 * dPdx1 * (C1x + dPdx4)) / (pow((C2x + dPdx2), 3) + stable) );
 			if ((isnan(tmp) == 1) || (abs(tmp) > 10)) {
-				std::cout << "nan 2: " << tmp << std::endl;
+				cout << "nan 2: " << tmp << endl;
 				tmp = 0;
 			}
 			dA_dPdx += tmp;
@@ -1993,7 +2013,7 @@ void NeuronGrowth::EvaluateOrientation(const int nen, const vector<float> &Nx, c
 			tmp =  epsilonb * 4 * delta * ( (4 * dPdy3) / (pow(C2y + dPdy2, 2) + stable)
 				- (4 * dPdy1 * (C1y + dPdy4)) / (pow((C2y + dPdy2), 3) + stable) );
 			if ((isnan(tmp) == 1) || (abs(tmp) > 10)) {
-				std::cout << "nan 3: " << tmp << std::endl;
+				cout << "nan 3: " << tmp << endl;
 				tmp = 0;
 			}
 			dA_dPdy += tmp;
@@ -2003,7 +2023,7 @@ void NeuronGrowth::EvaluateOrientation(const int nen, const vector<float> &Nx, c
 			tmp =  epsilonb * 4 * delta * ( (4 * dPdz3) / (pow(C2z + dPdz2, 2) + stable)
 				- (4 * dPdz1 * (C1z + dPdz4)) / (pow((C2z + dPdz2), 3) + stable) );
 			if ((isnan(tmp) == 1) || (abs(tmp) > 10)) {
-				std::cout << "nan 4: " << tmp << std::endl;
+				cout << "nan 4: " << tmp << endl;
 				tmp = 0;
 			}
 			dA_dPdz += tmp;
@@ -2011,27 +2031,6 @@ void NeuronGrowth::EvaluateOrientation(const int nen, const vector<float> &Nx, c
 	}
 }
 
-/**
- * @brief Evaluates the orientation of elements in a spherical coordinate system.
- *
- * This function computes the orientation of neuron growth elements based on their polar and azimuthal angles,
- * as well as their contribution to the overall orientation energy of the system, represented by `eleEpsilon`.
- * The gradients of the energy with respect to polar and azimuthal angles are also calculated to understand
- * the directional sensitivity of the growth process.
- *
- * @param nen The number of elements to evaluate.
- * @param Nx A vector of shape functions evaluated at the current point.
- * @param dNdx A vector of shape function derivatives with respect to the x, y, and z coordinates.
- * @param elePhi A vector containing the values of the field variable phi for each element.
- * @param elePolar A vector containing the polar angles for each element.
- * @param eleAzimuth A vector containing the azimuthal angles for each element.
- * @param eleEpsilon Reference to a float where the calculated orientation energy will be stored.
- * @param dEdp Reference to a float where the gradient of the energy with respect to the polar angle will be stored.
- * @param dEda Reference to a float where the gradient of the energy with respect to the azimuthal angle will be stored.
- *
- * @note The function modifies `eleEpsilon`, `dEdp`, and `dEda` in place to accumulate the orientation energy and its gradients.
- * @note The variable `delta` is assumed to be a predefined constant within the class or global scope, affecting the calculation.
- */
 void NeuronGrowth::EvaluateOrientationSpherical(const int nen, const vector<float> &Nx, const vector<array<float, 3>> &dNdx, const vector<float> elePhi, const vector<float> elePolar, const vector<float> eleAzimuth, float& eleEpsilon, float dEdp, float dEda)
 {
 	for (int i = 0; i < nen; i++) {
@@ -2051,31 +2050,6 @@ void NeuronGrowth::EvaluateOrientationSpherical(const int nen, const vector<floa
 	}
 }
 
-/**
- * Calculate the sum of the gradient squared of Phi0 across the neuron growth model's Bézier mesh.
- *
- * This function iterates over each element in the neuron growth model's process-specific Bézier mesh,
- * computing the gradient of Phi0 at each element and accumulating the sum of the squares of these gradients.
- * The calculation involves evaluating the basis functions at Gaussian points to compute gradients
- * with respect to the mesh's local coordinates. This sum provides insight into the variation of Phi0
- * across the mesh, which is useful for understanding the growth dynamics in the neuron growth model.
- *
- * @param cpts A constant reference to a vector of Vertex3D objects representing control points in the mesh.
- *             This parameter is not directly used in the function but is part of the function signature for
- *             potential use in extended implementations or overrides.
- *
- * Process:
- * 1. Iterate over each element in the Bézier mesh.
- * 2. For each element, prepare a vector of Phi0 values corresponding to the element's control points.
- * 3. Iterate through a set of Gaussian points to calculate the determinant of the Jacobian (detJ) and gradients of Phi0.
- * 4. For each Gaussian point, calculate the gradients (dP0dx, dP0dy, dP0dz) using the basis function derivatives.
- * 5. Accumulate the sum of the squares of the gradients for all elements in the mesh.
- *
- * Note:
- * - The function uses Gaussian quadrature for integration over each element's domain to compute gradients.
- * - The BasisFunction and ElementDeriv functions are used to compute basis function values and gradients, respectively.
- * - The function updates the member variable `sum_grad_phi0_local` with the accumulated sum of gradient squares.
- */
 void NeuronGrowth::CalculateSumGradPhi0(const vector<Vertex3D>& cpts) {
 	// Iterate over each element in the process-specific Bézier mesh
 	for (int e = 0; e < bzmesh_process.size(); e++) {
@@ -2110,33 +2084,6 @@ void NeuronGrowth::CalculateSumGradPhi0(const vector<Vertex3D>& cpts) {
 	}
 }
 
-/**
- * Builds the linear system for synaptic and tubulin dynamics within each process of the neuron growth model.
- *
- * This function constructs and assembles the linear systems for synaptic transmission (syn) and tubulin (tub)
- * concentration dynamics across the neuron mesh. It utilizes a detailed computational model to simulate
- * the complex interactions and growth processes of neurons, focusing on two key aspects: the synaptic
- * strength (syn) and tubulin concentration (tub), which are crucial for neural connectivity and structure formation.
- *
- * @param cpts The control points (vertices) of the neuron mesh, encapsulating the spatial structure of the neuron.
- *
- * Key steps involved:
- * 1. Iterates over each element (bezier mesh patch) in the process-specific neuron mesh.
- * 2. Initializes and clears matrices and vectors for solving syn and tub dynamics.
- * 3. Resizes solution matrices and vectors based on the number of element nodes (nen).
- * 4. Sets up elemental values (eleVal_st) for cell boundary conditions, synaptic strength, and tubulin concentration.
- * 5. Iterates through Gaussian points (Gpt) to evaluate elemental contributions to the solution vectors and matrices.
- * 6. Applies boundary conditions for syn and tub dynamics based on the neuron domain boundaries and cell properties.
- * 7. Assembles the global residual vectors and stiffness matrices for syn and tub dynamics.
- * 8. Finalizes the assembly of global vectors and matrices for incorporation into the broader neuron growth model.
- *
- * The function leverages adaptive computational techniques to efficiently simulate the distribution and evolution
- * of synaptogenesis and tubulin concentrations, contributing to the overall understanding of neuron development
- * and neurodevelopmental disorders.
- *
- * Note: The function assumes access to global variables and methods for matrix and vector operations, boundary condition
- * application, and element evaluation specific to synaptic and tubulin dynamics.
- */
 void NeuronGrowth::BuildLinearSystemProcessNG_syn_tub(const vector<Vertex3D> &cpts)
 {
 	/*Build linear system in each process*/
@@ -2246,7 +2193,7 @@ void NeuronGrowth::BuildLinearSystemProcessNG_syn_tub(const vector<Vertex3D> &cp
 	MatAssemblyBegin(GK_tub, MAT_FINAL_ASSEMBLY);
 }
 
-int NeuronGrowth::CheckExpansion3D(vector<float> input, const std::vector<Vertex3D>& cpts, int NX, int NY, int NZ, int originX, int originY, int originZ) 
+int NeuronGrowth::CheckExpansion3D(vector<float> input, const vector<Vertex3D>& cpts, int NX, int NY, int NZ, int originX, int originY, int originZ) 
 {
 	float bc_clearance = 5;
 	for (int i = 0; i < cpts.size(); i++) {
@@ -2301,7 +2248,7 @@ int NeuronGrowth::CheckExpansion3D(vector<float> input, const std::vector<Vertex
 // 					ind += 1;
 // 				}
 // 			}
-// 			// std::cout << "Expanding left!" << std::endl;
+// 			// cout << "Expanding left!" << endl;
 // 			break;
 // 		case 1: // top
 // 			ind = 0;
@@ -2311,7 +2258,7 @@ int NeuronGrowth::CheckExpansion3D(vector<float> input, const std::vector<Vertex
 // 					ind += 1;
 // 				}
 // 			}
-// 			// std::cout << "Expanding top!" << std::endl;
+// 			// cout << "Expanding top!" << endl;
 // 			break;
 // 		case 2: // right
 // 			ind = 0;
@@ -2321,7 +2268,7 @@ int NeuronGrowth::CheckExpansion3D(vector<float> input, const std::vector<Vertex
 // 					ind += 1;
 // 				}
 // 			}
-// 			// std::cout << "Expanding right!" << std::endl;
+// 			// cout << "Expanding right!" << endl;
 // 			break;
 // 		case 3: // bottom
 // 			ind = 0;
@@ -2331,7 +2278,7 @@ int NeuronGrowth::CheckExpansion3D(vector<float> input, const std::vector<Vertex
 // 					ind += 1;
 // 				}
 // 			}
-// 			// std::cout << "Expanding bottom!" << std::endl;
+// 			// cout << "Expanding bottom!" << endl;
 // 			break;
 // 		case 4: // all direction
 // 			ind = 0;
@@ -2341,7 +2288,7 @@ int NeuronGrowth::CheckExpansion3D(vector<float> input, const std::vector<Vertex
 // 					ind += 1;
 // 				}
 // 			}
-// 			// std::cout << "Expanding all direction!" << std::endl;
+// 			// cout << "Expanding all direction!" << endl;
 // 			break;
 // 	}
 // 	// input.swap(expd_var);
@@ -2366,7 +2313,7 @@ int NeuronGrowth::CheckExpansion3D(vector<float> input, const std::vector<Vertex
 // 					ind += 1;
 // 				}
 // 			}
-// 			// std::cout << "Expanding left!" << std::endl;
+// 			// cout << "Expanding left!" << endl;
 // 			break;
 // 		case 1: // top
 // 			ind = 0;
@@ -2376,7 +2323,7 @@ int NeuronGrowth::CheckExpansion3D(vector<float> input, const std::vector<Vertex
 // 					ind += 1;
 // 				}
 // 			}
-// 			// std::cout << "Expanding top!" << std::endl;
+// 			// cout << "Expanding top!" << endl;
 // 			break;
 // 		case 2: // right
 // 			ind = 0;
@@ -2386,7 +2333,7 @@ int NeuronGrowth::CheckExpansion3D(vector<float> input, const std::vector<Vertex
 // 					ind += 1;
 // 				}
 // 			}
-// 			// std::cout << "Expanding right!" << std::endl;
+// 			// cout << "Expanding right!" << endl;
 // 			break;
 // 		case 3: // bottom
 // 			ind = 0;
@@ -2396,73 +2343,72 @@ int NeuronGrowth::CheckExpansion3D(vector<float> input, const std::vector<Vertex
 // 					ind += 1;
 // 				}
 // 			}
-// 			// std::cout << "Expanding bottom!" << std::endl;
+// 			// cout << "Expanding bottom!" << endl;
 // 			break;
 // 	}
 // }
 
-// Populates vector elements with random values if they are zero
-void NeuronGrowth::PopulateRandom(std::vector<float> &input) {
-	std::for_each(input.begin(), input.end(), [](float &value) {
-		if (value == 0) {
-			value = static_cast<float>(rand() % 100) / 100.0f; // Random float between 0 and 1
-		}
-	});
+void NeuronGrowth::PopulateRandom(vector<float> &input) {
+    for_each(input.begin(), input.end(), [](float &value) {
+        if (value == 0.0f) {
+            // Generate a random float between 0 and 1
+            value = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+        }
+    });
 }
 
-// Removes outliers from the data vector based on standard deviation and returns the adjusted threshold
-float NeuronGrowth::RmOutlier(std::vector<float> &data) {
-	float sum = std::accumulate(data.begin(), data.end(), 0.0f);
-	float mean = sum / data.size();
+bool NeuronGrowth::KD_SearchPair(const vector<Vertex3D>& cpts, 
+                                 const KDTree& kdTree, 
+                                 float targetX, float targetY, float targetZ, 
+                                 int& ind) {
+    const float query_pt[3] = {targetX, targetY, targetZ};
+    size_t closestIndex;
+    float out_dist_sqr;
+    nanoflann::KNNResultSet<float> resultSet(1);
+    resultSet.init(&closestIndex, &out_dist_sqr);
 
-	float sq_sum = std::inner_product(data.begin(), data.end(), data.begin(), 0.0,
-										[](float acc, float val) { return acc + val; },
-										[mean](float a, float b) { return std::pow(a - mean, 2) + b; });
-	float standardDeviation = std::sqrt(sq_sum / data.size());
+    // Perform the nearest-neighbor search
+    kdTree.findNeighbors(resultSet, query_pt, nanoflann::SearchParameters(0));
 
-	float threshold = mean + 3 * standardDeviation;
-	// Clamp values exceeding threshold to threshold
-	std::transform(data.begin(), data.end(), data.begin(), [threshold](float value) {
-		return std::min(value, threshold);
-	});
+    float x = cpts[closestIndex].coor[0];
+    float y = cpts[closestIndex].coor[1];
+    float z = cpts[closestIndex].coor[2];
 
-	return mean + 2 * standardDeviation;
+    // Check if the closest point is within the acceptable distance
+    if (max({abs(x - targetX), abs(y - targetY), abs(z - targetZ)}) <= 1) {
+        ind = static_cast<int>(closestIndex);
+        return true; // Found a valid neighbor
+    } else {
+        return false; // Neighbor is too far or invalid
+    }
 }
 
-// Determines if a cell's value exceeds a given threshold and returns 1.0f if true, else 0.0f
+float NeuronGrowth::RmOutlier(vector<float> &data) {
+    // Calculate the mean of the data
+    float sum = accumulate(data.begin(), data.end(), 0.0f);
+    float mean = sum / data.size();
+
+    // Calculate the standard deviation
+    float sq_sum = inner_product(data.begin(), data.end(), data.begin(), 0.0f,
+                                 [](float acc, float val) { return acc + val; },
+                                 [mean](float a, float b) { return pow(a - mean, 2) + b; });
+    float standardDeviation = sqrt(sq_sum / data.size());
+
+    // Define the threshold as mean + 3 * standard deviation
+    float threshold = mean + 3 * standardDeviation;
+
+    // Clamp values that exceed the threshold to the threshold value
+    transform(data.begin(), data.end(), data.begin(), [threshold](float value) {
+        return min(value, threshold);
+    });
+
+    // Return an adjusted threshold for potential further use
+    return mean + 2 * standardDeviation;
+}
+
 float NeuronGrowth::CellBoundary(float phi, float threshold) {
-	return phi > threshold ? 1.0f : 0.0f;
+    return (phi > threshold) ? 1.0f : 0.0f;
 }
-
-// // Function to apply a simple smoothing operation to a 2D binary variable
-// std::vector<float> NeuronGrowth::SmoothBinary2D(const std::vector<float>& binaryData, int rows, int cols) {
-// 	// Create a new vector to store the smoothed data
-// 	std::vector<float> smoothedData(rows * cols, 0.0f);
-
-// 	// Define a 5x5 smoothing kernel
-// 	const std::vector<float> kernel = {
-// 		1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-// 		1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-// 		1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-// 		1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-// 	1.0f, 1.0f, 1.0f, 1.0f, 1.0f
-// 	};
-
-// 	// Apply the smoothing operation using the defined kernel
-// 	for (int i = 2; i < rows - 2; ++i) {
-// 		for (int j = 2; j < cols - 2; ++j) {
-// 			float sum = 0.0f;
-// 			for (int k = -2; k <= 2; ++k) {
-// 				for (int l = -2; l <= 2; ++l) {
-// 					sum += binaryData[(i + k) * cols + (j + l)] * kernel[(k + 2) * 5 + (l + 2)];
-// 				}
-// 			}
-// 			smoothedData[i * cols + j] = (sum > 12.0f) ? 1.0f : 0.0f; // Apply threshold to convert sum to binary value
-// 		}
-// 	}
-
-// 	return smoothedData;
-// }
 
 // void NeuronGrowth::DetectTipsMulti3D(vector<float> id, int numNeuron, vector<float> &tips, int NX, int NY, int NZ)
 // {
@@ -2494,7 +2440,7 @@ float NeuronGrowth::CellBoundary(float phi, float threshold) {
 // 				tips[i] = CellBoundary(phi[i], 0) / tips[i];
 
 // 			// Handle NaN cases
-// 			if (std::isnan(tips[i]))
+// 			if (isnan(tips[i]))
 // 				tips[i] = 0;
 
 // 			// Update maxVal
@@ -2513,122 +2459,162 @@ float NeuronGrowth::CellBoundary(float phi, float threshold) {
 // 	}
 // }
 
-// Check if point coordinates are within the bounds defined by center and dx dy dz
 bool NeuronGrowth::isInBox(const Vertex3D& point, const Vertex3D& center, float dx, float dy, float dz) {
-	return point.coor[0] >= (center.coor[0] - dx/2) && point.coor[0] <= (center.coor[0] + dx/2) &&
-		point.coor[1] >= (center.coor[1] - dy/2) && point.coor[1] <= (center.coor[1] + dy/2) &&
-		point.coor[2] >= (center.coor[2] - dz/2) && point.coor[2] <= (center.coor[2] + dz/2);
+    if (point.coor[0] < (center.coor[0] - dx/2) || point.coor[0] > (center.coor[0] + dx/2)) return false;
+    if (point.coor[1] < (center.coor[1] - dy/2) || point.coor[1] > (center.coor[1] + dy/2)) return false;
+    if (point.coor[2] < (center.coor[2] - dz/2) || point.coor[2] > (center.coor[2] + dz/2)) return false;
+    return true;
 }
 
-/**
- * Calculates the sum of phi values around each vertex in a given set, applying
- * a threshold to identify significant points, potentially indicating neuron growth tips.
- * 
- * This function iterates over a collection of vertices (`cpts`), summing the phi values
- * within a defined vicinity around each vertex. The vicinity is determined by the `dx`, `dy`, and `dz`
- * parameters, which define the dimensions of a box centered on each vertex. Points within
- * this box contribute to the sum. After calculating the sums, the function applies a threshold
- * to these values, normalizing them against the highest value found. Points with summed values
- * above this threshold are marked as potential growth tips by setting their corresponding value
- * in the output vector to 1; all others are set to 0.
- * 
- * @param cpts A vector of Vertex3D objects representing the neuron's vertices.
- * @param dx The delta in the x-direction to define the vicinity around a point.
- * @param dy The delta in the y-direction to define the vicinity around a point.
- * @param dz The delta in the z-direction to define the vicinity around a point.
- * @return std::vector<float> A vector of the same size as `cpts`, where each element is either 0
- *         (indicating the corresponding vertex is not a tip) or 1 (indicating a potential tip),
- *         based on the thresholding of summed phi values.
- * 
- * Note: The function assumes that `phi` is a pre-defined vector accessible within the class
- *       that contains phi values corresponding to each Vertex3D in `cpts`. The function
- *       `isInBox` checks whether a point is within the specified vicinity of another,
- *       and `CellBoundary` computes a boundary-related value for a given phi, with
- *       the second argument presumably allowing for further customization.
- */
-void NeuronGrowth::calculatePhiSum(const std::vector<Vertex3D>& cpts, float dx, float dy, float dz) {
-	// std::vector<float> tips(cpts.size(), 0); // Initialize the result vector with zeros
-	tips.clear(); tips.resize(cpts.size());
-	float threshold = 0.95; // Threshold for filtering tips
-	float maxVal = 0; // Track the maximum value of tips for normalization
+// void NeuronGrowth::calculatePhiSum(const vector<Vertex3D>& cpts, float dx, float dy, float dz) {
+// 	// vector<float> tips(cpts.size(), 0); // Initialize the result vector with zeros
+// 	tips.clear(); tips.resize(cpts.size());
+// 	// float threshold = 0.95; // Threshold for filtering tips
+// 	float threshold = 0.9; // Threshold for filtering tips
+// 	float maxVal = 0; // Track the maximum value of tips for normalization
 
-	// Iterate over each center point
-	for (int i = 0; i < cpts.size(); ++i) {
-		const auto& center = cpts[i];
+// 	// Iterate over each center point
+// 	for (int i = 0; i < cpts.size(); ++i) {
+// 		const auto& center = cpts[i];
 
-		tips[i] = 0;
+// 		tips[i] = 0;
 
-		// Sum phi values for points within the box centered at 'center'
-		for (int j = 0; j < phi.size(); ++j) {
-			if (isInBox(cpts[j], center, dx, dy, dz)) {
-				tips[i] += CellBoundary(phi[j], 0.5) * distI[j];
-				// tips[i] += CellBoundary(phi[j], 0.5);
-			}
-		}
+// 		// Sum phi values for points within the box centered at 'center'
+// 		for (int j = 0; j < phi.size(); ++j) {
+// 			if (isInBox(cpts[j], center, dx, dy, dz)) {
+// 				tips[i] += CellBoundary(phi[j], 0.5) * distI[j];
+// 				// tips[i] += CellBoundary(phi[j], 0.5);
+// 			}
+// 		}
 
-		tips[i] = CellBoundary(phi[i], 0.5) / tips[i] * CellBoundary(phi[i], 0.5);
-		// Handle NaN cases, ensuring a valid tips value
-		if (std::isnan(tips[i])) {
-			tips[i] = 0;
-		}
+// 		tips[i] = CellBoundary(phi[i], 0.5) / tips[i] * CellBoundary(phi[i], 0.5);
+// 		// Handle NaN cases, ensuring a valid tips value
+// 		if (isnan(tips[i])) {
+// 			tips[i] = 0;
+// 		}
 		
-		if ((center.coor[0] <= min_x+1) || (center.coor[0] >= max_x-1) 
-			|| (center.coor[1] <= min_y+1) || (center.coor[1] >= max_y-1) 
-			|| (center.coor[2] <= min_z+1) || (center.coor[2] >= max_z-1)) {
-			tips[i] = 0;
-		}
+// 		if ((center.coor[0] <= min_x+1) || (center.coor[0] >= max_x-1) 
+// 			|| (center.coor[1] <= min_y+1) || (center.coor[1] >= max_y-1) 
+// 			|| (center.coor[2] <= min_z+1) || (center.coor[2] >= max_z-1)) {
+// 			tips[i] = 0;
+// 		}
 
-		// Update maxVal to the highest tips value found
-		if (CellBoundary(phi[i], 0.5) > 0)
-		maxVal = max(tips[i], maxVal);
-	}
+// 		// cout << phi[i] << endl;
+// 		// Update maxVal to the highest tips value found
+// 		if (CellBoundary(phi[i], 0.5) > 0)
+// 			maxVal = max(tips[i], maxVal);
+// 	}
 
-	// for (int i = 0; i < tips.size(); ++i) {
-	// 	if (tips[i] > (0.99 * maxVal)) {
-	// 		tips[i] = 0; // Set tips below threshold to 0
-	// 	}
-	// }
+// 	// for (int i = 0; i < tips.size(); ++i) {
+// 	// 	if (tips[i] > (0.99 * maxVal)) {
+// 	// 		tips[i] = 0; // Set tips below threshold to 0
+// 	// 	}
+// 	// }
 
-	// maxVal = 0;
-	// for (int i = 0; i < tips.size(); ++i) {
-	// 	maxVal = max(tips[i], maxVal);
-	// }
+// 	// maxVal = 0;
+// 	// for (int i = 0; i < tips.size(); ++i) {
+// 	// 	maxVal = max(tips[i], maxVal);
+// 	// }
 
-	CheckVar("../io3D/outputs/TIP_", cpts, tips);
-	CheckVar("../io3D/outputs/PHI_", cpts, phi);
+// 	CheckVar("../io3D/outputs/TIP_", cpts, tips);
+// 	CheckVar("../io3D/outputs/PHI_", cpts, phi);
 
-	// Thresholding and setting tips values based on the maximum value found
-	for (int i = 0; i < tips.size(); ++i) {
-		if (tips[i] > (threshold * maxVal)) {
-		// if (tips[i] > (0.018)) {
-			tips[i] = 1; // Set tips below threshold to 0
-		} else {
-			tips[i] = 0; // Set tips above threshold to 1
-		}
+// 	// cout << maxVal << endl;
+	
+// 	// Thresholding and setting tips values based on the maximum value found
+// 	for (int i = 0; i < tips.size(); ++i) {
+// 		if (tips[i] > (threshold * maxVal)) {
+// 		// if (tips[i] > (0.018)) {
+// 			tips[i] = 1; // Set tips below threshold to 0
+// 		} else {
+// 			tips[i] = 0; // Set tips above threshold to 1
+// 		}
+// 		// tips[i] = 1; // Set tips below threshold to 0
+
 		
-		// if ((cpts[i].coor[0] >= 9) && (cpts[i].coor[0] <= 11)
-		// 	&& (cpts[i].coor[1] >= 9) && (cpts[i].coor[1] <= 11)) {
-		// 	tips[i] = 1;
-		// } else {
-		// 	tips[i] = 0;
-		// }
+// 		// if ((cpts[i].coor[0] >= 9) && (cpts[i].coor[0] <= 11)
+// 		// 	&& (cpts[i].coor[1] >= 9) && (cpts[i].coor[1] <= 11)) {
+// 		// 	tips[i] = 1;
+// 		// } else {
+// 		// 	tips[i] = 0;
+// 		// }
 
-	}
+// 	}
 
-	// // Thresholding and setting tips values based on the maximum value found
-	// for (int i = 0; i < tips.size(); ++i) {
-	// 	if (tips[i] == 1) {
-	// 		for (int j = 0; j < tips.size(); ++i) {
-	// 			if (isInBox(cpts[j], center, dx, dy, dz)) {
-	// 				tips[i] += CellBoundary(phi[j], 0.5);
-	// 			}
-	// 		}
-	// 	}
-	// }
+// 	// // Thresholding and setting tips values based on the maximum value found
+// 	// for (int i = 0; i < tips.size(); ++i) {
+// 	// 	if (tips[i] == 1) {
+// 	// 		for (int j = 0; j < tips.size(); ++i) {
+// 	// 			if (isInBox(cpts[j], center, dx, dy, dz)) {
+// 	// 				tips[i] += CellBoundary(phi[j], 0.5);
+// 	// 			}
+// 	// 		}
+// 	// 	}
+// 	// }
 
-	// return tips; // Return the processed tips vector
+// 	// return tips; // Return the processed tips vector
+// }
+void NeuronGrowth::calculatePhiSum(const vector<Vertex3D>& cpts, 
+                                     float dx, float dy, float dz, 
+                                     const KDTree& kdTree) {
+
+	// CheckAndPrintThresholdExceedance(phi, 0.8);
+
+    tips.clear();
+    tips.resize(cpts.size(), 0);
+
+    float threshold = 0.95;  // Threshold for tip detection
+    float maxTipValue = 0;  // Track the maximum tip value for normalization
+
+    // Precompute CellBoundary(phi[j], 0.5) for all j to avoid redundant calculations
+    vector<float> phiTransformed(phi.size());
+    for (size_t j = 0; j < phi.size(); ++j) {
+        phiTransformed[j] = CellBoundary(phi[j], 0.5);
+    }
+
+    // Iterate over each vertex to compute tip scores
+    for (size_t i = 0; i < cpts.size(); ++i) {
+        const auto& center = cpts[i];
+
+        // Sum phi values for points within the vicinity
+        float localSum = 0;
+        for (size_t j = 0; j < phi.size(); ++j) {
+            int neighborIdx;
+            if (KD_SearchPair(cpts, kdTree, center.coor[0], center.coor[1], center.coor[2], neighborIdx)) {
+                localSum += phiTransformed[neighborIdx] * distI[neighborIdx];
+            }
+        }
+
+        // Compute the tip value for the current vertex
+        if (localSum > 0) {
+            tips[i] = phiTransformed[i] / localSum * phiTransformed[i];
+        } else {
+            tips[i] = 0;  // Avoid division by zero
+        }
+
+		// cout << center.coor[0] << " "  << min_x << " " << dx << " " << endl;
+        // // Suppress tips near boundaries
+        // if ((center.coor[0] <= min_x + 1) || (center.coor[0] >= max_x - 1) ||
+        //     (center.coor[1] <= min_y + 1) || (center.coor[1] >= max_y - 1) ||
+        //     (center.coor[2] <= min_z + 1) || (center.coor[2] >= max_z - 1)) {
+        //     tips[i] = 0;
+        // }
+
+        // Update the maximum tip value for normalization
+        maxTipValue = max(maxTipValue, tips[i]);
+    }
+
+    // Thresholding and normalization
+    for (size_t i = 0; i < tips.size(); ++i) {
+        tips[i] = (tips[i] > threshold * maxTipValue) ? 1 : 0;
+    }
+
+	// CheckAndPrintThresholdExceedance(tips, 0.5);
+
+    // // Debugging and visualization
+    // CheckVar("../io3D/outputs/TIP_", cpts, tips);
+    // CheckVar("../io3D/outputs/PHI_", cpts, phi);
 }
-
 
 // Function to interpolate values for a new mesh based on coordinates
 vector<float> NeuronGrowth::InterpolateValues3D(const vector<Vertex3D>& cpts_initial, const vector<float>& input,
@@ -2637,7 +2623,7 @@ vector<float> NeuronGrowth::InterpolateValues3D(const vector<Vertex3D>& cpts_ini
 	output.resize(cpts_new.size());
 
 	for (int i = 0; i < cpts_new.size(); i++) {
-		// std::cout << i << std::endl;
+		// cout << i << endl;
 		float x = cpts_new[i].coor[0];
 		float y = cpts_new[i].coor[1];
 		float z = cpts_new[i].coor[2];
@@ -2646,7 +2632,7 @@ vector<float> NeuronGrowth::InterpolateValues3D(const vector<Vertex3D>& cpts_ini
 		if (SearchVertex(cpts_initial, x, y, z, ind)) {
 			// Exact match found, no need for interpolation
 			output[i] = input[ind];
-			// std::cout << ind << " ";
+			// cout << ind << " ";
 		} 
 		else {
 			// int numNeighbor = 0;
@@ -2687,75 +2673,45 @@ vector<float> NeuronGrowth::InterpolateValues3D(const vector<Vertex3D>& cpts_ini
 			// Interpolate along the z dimension
 			output[i] = Lerp(interpY1, interpY2, (z - z1));
 
-			// std::cout << ind << " ";
+			// cout << ind << " ";
 		}
 	}
 	return output;
 }
 
-// Function to calculate the squared distance between two vertices
-// Using squared distance to avoid the computational cost of the square root
-float SquaredDistance(const Vertex3D& first, const Vertex3D& other) {
-	return (first.coor[0] - other.coor[0]) * (first.coor[0] - other.coor[0]) + 
-		(first.coor[1] - other.coor[1]) * (first.coor[1] - other.coor[1]) + 
-		(first.coor[2] - other.coor[2]) * (first.coor[2] - other.coor[2]);
-}
-
-/**
- * Finds and returns the k closest vertices to a specified input vertex from a list of vertices, including their indices.
- * This function is useful for identifying nearby vertices in a mesh or point cloud, which can be essential for 
- * applications requiring spatial analysis or nearest neighbor searches, such as mesh refinement, topology optimization,
- * or even in simulations of physical phenomena like neuron growth.
- *
- * The function uses a priority queue to efficiently manage and sort distances between the input vertex and each vertex
- * in the list. It ensures that only the k closest vertices (based on squared Euclidean distance) are retained and
- * returned in ascending order of distance.
- *
- * @param vertices A vector of Vertex3D objects representing the list of vertices to search through.
- * @param inputVertex The Vertex3D object for which the k closest vertices are to be found.
- * @param k The number of closest vertices to find. If k is larger than the number of available vertices, all vertices
- *          are returned sorted by proximity to the inputVertex.
- *
- * @return A vector of pairs, each containing a Vertex3D object (one of the k closest vertices) and its corresponding
- *         index in the original 'vertices' vector. The pairs are sorted by increasing distance from the inputVertex.
- *
- * @note The function assumes 'Vertex3D' is a class or struct that represents a 3D point with accessible coordinates.
- *       The 'SquaredDistance' function used for comparison must be defined elsewhere, calculating the squared
- *       Euclidean distance between two Vertex3D objects.
- */
-std::vector<std::pair<Vertex3D, int>> NeuronGrowth::FindClosestVerticesWithIndices(const std::vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k) {
+vector<pair<Vertex3D, int>> NeuronGrowth::FindClosestVerticesWithIndices(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k) {
 	// Custom comparator that prioritizes larger squared distances and considers the vertex index
-	auto comp = [&inputVertex](const std::pair<Vertex3D, int>& a, const std::pair<Vertex3D, int>& b) {
+	auto comp = [&inputVertex](const pair<Vertex3D, int>& a, const pair<Vertex3D, int>& b) {
 		return SquaredDistance(inputVertex, a.first) < SquaredDistance(inputVertex, b.first);
 	};
 
 	// Initialize the priority queue with the custom comparator
-	std::priority_queue<std::pair<Vertex3D, int>, std::vector<std::pair<Vertex3D, int>>, decltype(comp)> pq(comp);
+	priority_queue<pair<Vertex3D, int>, vector<pair<Vertex3D, int>>, decltype(comp)> pq(comp);
 
 	for (int i = 0; i < vertices.size(); ++i) {
 		pq.emplace(vertices[i], i);
 		if (pq.size() > k) pq.pop(); // Remove the vertex with the largest distance
 	}
 
-	std::vector<std::pair<Vertex3D, int>> closestVertices;
+	vector<pair<Vertex3D, int>> closestVertices;
 	while (!pq.empty()) {
 		closestVertices.push_back(pq.top()); // Collect the closest vertices and their indices
 		pq.pop();
 	}
 	// Reverse to correct the order from farthest of the closest to nearest
-	std::reverse(closestVertices.begin(), closestVertices.end());
+	reverse(closestVertices.begin(), closestVertices.end());
 
 	return closestVertices;
 }
 
-std::vector<std::tuple<Vertex3D, int, float>> NeuronGrowth::FindClosestVerticesWithIndicesAndDistances(const std::vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k) {
+vector<tuple<Vertex3D, int, float>> NeuronGrowth::FindClosestVerticesWithIndicesAndDistances(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k) {
 	// Custom comparator that prioritizes larger squared distances and considers the vertex index
-	auto comp = [&inputVertex](const std::tuple<Vertex3D, int, float>& a, const std::tuple<Vertex3D, int, float>& b) {
-		return std::get<2>(a) < std::get<2>(b); // Compare based on squared distance
+	auto comp = [&inputVertex](const tuple<Vertex3D, int, float>& a, const tuple<Vertex3D, int, float>& b) {
+		return get<2>(a) < get<2>(b); // Compare based on squared distance
 	};
 
 	// Initialize the priority queue with the custom comparator
-	std::priority_queue<std::tuple<Vertex3D, int, float>, std::vector<std::tuple<Vertex3D, int, float>>, decltype(comp)> pq(comp);
+	priority_queue<tuple<Vertex3D, int, float>, vector<tuple<Vertex3D, int, float>>, decltype(comp)> pq(comp);
 
 	for (int i = 0; i < vertices.size(); ++i) {
 		float distance = SquaredDistance(inputVertex, vertices[i]);
@@ -2763,13 +2719,13 @@ std::vector<std::tuple<Vertex3D, int, float>> NeuronGrowth::FindClosestVerticesW
 		if (pq.size() > k) pq.pop(); // Remove the vertex with the largest distance
 	}
 
-	std::vector<std::tuple<Vertex3D, int, float>> closestVertices;
+	vector<tuple<Vertex3D, int, float>> closestVertices;
 	while (!pq.empty()) {
 		closestVertices.push_back(pq.top()); // Collect the closest vertices, their indices, and squared distances
 		pq.pop();
 	}
 	// Reverse to correct the order from farthest of the closest to nearest
-	std::reverse(closestVertices.begin(), closestVertices.end());
+	reverse(closestVertices.begin(), closestVertices.end());
 
 	return closestVertices;
 }
@@ -2872,174 +2828,161 @@ vector<float> NeuronGrowth::FindLocalMaximaInClusters3D(const vector<float>& mat
 	return localMaxima;
 }
 
-vector<vector<vector<int>>> NeuronGrowth::ConvertTo3DIntVector(const vector<float> input, int NX, int NY, int NZ) 
-{
-	vector<vector<vector<int>>> output;
+// Converts a 1D vector of floats to a 3D vector of integers, applying a boundary condition
+vector<vector<vector<int>>> NeuronGrowth::ConvertTo3DIntVector(const vector<float>& input, int NX, int NY, int NZ) {
+    vector<vector<vector<int>>> output(NX + 1, vector<vector<int>>(NY + 1, vector<int>(NZ + 1)));
 
-	// std::cout << input.size() << std::endl;
-	std::cout << input.size() << " " << NX << " " << NY << " " << NZ << std::endl;
+    int k = 0;
+    for (int x = 0; x <= NX; ++x) {
+        for (int y = 0; y <= NY; ++y) {
+            for (int z = 0; z <= NZ; ++z) {
+                output[x][y][z] = CellBoundary(input[k++], 0);
+            }
+        }
+    }
 
-	int k = 0;
-	for (int i = 0; i < NX+1; i++) {
-		vector<vector<int>> matrix;
-		for (int j = 0; j < NY+1; j++) {
-			vector<int> row;
-			for (int z = 0; z < NZ+1; z++) {
-				row.push_back(CellBoundary(input[k], 0));
-				// std::cout << k;
-				k++;
-			}
-			matrix.push_back(row);
-		}
-		output.push_back(matrix);
-	}
-	return output;
+    return output;
 }
 
-vector<vector<vector<float>>> NeuronGrowth::ConvertTo3DFloatVector(const vector<float> input, int NX, int NY, int NZ) 
-{
-	vector<vector<vector<float>>> output;
+// Converts a 1D vector of floats to a 3D vector of floats
+vector<vector<vector<float>>> NeuronGrowth::ConvertTo3DFloatVector(const vector<float>& input, int NX, int NY, int NZ) {
+    vector<vector<vector<float>>> output(NX, vector<vector<float>>(NY, vector<float>(NZ)));
 
-	int k = 0;
-	for (int i = 0; i < NX; i++) {
-		vector<vector<float>> matrix;
-		for (int j = 0; j < NY; j++) {
-			vector<float> row;
-			for (int z = 0; z < NZ; z++) {
-				row.push_back(input[k]);
-				k++;
-			}
-			matrix.push_back(row);
-		}
-		output.push_back(matrix);
-	}
-	return output;
+    int k = 0;
+    for (int x = 0; x < NX; ++x) {
+        for (int y = 0; y < NY; ++y) {
+            for (int z = 0; z < NZ; ++z) {
+                output[x][y][z] = input[k++];
+            }
+        }
+    }
+
+    return output;
 }
 
-void NeuronGrowth::FloodFill3D(std::vector<std::vector<std::vector<int>>>& image, int x, int y, int z, int newColor, int originalColor) 
+void NeuronGrowth::FloodFill3DWithKDTree(std::vector<std::vector<std::vector<int>>>& image,
+                                         int x, int y, int z, int newColor, int originalColor,
+                                         const KDTree& kdTree, const Vertex3DCloud& cloud) 
 {
-	// Define the directions: up, down, left, right, front, back
-	int dx[] = {0, 0, -1, 1, 0, 0};
-	int dy[] = {-1, 1, 0, 0, 0, 0};
-	int dz[] = {0, 0, 0, 0, -1, 1};
+    if (x < 0 || x >= image.size() || 
+        y < 0 || y >= image[0].size() || 
+        z < 0 || z >= image[0][0].size() || 
+        image[x][y][z] != originalColor || 
+        image[x][y][z] == newColor) {
+        return;
+    }
 
-	if (x < 0 || x >= image.size() || y < 0 || y >= image[0].size() || z < 0 || z >= image[0][0].size() || image[x][y][z] != originalColor || image[x][y][z] == newColor) {
-		return;
-	}
+    image[x][y][z] = newColor;
 
-	image[x][y][z] = newColor;
+    // Search for neighbors using KD_SearchPair in six possible directions
+    int dx[] = {0, 0, -1, 1, 0, 0};
+    int dy[] = {-1, 1, 0, 0, 0, 0};
+    int dz[] = {0, 0, 0, 0, -1, 1};
 
-	// Apply flood fill in all six directions
-	for (int i = 0; i < 6; ++i) {
-		FloodFill3D(image, x + dx[i], y + dy[i], z + dz[i], newColor, originalColor);
-	}
+    for (int i = 0; i < 6; ++i) {
+        int nx = x + dx[i];
+        int ny = y + dy[i];
+        int nz = z + dz[i];
+
+        // Validate bounds
+        if (nx >= 0 && nx < image.size() && ny >= 0 && ny < image[0].size() && nz >= 0 && nz < image[0][0].size()) {
+            int index;
+            if (KD_SearchPair(cloud.pts, kdTree, nx, ny, nz, index)) {
+                FloodFill3DWithKDTree(image, nx, ny, nz, newColor, originalColor, kdTree, cloud);
+            }
+        }
+    }
 }
 
-void NeuronGrowth::IdentifyNeurons3D(std::vector<std::vector<std::vector<int>>>& neurons, std::vector<std::array<int, 3>> seed, int NX, int NY, int NZ, int originX, int originY, int originZ) 
+void NeuronGrowth::IdentifyNeurons3DWithKDTree(std::vector<std::vector<std::vector<int>>>& neurons, 
+                                               const std::vector<std::array<int, 3>>& seed,
+                                               int NX, int NY, int NZ, 
+                                               int originX, int originY, int originZ,
+                                               const KDTree& kdTree, const Vertex3DCloud& cloud) 
 {
-	std::cout << "ck0.1" << std::endl;
-	neurons = ConvertTo3DIntVector(phi, NX, NY, NZ);
-	std::cout << "ck0.2" << std::endl;
+    // Convert `phi` into a 3D binary matrix representing neurons
+    neurons = ConvertTo3DIntVector(phi, NX, NY, NZ);
 
-	for (int i = 0; i < seed.size(); i++) {
-		std::cout << i << " " << std::endl;	
-		int startX = seed[i][0] - originX;
-		int startY = seed[i][1] - originY;
-		int startZ = seed[i][2] - originZ;
+    for (size_t i = 0; i < seed.size(); ++i) {
+        int startX = seed[i][0] - originX;
+        int startY = seed[i][1] - originY;
+        int startZ = seed[i][2] - originZ;
 
-		int newColor = i + 1;
-		int originalColor = neurons[startX][startY][startZ];
-		FloodFill3D(neurons, startX, startY, startZ, newColor, originalColor);
-	}
-	std::cout << "ck0.3" << std::endl;
+        if (startX < 0 || startX >= NX || 
+            startY < 0 || startY >= NY || 
+            startZ < 0 || startZ >= NZ) {
+            continue;
+        }
 
+        int newColor = static_cast<int>(i + 1);
+        int originalColor = neurons[startX][startY][startZ];
+        if (originalColor != newColor) {
+            FloodFill3DWithKDTree(neurons, startX, startY, startZ, newColor, originalColor, kdTree, cloud);
+        }
+    }
 }
 
 bool NeuronGrowth::isValid(int x, int y, int z, int rows, int cols, int depth) 
 {
-    return (x >= 0 && x < rows && y >= 0 && y < cols && z >= 0 && z < depth);
+    return x >= 0 && x < rows && y >= 0 && y < cols && z >= 0 && z < depth;
 }
 
-std::vector<std::vector<std::vector<int>>> NeuronGrowth::CalculateGeodesicDistanceFromPoint3D(std::vector<std::vector<std::vector<int>>> neurons, const std::vector<std::array<int, 3>>& seed, int originX, int originY, int originZ) 
+vector<vector<vector<int>>> NeuronGrowth::CalculateGeodesicDistanceFromPoint3D(
+    vector<vector<vector<int>>> neurons, const vector<array<int, 3>>& seed,
+    int originX, int originY, int originZ) 
 {
-	int rows = neurons.size();
-	int cols = (rows > 0) ? neurons[0].size() : 0;
-	int depth = (cols > 0) ? neurons[0][0].size() : 0;
+    int rows = neurons.size();
+    int cols = (rows > 0) ? neurons[0].size() : 0;
+    int depth = (cols > 0) ? neurons[0][0].size() : 0;
 
-	std::vector<std::vector<std::vector<int>>> distances(rows, std::vector<std::vector<int>>(cols, std::vector<int>(depth, INF)));
-	std::vector<std::vector<std::vector<bool>>> visited(rows, std::vector<std::vector<bool>>(cols, std::vector<bool>(depth, false)));
+    // Initialize distances with INF and visited flags as false.
+    vector<vector<vector<int>>> distances(rows, vector<vector<int>>(cols, vector<int>(depth, INF)));
+    vector<vector<vector<bool>>> visited(rows, vector<vector<bool>>(cols, vector<bool>(depth, false)));
 
-	for (const auto& point : seed) {
-		int startX = point[0] - originX;
-		int startY = point[1] - originY;
-		int startZ = point[2] - originZ;
+    // 6 possible movements in 3D (up, down, left, right, front, back).
+    static const int dx[] = {-1, 1, 0, 0, 0, 0};
+    static const int dy[] = {0, 0, -1, 1, 0, 0};
+    static const int dz[] = {0, 0, 0, 0, -1, 1};
 
-		distances[startX][startY][startZ] = 0;
-		visited[startX][startY][startZ] = true;
+    // Perform BFS for each seed point.
+    for (const auto& point : seed) {
+        int startX = point[0] - originX;
+        int startY = point[1] - originY;
+        int startZ = point[2] - originZ;
 
-		std::queue<std::array<int, 3>> q;
-		q.push({startX, startY, startZ});
+        // Ensure the starting point is valid and within bounds.
+        if (!isValid(startX, startY, startZ, rows, cols, depth) || neurons[startX][startY][startZ] == 0) {
+            continue;
+        }
 
-		int dx[] = {-1, 1, 0, 0, 0, 0};
-		int dy[] = {0, 0, -1, 1, 0, 0};
-		int dz[] = {0, 0, 0, 0, -1, 1};
+        distances[startX][startY][startZ] = 0;
+        visited[startX][startY][startZ] = true;
 
-		while (!q.empty()) {
-			std::array<int, 3> current = q.front();
-			q.pop();
+        queue<array<int, 3>> q;
+        q.push({startX, startY, startZ});
 
-			int x = current[0];
-			int y = current[1];
-			int z = current[2];
+        // BFS traversal to calculate distances.
+        while (!q.empty()) {
+            auto [x, y, z] = q.front();
+            q.pop();
 
-			for (int i = 0; i < 6; ++i) {
-				int newX = x + dx[i];
-				int newY = y + dy[i];
-				int newZ = z + dz[i];
+            for (int i = 0; i < 6; ++i) {
+                int newX = x + dx[i];
+                int newY = y + dy[i];
+                int newZ = z + dz[i];
 
-				if (isValid(newX, newY, newZ, rows, cols, depth) && neurons[newX][newY][newZ] == 1 && !visited[newX][newY][newZ]) {
-					visited[newX][newY][newZ] = true;
-					distances[newX][newY][newZ] = distances[x][y][z] + 1;
-					q.push({newX, newY, newZ});
-				}
-			}
-		}
-	}
-	return distances;
+                // Check bounds, neuron presence, and visitation status.
+                if (isValid(newX, newY, newZ, rows, cols, depth) && neurons[newX][newY][newZ] == 1 && !visited[newX][newY][newZ]) {
+                    visited[newX][newY][newZ] = true;
+                    distances[newX][newY][newZ] = distances[x][y][z] + 1;
+                    q.push({newX, newY, newZ});
+                }
+            }
+        }
+    }
+    return distances;
 }
 
-// // Function to calculate geodesic distance from a point
-// vector<vector<array<int, 3>>> NeuronGrowth::NeuriteTracing(vector<vector<float>> distance) 
-// {
-// 	vector<vector<array<int, 2>>> traces;
-// 	return traces;
-// }
-
-/**
- * Save neurodevelopmental growth variables (NGvars) to text files.
- *
- * This function saves each variable from a 2D vector of neurodevelopmental growth variables (NGvars)
- * into separate text files for visualization or further analysis. The names of the files are
- * derived from predefined variable names and an index, ensuring a structured and organized output.
- *
- * @param NGvars A 2D vector containing the neurodevelopmental growth variables to be saved. 
- *               Each inner vector represents a different variable (e.g., phi, syn, tub, etc.),
- *               and each element within an inner vector represents the variable's value at a specific point.
- * @param NX The number of points in the x-dimension. This parameter may be used for reshaping or
- *           interpreting the variables in a grid format, but is not directly used in this function's current implementation.
- * @param NY The number of points in the y-dimension. Similar to NX, it may be intended for grid interpretation
- *           but is not utilized within this function.
- * @param fn The base filename or path to which the variable text files will be saved. Each variable file
- *           will be named according to the variable it represents and will be stored in the directory specified by fn.
- *
- * Note:
- * - The function assumes that the directory specified by `fn` exists and is writable.
- * - The variable names are hard-coded within the function and correspond to the indices of the NGvars vector.
- * - Each file will contain data from its corresponding variable in NGvars, formatted for visualization if enabled.
- * - The visualization flag is currently set to true within the function, enabling visualization formatting by default.
- * - The actual saving of data to files is delegated to the `PrintVec2TXT` function, which is assumed to be defined elsewhere.
- * - The function does not currently handle the case where the number of variables in NGvars exceeds the number of predefined variable names.
- */
 void NeuronGrowth::SaveNGvars(const vector<vector<float>>& NGvars, int NX, int NY, const string& fn) {
 	bool visualization = true; // Flag to enable/disable visualization
 
@@ -3048,41 +2991,11 @@ void NeuronGrowth::SaveNGvars(const vector<vector<float>>& NGvars, int NX, int N
 
 	// Loop through NGvars and save each to a text file with a corresponding name
 	for (size_t i = 0; i < NGvars.size() && i < sizeof(varNames)/sizeof(varNames[0]); ++i) {
-		string filepath = fn + "/" + varNames[i] + "_" + std::to_string(n) + ".txt";
+		string filepath = fn + "/" + varNames[i] + "_" + to_string(n) + ".txt";
 		PrintVec2TXT(NGvars[i], filepath, visualization);
 	}
 }
 
-/**
- * Prints a 3D representation of neurons to standard output using PETSc.
- *
- * This function visualizes a 3D grid of neurons, where each neuron's presence
- * is indicated by a hash ('#') symbol and absence by a space (' '). It's designed
- * to work with PETSc for parallel processing environments, outputting the neuron
- * grid to all processes in the PETSc communicator PETSC_COMM_WORLD. The function
- * iterates through a 3D vector of integers, where each integer represents the
- * presence (non-zero) or absence (zero) of a neuron at that grid location.
- *
- * @param neurons A 3D vector of integers representing the neuron grid. A non-zero
- *        value indicates the presence of a neuron, while zero indicates absence.
- *        The outer vector represents the depth (z-axis), each inner vector represents
- *        a row (y-axis), and the innermost vector represents columns (x-axis) in the
- *        3D space.
- *
- * Usage:
- *     vector<vector<vector<int>>> neuronGrid = {{{1, 0}, {0, 1}}, {{0, 1}, {1, 0}}};
- *     NeuronGrowth ng;
- *     ng.PrintOutNeurons3D(neuronGrid);
- *
- * Note:
- *     - The function uses PETSc's PetscPrintf for output, which synchronizes output
- *       across the PETSc communicator PETSC_COMM_WORLD.
- *     - The `dwnRatio` parameter is currently set to 1 and used to control downsampling,
- *       effectively printing every neuron. Adjust `dwnRatio` to skip neurons and reduce
- *       output density if needed.
- *     - Ensure PETSc is initialized before calling this function, as it uses PETSc's
- *       communication routines.
- */
 void NeuronGrowth::PrintOutNeurons3D(vector<vector<vector<int>>> neurons) 
 {
 	ierr = PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------------\n");
@@ -3107,342 +3020,515 @@ void NeuronGrowth::PrintOutNeurons3D(vector<vector<vector<int>>> neurons)
 	ierr = PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------------\n");
 }
 
-/**
- * @brief Computes the residual of the phase field equation and assembles the Jacobian matrix for a given state vector.
- * 
- * This function calculates the residual vector F of the phase field equation for neuron growth modeling, based on the current state vector x. It employs a novel 3D neuron growth model to simulate intricate neurite outgrowth, efficiently handling complex neurite structures through adaptive domain expansion and localized refinement using truncated hierarchical B-splines (THB-splines). The function integrates over each element of a neuron mesh, applying the phase field method and isogeometric analysis (IGA) to evaluate neuron growth dynamics. The resulting residual and Jacobian matrix are crucial for advancing the solution towards neuron morphology understanding and neurodevelopmental disorder treatment development.
- *
- * @param snes The nonlinear solver context.
- * @param x The current solution vector (input).
- * @param F The vector to store the calculated residual (output).
- * @param ctx User-defined context for neuron growth modeling, containing mesh and material properties.
- * @return PetscErrorCode Returns 0 on success, or a nonzero error code on failure.
- *
- * The function performs the following operations:
- * 1. Scatters the global vector x to a sequential vector for localized computation.
- * 2. Initializes and clears necessary data structures for computation.
- * 3. Loops through each element of the neuron mesh to:
- *    a. Prepare element matrices and vectors based on current state values.
- *    b. Evaluate orientation and other properties at Gaussian quadrature points.
- *    c. Assemble local contributions to the global residual vector F and Jacobian matrix.
- * 4. Applies boundary conditions as necessary.
- * 5. Assembles the final global residual vector and Jacobian matrix.
- * 6. Cleans up temporary data structures and restores arrays.
- *
- * @note This function is tailored for use within a PETSc-based finite element method framework for simulating neuron growth.
- */
-PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
-{
-	PetscErrorCode ierr;
-	Vec P_seq;
-	PetscScalar *Parray;
-	VecScatter scatter_ctx1;
-	ierr = VecScatterCreateToAll(x, &scatter_ctx1, &P_seq); CHKERRQ(ierr);
-	ierr = VecScatterBegin(scatter_ctx1, x, P_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
-	ierr = VecScatterEnd(scatter_ctx1, x, P_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
-	ierr = VecGetArray(P_seq, &Parray); CHKERRQ(ierr);
-	ierr = VecSet(F, 0.0); CHKERRQ(ierr);
+PetscErrorCode SetupSNES(SNES &snes, const char *solverType, void *ctx,
+                         PetscErrorCode (*formFunction)(SNES, Vec, Vec, void *),
+                         PetscErrorCode (*formJacobian)(SNES, Vec, Mat, Mat, void *),
+                         PetscReal rtol = 1e-5, PetscReal atol = 1e-7, PetscReal dtol = 1e-9,
+                         PetscInt maxIters = 100, PetscInt maxFails = 1000) {
+    PetscErrorCode ierr;
 
-	NeuronGrowth *user = (NeuronGrowth *)ctx;
+    // Create and set SNES type
+    ierr = SNESCreate(PETSC_COMM_WORLD, &snes); CHKERRQ(ierr);
+    ierr = SNESSetType(snes, solverType); CHKERRQ(ierr);
 
-	user->pre_mag_grad_phi0.clear();
+    // Set solver tolerances
+    ierr = SNESSetTolerances(snes, rtol, atol, dtol, maxIters, maxFails); CHKERRQ(ierr);
 
-	/*Build linear system in each process*/
-	int ind(0); // pre-calculated variable index
-	for (int e = 0; e < user->bzmesh_process.size(); e++) {
-		// std::cout << e << std::endl;
-		int nen = user->bzmesh_process[e].IEN.size(); // 64 supporting cp for 3D case
+    // Configure line search
+    SNESLineSearch linesearch;
+    ierr = SNESGetLineSearch(snes, &linesearch); CHKERRQ(ierr);
+    ierr = SNESLineSearchSetType(linesearch, SNESLINESEARCHCP); CHKERRQ(ierr);
 
-		vector<float> eleMphi;
-		eleMphi.resize(nen);
+    // Validate function pointers
+    if (!formFunction || !formJacobian) {
+        SETERRQ(PETSC_COMM_SELF, PETSC_ERR_ARG_NULL, "Function or Jacobian is null");
+    }
 
-		vector<vector<float>> EMatrixSolve;	EMatrixSolve.clear();
-		vector<float> EVectorSolve;		EVectorSolve.clear();
-		EMatrixSolve.resize(nen);
-		EVectorSolve.resize(nen);
+    // Set function and Jacobian
+    ierr = SNESSetFunction(snes, NULL, formFunction, ctx); CHKERRQ(ierr);
+    ierr = SNESSetJacobian(snes, NULL, NULL, formJacobian, ctx); CHKERRQ(ierr);
 
-		user->eleVal.clear();
-		user->eleVal.resize(10);
-		for (int i = 0; i < nen * 1; i++) {
-			EMatrixSolve[i].resize(nen);
-			if (i < 10)
-				user->eleVal[i].resize(nen);
-		}
+    return ierr;
+}
 
-		// preparing element stiffness matrix and vector, extract values from control mesh
-		// if (user->n >= 50)
-		// 	std::cout << user->phi.size() << " " << user->syn.size() << " " << user->tub.size() << " " << user->theta.size() << " " << user->tips.size() << std::endl;
+PetscErrorCode SetupKSP(KSP &ksp, Mat &A, const char *kspType, const char *pcType,
+                        PetscReal rtol = 1.e-8, PetscReal atol = PETSC_DEFAULT,
+                        PetscReal dtol = PETSC_DEFAULT, PetscInt maxIters = 100000, PetscInt restart = 100) {
+    PetscErrorCode ierr;
 
-		for (int i = 0; i < nen; i++) {
+    // Validate matrix
+    if (!A) {
+        SETERRQ(PETSC_COMM_SELF, PETSC_ERR_ARG_NULL, "Matrix A is not initialized");
+    }
 
-			EVectorSolve[i] = 0.0;
-			for (int j = 0; j < nen; j++) {
-				EMatrixSolve[i][j] = 0.0;
-			}
+    // Create and configure KSP solver
+    ierr = KSPCreate(PETSC_COMM_WORLD, &ksp); CHKERRQ(ierr);
+    ierr = KSPSetOperators(ksp, A, A); CHKERRQ(ierr);
+    ierr = KSPSetType(ksp, kspType); CHKERRQ(ierr);
 
-			user->eleVal[0][i] = Parray[user->bzmesh_process[e].IEN[i]];		// elePhiGuess
-			user->eleVal[1][i] = user->phi[user->bzmesh_process[e].IEN[i]];		// elePhi
-			user->eleVal[2][i] = user->syn[user->bzmesh_process[e].IEN[i]];		// eleSyn
-			user->eleVal[3][i] = user->tub[user->bzmesh_process[e].IEN[i]];		// eleTubulin
-			user->eleVal[4][i] = user->theta[user->bzmesh_process[e].IEN[i]];	// eleTheta
-			user->eleVal[5][i] = user->tips[user->bzmesh_process[e].IEN[i]];	// eleTips
-			user->eleVal[6][i] = 0;							// eleEpsilon
-			user->eleVal[7][i] = 0;							// eleEpsilonP
-			// user->eleVal[8][i] = user->polar[user->bzmesh_process[e].IEN[i]];	// elePolar
-			// user->eleVal[9][i] = user->azimuth[user->bzmesh_process[e].IEN[i]];	// eleAzimuth
-			// eleMphi[i] = user->Mphi[user->bzmesh_process[e].IEN[i]];
-		}
+    // Configure preconditioner
+    PC pc;
+    ierr = KSPGetPC(ksp, &pc); CHKERRQ(ierr);
+    ierr = PCSetType(pc, pcType); CHKERRQ(ierr);
+
+    // Set additional solver options
+    if (string(kspType) == "KSPGMRES") {
+        ierr = KSPGMRESSetRestart(ksp, restart); CHKERRQ(ierr);
+    }
+    ierr = KSPSetInitialGuessNonzero(ksp, PETSC_TRUE); CHKERRQ(ierr);
+    ierr = KSPSetTolerances(ksp, rtol, atol, dtol, maxIters); CHKERRQ(ierr);
+    ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
+    ierr = KSPSetUp(ksp); CHKERRQ(ierr);
+
+    return ierr;
+}
+
+// FormFunction for the phase-field equation
+PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx) {
+    PetscErrorCode ierr;
+
+    // Create sequential vector for scatter and access its array
+    Vec P_seq;
+    PetscScalar *Parray;
+    VecScatter scatter_ctx1;
+    ierr = VecScatterCreateToAll(x, &scatter_ctx1, &P_seq); CHKERRQ(ierr);
+    ierr = VecScatterBegin(scatter_ctx1, x, P_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
+    ierr = VecScatterEnd(scatter_ctx1, x, P_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
+    ierr = VecGetArray(P_seq, &Parray); CHKERRQ(ierr);
+
+    // Initialize residual vector
+    ierr = VecSet(F, 0.0); CHKERRQ(ierr);
+
+    // Access user context
+    NeuronGrowth *user = static_cast<NeuronGrowth *>(ctx);
+    user->pre_mag_grad_phi0.clear(); // Clear precomputed gradient magnitudes
+
+    int ind = 0; // Index for precomputed variables
+
+    // Iterate through all elements in the process
+    for (size_t e = 0; e < user->bzmesh_process.size(); e++) {
+        const int nen = user->bzmesh_process[e].IEN.size(); // Number of control points
+
+        // Element-level vectors and matrices
+        vector<float> EVectorSolve(nen, 0.0f);
+        vector<vector<float>> EMatrixSolve(nen, vector<float>(nen, 0.0f));
+
+        // Initialize element-specific variables
+        user->eleVal.clear();
+        user->eleVal.resize(10, vector<float>(nen, 0.0f));
+
+        // Extract control point values for the element
+        for (int i = 0; i < nen; i++) {
+            const int cpIdx = user->bzmesh_process[e].IEN[i];
+            user->eleVal[0][i] = Parray[cpIdx];         // phi_guess
+            user->eleVal[1][i] = user->phi[cpIdx];      // phi
+            user->eleVal[2][i] = user->syn[cpIdx];      // synaptogenesis
+            user->eleVal[3][i] = user->tub[cpIdx];      // tubulin
+            user->eleVal[4][i] = user->theta[cpIdx];    // theta
+            user->eleVal[5][i] = user->tips[cpIdx];     // tips
+        }
+
+        // Loop through Gaussian quadrature points
+        for (size_t i = 0; i < user->Gpt.size(); i++) {
+            for (size_t j = 0; j < user->Gpt.size(); j++) {
+                for (size_t k = 0; k < user->Gpt.size(); k++) {
+                    float eleAniso = 0, dA_dPdx = 0, dA_dPdy = 0, dA_dPdz = 0;
+
+                    // Evaluate orientation terms for non-initial steps
+                    if (user->n > 0) {
+                        user->EvaluateOrientation(
+                            nen, user->pre_Nx[ind], user->pre_dNdx[ind],
+                            user->eleVal[1], user->eleVal[4],
+                            eleAniso, dA_dPdx, dA_dPdy, dA_dPdz
+                        );
+                    }
+
+                    // Evaluate element contributions for phase-field
+                    user->ElementEvaluationAll_phi(
+                        nen, user->pre_Nx[ind], user->pre_dNdx[ind],
+                        user->eleVal, user->vars
+                    );
+
+                    float eleMp = 1.0f; // Default mobility (can be extended as needed)
+
+                    // Residual vector and stiffness matrix assembly
+                    for (int m = 0; m < nen; m++) {
+                        // Residual vector
+                        EVectorSolve[m] += (
+                            user->vars[2] * user->pre_Nx[ind][m] -
+                            user->dt * eleMp * (
+                                (-eleAniso * eleAniso *
+                                 (user->vars[3] * user->pre_dNdx[ind][m][0] +
+                                  user->vars[4] * user->pre_dNdx[ind][m][1] +
+                                  user->vars[18] * user->pre_dNdx[ind][m][2])) +
+                                (-user->vars[2] * user->vars[2] * user->vars[2] +
+                                 (1 - user->vars[0]) * user->vars[2] * user->vars[2] +
+                                 user->vars[0] * user->vars[2]) *
+                                    user->pre_Nx[ind][m]) -
+                            user->vars[5] * user->pre_Nx[ind][m]
+                        ) * user->pre_detJ[ind];
+
+                        // Stiffness matrix
+                        for (int n = 0; n < nen; n++) {
+                            EMatrixSolve[m][n] += (
+                                user->pre_Nx[ind][m] * user->pre_Nx[ind][n] -
+                                user->dt * eleMp * (
+                                    (-eleAniso * eleAniso *
+                                     (user->pre_dNdx[ind][m][0] * user->pre_dNdx[ind][n][0] +
+                                      user->pre_dNdx[ind][m][1] * user->pre_dNdx[ind][n][1] +
+                                      user->pre_dNdx[ind][m][2] * user->pre_dNdx[ind][n][2]))
+                                )
+                            ) * user->pre_detJ[ind];
+                        }
+                    }
+
+                    ind++; // Increment index for precomputed variables
+                }
+            }
+        }
+
+        // Apply boundary conditions
+        for (int i = 0; i < nen; i++) {
+            int A = user->bzmesh_process[e].IEN[i];
+            if (user->cpts[A].label == 1) { // Domain boundary
+                user->ApplyBoundaryCondition(0, i, 0, EMatrixSolve, EVectorSolve);
+            }
+        }
+
+        // Assemble global residual vector and Jacobian matrix
+        user->ResidualAssembly(EVectorSolve, user->bzmesh_process[e].IEN, F);
+        user->MatrixAssembly(EMatrixSolve, user->bzmesh_process[e].IEN, user->J);
+    }
+
+    // Finalize assembly
+    ierr = VecAssemblyBegin(F); CHKERRQ(ierr);
+    ierr = VecAssemblyEnd(F); CHKERRQ(ierr);
+    ierr = MatAssemblyBegin(user->J, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+    ierr = MatAssemblyEnd(user->J, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+
+    // Clean up
+    ierr = VecRestoreArray(P_seq, &Parray); CHKERRQ(ierr);
+    ierr = VecScatterDestroy(&scatter_ctx1); CHKERRQ(ierr);
+    ierr = VecDestroy(&P_seq); CHKERRQ(ierr);
+
+    return 0;
+}
+
+// FormJacobian for the phase-field equation
+PetscErrorCode FormJacobian_phi(SNES snes, Vec x, Mat J, Mat P, void *ctx) {
+    NeuronGrowth *user = static_cast<NeuronGrowth *>(ctx);
+    PetscErrorCode ierr;
+
+    // Copy precomputed Jacobian to PETSc matrix
+    ierr = MatCopy(user->J, J, SAME_NONZERO_PATTERN); CHKERRQ(ierr);
+
+    return PETSC_SUCCESS;
+}
+
+// PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
+// {
+// 	PetscErrorCode ierr;
+// 	Vec P_seq;
+// 	PetscScalar *Parray;
+// 	VecScatter scatter_ctx1;
+// 	ierr = VecScatterCreateToAll(x, &scatter_ctx1, &P_seq); CHKERRQ(ierr);
+// 	ierr = VecScatterBegin(scatter_ctx1, x, P_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
+// 	ierr = VecScatterEnd(scatter_ctx1, x, P_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
+// 	ierr = VecGetArray(P_seq, &Parray); CHKERRQ(ierr);
+// 	ierr = VecSet(F, 0.0); CHKERRQ(ierr);
+
+// 	NeuronGrowth *user = (NeuronGrowth *)ctx;
+
+// 	user->pre_mag_grad_phi0.clear();
+
+// 	/*Build linear system in each process*/
+// 	int ind(0); // pre-calculated variable index
+// 	for (int e = 0; e < user->bzmesh_process.size(); e++) {
+// 		// cout << e << endl;
+// 		int nen = user->bzmesh_process[e].IEN.size(); // 64 supporting cp for 3D case
+
+// 		vector<float> eleMphi;
+// 		eleMphi.resize(nen);
+
+// 		vector<vector<float>> EMatrixSolve;	EMatrixSolve.clear();
+// 		vector<float> EVectorSolve;		EVectorSolve.clear();
+// 		EMatrixSolve.resize(nen);
+// 		EVectorSolve.resize(nen);
+
+// 		user->eleVal.clear();
+// 		user->eleVal.resize(10);
+// 		for (int i = 0; i < nen * 1; i++) {
+// 			EMatrixSolve[i].resize(nen);
+// 			if (i < 10)
+// 				user->eleVal[i].resize(nen);
+// 		}
+
+// 		// preparing element stiffness matrix and vector, extract values from control mesh
+// 		// if (user->n >= 50)
+// 		// 	cout << user->phi.size() << " " << user->syn.size() << " " << user->tub.size() << " " << user->theta.size() << " " << user->tips.size() << endl;
+
+// 		for (int i = 0; i < nen; i++) {
+
+// 			EVectorSolve[i] = 0.0;
+// 			for (int j = 0; j < nen; j++) {
+// 				EMatrixSolve[i][j] = 0.0;
+// 			}
+
+// 			user->eleVal[0][i] = Parray[user->bzmesh_process[e].IEN[i]];		// elePhiGuess
+// 			user->eleVal[1][i] = user->phi[user->bzmesh_process[e].IEN[i]];		// elePhi
+// 			user->eleVal[2][i] = user->syn[user->bzmesh_process[e].IEN[i]];		// eleSyn
+// 			user->eleVal[3][i] = user->tub[user->bzmesh_process[e].IEN[i]];		// eleTubulin
+// 			user->eleVal[4][i] = user->theta[user->bzmesh_process[e].IEN[i]];	// eleTheta
+// 			user->eleVal[5][i] = user->tips[user->bzmesh_process[e].IEN[i]];	// eleTips
+// 			user->eleVal[6][i] = 0;							// eleEpsilon
+// 			user->eleVal[7][i] = 0;							// eleEpsilonP
+// 			// user->eleVal[8][i] = user->polar[user->bzmesh_process[e].IEN[i]];	// elePolar
+// 			// user->eleVal[9][i] = user->azimuth[user->bzmesh_process[e].IEN[i]];	// eleAzimuth
+// 			// eleMphi[i] = user->Mphi[user->bzmesh_process[e].IEN[i]];
+// 		}
 		
-		// loop through gaussian quadrature points
-		for (int i = 0; i < user->Gpt.size(); i++) {
-			for (int j = 0; j < user->Gpt.size(); j++) {
-				for (int k = 0; k < user->Gpt.size(); k++) {
+// 		// loop through gaussian quadrature points
+// 		for (int i = 0; i < user->Gpt.size(); i++) {
+// 			for (int j = 0; j < user->Gpt.size(); j++) {
+// 				for (int k = 0; k < user->Gpt.size(); k++) {
 					
-					// user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[4], user->eleVal[6], user->eleVal[7]);
-					float eleAniso(0), dA_dPdx(0), dA_dPdy(0), dA_dPdz(0);
-					if (user->n > 0)
-						user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[4], eleAniso, dA_dPdx, dA_dPdy, dA_dPdz);
+// 					// user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[4], user->eleVal[6], user->eleVal[7]);
+// 					float eleAniso(0), dA_dPdx(0), dA_dPdy(0), dA_dPdz(0);
+// 					if (user->n > 0)
+// 						user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[4], eleAniso, dA_dPdx, dA_dPdy, dA_dPdz);
 
-					// float eleEp(0), dEdp(0), dEda(0);
-					// user->EvaluateOrientationSpherical(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[8], user->eleVal[9], eleEp, dEdp, dEda);
+// 					// float eleEp(0), dEdp(0), dEda(0);
+// 					// user->EvaluateOrientationSpherical(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[8], user->eleVal[9], eleEp, dEdp, dEda);
 
-					user->ElementEvaluationAll_phi(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal, user->vars);
-					//	 0   1    2     3      4      5     6     7      8     9      10      11      12     13    14    15      16     17   	18     19   20  
-					// float C1, C0, elePG, dPGdx, dPGdy, eleP, eleS, eleTb, eleE, eleTp, dThedx, dThedy, eleEP, dAdx, dAdy, eleEEP, dAPdx, dAPdy, dPGdz, dAdz, dAPdz
+// 					user->ElementEvaluationAll_phi(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal, user->vars);
+// 					//	 0   1    2     3      4      5     6     7      8     9      10      11      12     13    14    15      16     17   	18     19   20  
+// 					// float C1, C0, elePG, dPGdx, dPGdy, eleP, eleS, eleTb, eleE, eleTp, dThedx, dThedy, eleEP, dAdx, dAdy, eleEEP, dAPdx, dAPdy, dPGdz, dAdz, dAPdz
 					
-					float eleMp;
-					// user->ElementValue(user->pre_Nx[ind], eleMphi, eleMp);
-					eleMp = 1;
+// 					float eleMp;
+// 					// user->ElementValue(user->pre_Nx[ind], eleMphi, eleMp);
+// 					eleMp = 1;
 
-					// float ck(0);
-					// if (user->n < 300) {
-					// 	ck = 0.2;
-					// } else {
-					// 	ck = 0;
-					// }
+// 					// float ck(0);
+// 					// if (user->n < 300) {
+// 					// 	ck = 0.2;
+// 					// } else {
+// 					// 	ck = 0;
+// 					// }
 
-					// adjust rg (assembly rate) and sg (disassembly rate) based on detected tips
-					if (user->n < 0) {
-						user->vars[8] = user->alphaOverPi*atan(user->gamma * (1 - user->vars[6]));
-					} else {
-						// if (user->vars[9] > ck) {
-						if (user->vars[9] > 0) {
-							// user->vars[8] = user->alphaOverPi*atan(user->gamma * user->Regular_Heiviside_fun(50 * user->vars[7] - 0) * (1 - user->vars[6]));
-							// user->vars[8] = user->alphaOverPi*atan(user->gamma * 1 * (1 - abs(user->vars[6])));
-							user->vars[8] = user->alphaOverPi*atan(user->gamma * 1 * (1 - user->vars[6]));
-						} else {
-							// user->vars[8] = user->alphaOverPi*atan(user->gamma * user->Regular_Heiviside_fun(user->r * user->vars[7] - user->g) * (1 - user->vars[6]));
-							// user->vars[8] = user->alphaOverPi*atan(user->gamma * 0 * (1 - abs(user->vars[6])));
-							user->vars[8] = user->alphaOverPi*atan(user->gamma * 0 * (1 - user->vars[6]));
-						}
-					}
+// 					// adjust rg (assembly rate) and sg (disassembly rate) based on detected tips
+// 					if (user->n < 0) {
+// 						user->vars[8] = user->alphaOverPi*atan(user->gamma * (1 - user->vars[6]));
+// 					} else {
+// 						// if (user->vars[9] > ck) {
+// 						if (user->vars[9] > 0) {
+// 							// user->vars[8] = user->alphaOverPi*atan(user->gamma * user->Regular_Heiviside_fun(50 * user->vars[7] - 0) * (1 - user->vars[6]));
+// 							// user->vars[8] = user->alphaOverPi*atan(user->gamma * 1 * (1 - abs(user->vars[6])));
+// 							user->vars[8] = user->alphaOverPi*atan(user->gamma * 1 * (1 - user->vars[6]));
+// 						} else {
+// 							// user->vars[8] = user->alphaOverPi*atan(user->gamma * user->Regular_Heiviside_fun(user->r * user->vars[7] - user->g) * (1 - user->vars[6]));
+// 							// user->vars[8] = user->alphaOverPi*atan(user->gamma * 0 * (1 - abs(user->vars[6])));
+// 							user->vars[8] = user->alphaOverPi*atan(user->gamma * 0 * (1 - user->vars[6]));
+// 						}
+// 					}
 					
-					// if (user->n > 50) {
-					// 	std::cout << user->alphaOverPi*atan(user->gamma * (1 - user->vars[6])) << " " << std::endl;
-					// 	std::cout << user->alphaOverPi*atan(user->gamma * user->Regular_Heiviside_fun(50 * user->vars[7] - 0) * (1 - user->vars[6])) << " " << user->Regular_Heiviside_fun(50 * user->vars[7] - 0) << " " <<  user->vars[7] << std::endl;
-					// 	std::cout << user->alphaOverPi*atan(user->gamma * user->Regular_Heiviside_fun(5 * user->vars[7] - user->g) * (1 - user->vars[6])) << " " << user->Regular_Heiviside_fun(50 * user->vars[7] - 0) << " " <<  user->vars[7] << std::endl;
-					// }
+// 					// if (user->n > 50) {
+// 					// 	cout << user->alphaOverPi*atan(user->gamma * (1 - user->vars[6])) << " " << endl;
+// 					// 	cout << user->alphaOverPi*atan(user->gamma * user->Regular_Heiviside_fun(50 * user->vars[7] - 0) * (1 - user->vars[6])) << " " << user->Regular_Heiviside_fun(50 * user->vars[7] - 0) << " " <<  user->vars[7] << endl;
+// 					// 	cout << user->alphaOverPi*atan(user->gamma * user->Regular_Heiviside_fun(5 * user->vars[7] - user->g) * (1 - user->vars[6])) << " " << user->Regular_Heiviside_fun(50 * user->vars[7] - 0) << " " <<  user->vars[7] << endl;
+// 					// }
 
-					// calculate C1 variable for phase field energy term
-					user->vars[0] = user->vars[8] - user->pre_C0[ind];
+// 					// calculate C1 variable for phase field energy term
+// 					user->vars[0] = user->vars[8] - user->pre_C0[ind];
 
-					// if (user->n > 50) {
-					// 	std::cout << user->vars[0] << " " << user->vars[8] << " " << user->pre_C0[ind] << std::endl;
+// 					// if (user->n > 50) {
+// 					// 	cout << user->vars[0] << " " << user->vars[8] << " " << user->pre_C0[ind] << endl;
 
-					// user->vars[0] = user->vars[8] - user->pre_C0_sp[ind];
-					// float tau = sqrt(pow(user->vars[3],2) + pow(user->vars[4],2));
-					// float mode_grad_p_2 = pow(sqrt(pow(user->vars[3],2) + pow(user->vars[4],2) + pow(user->vars[18],2)), 2);
-					// loop through control points
-					for (int m = 0; m < nen; m++) {
-						// terma2 = - eleEP * eleEP * (dPGdx * dNdx[m][0] + dPGdy * dNdx[m][1]);
-						// termadx = dAdx * eleEEP * dPGdx * dNdx[m][0];
-						// termady = dAdy * eleEEP * dPGdy * dNdx[m][1];
-						// termadz = dAdz * eleEEP * dPGdz * dNdx[m][2];
-						// termdbl = (- elePG * elePG * elePG + (1 - C1) * elePG * elePG + C1 * elePG) * Nx[m];
-						// EVectorSolve[m] += (elePG * Nx[m] - user->dt * user->M_phi * (terma2 - termadx + termady + termdbl) - eleP * Nx[m]) * detJ;
+// 					// user->vars[0] = user->vars[8] - user->pre_C0_sp[ind];
+// 					// float tau = sqrt(pow(user->vars[3],2) + pow(user->vars[4],2));
+// 					// float mode_grad_p_2 = pow(sqrt(pow(user->vars[3],2) + pow(user->vars[4],2) + pow(user->vars[18],2)), 2);
+// 					// loop through control points
+// 					for (int m = 0; m < nen; m++) {
+// 						// terma2 = - eleEP * eleEP * (dPGdx * dNdx[m][0] + dPGdy * dNdx[m][1]);
+// 						// termadx = dAdx * eleEEP * dPGdx * dNdx[m][0];
+// 						// termady = dAdy * eleEEP * dPGdy * dNdx[m][1];
+// 						// termadz = dAdz * eleEEP * dPGdz * dNdx[m][2];
+// 						// termdbl = (- elePG * elePG * elePG + (1 - C1) * elePG * elePG + C1 * elePG) * Nx[m];
+// 						// EVectorSolve[m] += (elePG * Nx[m] - user->dt * user->M_phi * (terma2 - termadx + termady + termdbl) - eleP * Nx[m]) * detJ;
 						
-						EVectorSolve[m] += (user->vars[2] * user->pre_Nx[ind][m] - user->dt * eleMp * (
-							(- eleAniso * eleAniso * (user->vars[3] * user->pre_dNdx[ind][m][0] + user->vars[4] * user->pre_dNdx[ind][m][1] + user->vars[18] * user->pre_dNdx[ind][m][2]))
-							+ (- user->pre_dNdx[ind][m][0] * eleAniso * dA_dPdx * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
-							+ (- user->pre_dNdx[ind][m][1] * eleAniso * dA_dPdy * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
-							+ (- user->pre_dNdx[ind][m][2] * eleAniso * dA_dPdz * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
-							+ (- user->vars[2] * user->vars[2] * user->vars[2] + (1 - user->vars[0]) * user->vars[2] * user->vars[2] + user->vars[0] * user->vars[2]) * user->pre_Nx[ind][m]
-							// - ((6 * user->vars[2] - 6 * (user->vars[2] * user->vars[2])) * user->pre_C0[ind]) * user->pre_Nx[ind][m]
-							// - ((pow(user->vars[2], 2) - 2 * pow(user->vars[2], 3) + pow(user->vars[2], 4)) * user->pre_C0[ind]) * user->pre_Nx[ind][m]
-							) - user->vars[5] * user->pre_Nx[ind][m]
-							) * user->pre_detJ[ind];
+// 						EVectorSolve[m] += (user->vars[2] * user->pre_Nx[ind][m] - user->dt * eleMp * (
+// 							(- eleAniso * eleAniso * (user->vars[3] * user->pre_dNdx[ind][m][0] + user->vars[4] * user->pre_dNdx[ind][m][1] + user->vars[18] * user->pre_dNdx[ind][m][2]))
+// 							+ (- user->pre_dNdx[ind][m][0] * eleAniso * dA_dPdx * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
+// 							+ (- user->pre_dNdx[ind][m][1] * eleAniso * dA_dPdy * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
+// 							+ (- user->pre_dNdx[ind][m][2] * eleAniso * dA_dPdz * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
+// 							+ (- user->vars[2] * user->vars[2] * user->vars[2] + (1 - user->vars[0]) * user->vars[2] * user->vars[2] + user->vars[0] * user->vars[2]) * user->pre_Nx[ind][m]
+// 							// - ((6 * user->vars[2] - 6 * (user->vars[2] * user->vars[2])) * user->pre_C0[ind]) * user->pre_Nx[ind][m]
+// 							// - ((pow(user->vars[2], 2) - 2 * pow(user->vars[2], 3) + pow(user->vars[2], 4)) * user->pre_C0[ind]) * user->pre_Nx[ind][m]
+// 							) - user->vars[5] * user->pre_Nx[ind][m]
+// 							) * user->pre_detJ[ind];
 
-						// EVectorSolve[m] += (user->vars[2] * user->pre_Nx[ind][m] - user->dt * eleMp * (
-						// 	(- eleEp * eleEp * (user->vars[3] * user->pre_dNdx[ind][m][0] + user->vars[4] * user->pre_dNdx[ind][m][1] + user->vars[18] * user->pre_dNdx[ind][m][2])) -
-						// 	(- user->pre_dNdx[ind][m][0] * eleEp / tau * dEdp * user->pre_dNdx[ind][m][0] * user->pre_dNdx[ind][m][2] -
-						// 		eleEp / pow(tau, 2) * dEda * mode_grad_p_2 * user->pre_dNdx[ind][m][1]) + 
-						// 	(- user->pre_dNdx[ind][m][1] * eleEp / tau * dEdp * user->pre_dNdx[ind][m][1] * user->pre_dNdx[ind][m][2] +
-						// 		eleEp / pow(tau, 2) * dEda * mode_grad_p_2 * user->pre_dNdx[ind][m][1]) + 
-						// 	(eleEp * dEdp * tau) * user->pre_dNdx[ind][m][2] +
-						// 	(- user->vars[2] * user->vars[2] * user->vars[2] + (1 - user->vars[0]) * user->vars[2] * user->vars[2] + user->vars[0] * user->vars[2]) * user->pre_Nx[ind][m])
-						// 	- user->vars[5] * user->pre_Nx[ind][m]) * user->pre_detJ[ind];
+// 						// EVectorSolve[m] += (user->vars[2] * user->pre_Nx[ind][m] - user->dt * eleMp * (
+// 						// 	(- eleEp * eleEp * (user->vars[3] * user->pre_dNdx[ind][m][0] + user->vars[4] * user->pre_dNdx[ind][m][1] + user->vars[18] * user->pre_dNdx[ind][m][2])) -
+// 						// 	(- user->pre_dNdx[ind][m][0] * eleEp / tau * dEdp * user->pre_dNdx[ind][m][0] * user->pre_dNdx[ind][m][2] -
+// 						// 		eleEp / pow(tau, 2) * dEda * mode_grad_p_2 * user->pre_dNdx[ind][m][1]) + 
+// 						// 	(- user->pre_dNdx[ind][m][1] * eleEp / tau * dEdp * user->pre_dNdx[ind][m][1] * user->pre_dNdx[ind][m][2] +
+// 						// 		eleEp / pow(tau, 2) * dEda * mode_grad_p_2 * user->pre_dNdx[ind][m][1]) + 
+// 						// 	(eleEp * dEdp * tau) * user->pre_dNdx[ind][m][2] +
+// 						// 	(- user->vars[2] * user->vars[2] * user->vars[2] + (1 - user->vars[0]) * user->vars[2] * user->vars[2] + user->vars[0] * user->vars[2]) * user->pre_Nx[ind][m])
+// 						// 	- user->vars[5] * user->pre_Nx[ind][m]) * user->pre_detJ[ind];
 
-						// loop through 16 control points
-						for (int n = 0; n < nen; n++) {
-							// terma2 = - eleEP * eleEP * (dNdx[m][0] * dNdx[n][0] + dNdx[m][1] * dNdx[n][1]);
-							// termadx = - dAdx * eleEEP * dNdx[m][1] * dNdx[n][0];
-							// termady = - dAdy * eleEEP * dNdx[m][0] * dNdx[n][1];
-							// termdbl = (- 3 * elePG * elePG + 2 * (1 - C1) * elePG + C1 * Nx[m]) * Nx[n];
-							// EMatrixSolve[m][n] += (Nx[m] * Nx[n] - user->dt * user->M_phi * (terma2 - termadx + termady + termdbl)) * detJ;
+// 						// loop through 16 control points
+// 						for (int n = 0; n < nen; n++) {
+// 							// terma2 = - eleEP * eleEP * (dNdx[m][0] * dNdx[n][0] + dNdx[m][1] * dNdx[n][1]);
+// 							// termadx = - dAdx * eleEEP * dNdx[m][1] * dNdx[n][0];
+// 							// termady = - dAdy * eleEEP * dNdx[m][0] * dNdx[n][1];
+// 							// termdbl = (- 3 * elePG * elePG + 2 * (1 - C1) * elePG + C1 * Nx[m]) * Nx[n];
+// 							// EMatrixSolve[m][n] += (Nx[m] * Nx[n] - user->dt * user->M_phi * (terma2 - termadx + termady + termdbl)) * detJ;
 							
-							EMatrixSolve[m][n] += (user->pre_Nx[ind][m] * user->pre_Nx[ind][n] - user->dt * eleMp * (
-								(- eleAniso * eleAniso * (user->pre_dNdx[ind][m][0] * user->pre_dNdx[ind][n][0] + user->pre_dNdx[ind][m][1] * user->pre_dNdx[ind][n][1] + user->pre_dNdx[ind][m][2] * user->pre_dNdx[ind][n][2])) // terma2
-								+ (- user->pre_dNdx[ind][m][0] * eleAniso * dA_dPdx * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
-								+ (- user->pre_dNdx[ind][m][1] * eleAniso * dA_dPdy * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
-								+ (- user->pre_dNdx[ind][m][2] * eleAniso * dA_dPdz * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
-								+ (- 3 * user->vars[2] * user->vars[2] + 2 * (1 - user->vars[0]) * user->vars[2] + user->vars[0] * user->pre_Nx[ind][m]) * user->pre_Nx[ind][n] // termdbl
-								// - ((6 * user->pre_Nx[ind][m] - 12 * user->vars[2]) * user->pre_C0[ind]) * user->pre_Nx[ind][n]
-								// - ((2 * user->vars[2] - 6 * pow(user->vars[2], 2) + 4 * pow(user->vars[2], 3)) * user->pre_C0[ind]) * user->pre_Nx[ind][n])
-								)) * user->pre_detJ[ind];
+// 							EMatrixSolve[m][n] += (user->pre_Nx[ind][m] * user->pre_Nx[ind][n] - user->dt * eleMp * (
+// 								(- eleAniso * eleAniso * (user->pre_dNdx[ind][m][0] * user->pre_dNdx[ind][n][0] + user->pre_dNdx[ind][m][1] * user->pre_dNdx[ind][n][1] + user->pre_dNdx[ind][m][2] * user->pre_dNdx[ind][n][2])) // terma2
+// 								+ (- user->pre_dNdx[ind][m][0] * eleAniso * dA_dPdx * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
+// 								+ (- user->pre_dNdx[ind][m][1] * eleAniso * dA_dPdy * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
+// 								+ (- user->pre_dNdx[ind][m][2] * eleAniso * dA_dPdz * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
+// 								+ (- 3 * user->vars[2] * user->vars[2] + 2 * (1 - user->vars[0]) * user->vars[2] + user->vars[0] * user->pre_Nx[ind][m]) * user->pre_Nx[ind][n] // termdbl
+// 								// - ((6 * user->pre_Nx[ind][m] - 12 * user->vars[2]) * user->pre_C0[ind]) * user->pre_Nx[ind][n]
+// 								// - ((2 * user->vars[2] - 6 * pow(user->vars[2], 2) + 4 * pow(user->vars[2], 3)) * user->pre_C0[ind]) * user->pre_Nx[ind][n])
+// 								)) * user->pre_detJ[ind];
 
-							// EMatrixSolve[m][n] += (user->pre_Nx[ind][m] * user->pre_Nx[ind][n] - user->dt * eleMp * (
-							// 	(- eleEp * eleEp * (user->vars[3] * user->pre_dNdx[ind][m][0] + user->vars[4] * user->pre_dNdx[ind][m][1] + user->vars[18] * user->pre_dNdx[ind][m][2])) -
-							// 	(- user->pre_dNdx[ind][m][0] * eleEp / tau * dEdp * user->vars[3] * user->vars[18] -
-							// 		eleEp / pow(tau, 2) * dEda * (2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]) * user->vars[4]) + 
-							// 	(- user->pre_dNdx[ind][m][1] * eleEp / tau * dEdp * user->vars[4] * user->vars[18] +
-							// 		eleEp / pow(tau, 2) * dEda * (2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]) * user->vars[3]) + 
-							// 	+ (- 3 * user->vars[2] * user->vars[2] + 2 * (1 - user->vars[0]) * user->vars[2] + user->vars[0] * user->pre_Nx[ind][m]) * user->pre_Nx[ind][n]) // termdbl
-							// 	) * user->pre_detJ[ind];
-						}
-					}
-					ind += 1; // incrementing index for extracting pre-calculated variables
-				}
-			}
-		}
+// 							// EMatrixSolve[m][n] += (user->pre_Nx[ind][m] * user->pre_Nx[ind][n] - user->dt * eleMp * (
+// 							// 	(- eleEp * eleEp * (user->vars[3] * user->pre_dNdx[ind][m][0] + user->vars[4] * user->pre_dNdx[ind][m][1] + user->vars[18] * user->pre_dNdx[ind][m][2])) -
+// 							// 	(- user->pre_dNdx[ind][m][0] * eleEp / tau * dEdp * user->vars[3] * user->vars[18] -
+// 							// 		eleEp / pow(tau, 2) * dEda * (2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]) * user->vars[4]) + 
+// 							// 	(- user->pre_dNdx[ind][m][1] * eleEp / tau * dEdp * user->vars[4] * user->vars[18] +
+// 							// 		eleEp / pow(tau, 2) * dEda * (2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]) * user->vars[3]) + 
+// 							// 	+ (- 3 * user->vars[2] * user->vars[2] + 2 * (1 - user->vars[0]) * user->vars[2] + user->vars[0] * user->pre_Nx[ind][m]) * user->pre_Nx[ind][n]) // termdbl
+// 							// 	) * user->pre_detJ[ind];
+// 						}
+// 					}
+// 					ind += 1; // incrementing index for extracting pre-calculated variables
+// 				}
+// 			}
+// 		}
 
-		/*Apply Boundary Condition*/
-		for (int i = 0; i < nen; i++) {
-			int A = user->bzmesh_process[e].IEN[i];
-			if (user->cpts[A].label == 1) {// domain boundary
-				user->ApplyBoundaryCondition(0, i, 0, EMatrixSolve, EVectorSolve);
-			}
-		}
+// 		/*Apply Boundary Condition*/
+// 		for (int i = 0; i < nen; i++) {
+// 			int A = user->bzmesh_process[e].IEN[i];
+// 			if (user->cpts[A].label == 1) {// domain boundary
+// 				user->ApplyBoundaryCondition(0, i, 0, EMatrixSolve, EVectorSolve);
+// 			}
+// 		}
 
-		user->ResidualAssembly(EVectorSolve, user->bzmesh_process[e].IEN, F);
-		user->MatrixAssembly(EMatrixSolve, user->bzmesh_process[e].IEN, user->J);
-	}
+// 		user->ResidualAssembly(EVectorSolve, user->bzmesh_process[e].IEN, F);
+// 		user->MatrixAssembly(EMatrixSolve, user->bzmesh_process[e].IEN, user->J);
+// 	}
 
-	ierr = VecAssemblyBegin(F); CHKERRQ(ierr);
-	ierr = VecAssemblyEnd(F); CHKERRQ(ierr);
+// 	ierr = VecAssemblyBegin(F); CHKERRQ(ierr);
+// 	ierr = VecAssemblyEnd(F); CHKERRQ(ierr);
 
-	ierr = MatAssemblyBegin(user->J, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-	ierr = MatAssemblyEnd(user->J, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+// 	ierr = MatAssemblyBegin(user->J, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+// 	ierr = MatAssemblyEnd(user->J, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
 
-	ierr = VecRestoreArray(P_seq, &Parray); CHKERRQ(ierr);
-	ierr = VecScatterDestroy(&scatter_ctx1); CHKERRQ(ierr);
-	ierr = VecDestroy(&P_seq); CHKERRQ(ierr);
+// 	ierr = VecRestoreArray(P_seq, &Parray); CHKERRQ(ierr);
+// 	ierr = VecScatterDestroy(&scatter_ctx1); CHKERRQ(ierr);
+// 	ierr = VecDestroy(&P_seq); CHKERRQ(ierr);
 	
-	return 0;
+// 	return 0;
+// }
+
+// PetscErrorCode FormJacobian_phi(SNES snes, Vec x, Mat J, Mat P, void *ctx)
+// {
+// 	NeuronGrowth *user = (NeuronGrowth *)ctx; // Cast context to NeuronGrowth structure
+// 	PetscErrorCode ierr;
+
+// 	// Copy the predefined Jacobian from the user context to the PETSc Jacobian
+// 	ierr = MatCopy(user->J, J, SAME_NONZERO_PATTERN); CHKERRQ(ierr);
+	
+// 	return PETSC_SUCCESS; // Indicate successful execution
+// }
+
+// Monitor function for SNES solver iterations
+PetscErrorCode MySNESMonitor(SNES snes, PetscInt its, PetscReal fnorm, PetscViewerAndFormat *vf) {
+    PetscFunctionBeginUser; // PETSc macro to mark the start of a user-defined function
+
+    // Call PETSc's default short summary monitor for SNES iterations
+    SNESMonitorDefaultShort(snes, its, fnorm, vf);
+
+    // Retrieve the associated KSP solver from the SNES solver
+    KSP ksp;
+    PetscErrorCode ierr = SNESGetKSP(snes, &ksp); CHKERRQ(ierr);
+
+    // Uncomment the desired KSP monitoring option
+    // PetscOptionsSetValue(NULL, "-ksp_monitor", "");               // Monitor each KSP iteration
+    PetscOptionsSetValue(NULL, "-ksp_monitor_singular_value", ""); // Monitor singular values of the KSP operator
+    // PetscOptionsSetValue(NULL, "-ksp_monitor_solution", "");      // Monitor the KSP solution
+
+    // Get the total number of KSP iterations for the current SNES solve
+    PetscInt numIterations;
+    ierr = KSPGetTotalIterations(ksp, &numIterations); CHKERRQ(ierr);
+
+    // Print the total number of KSP iterations for debugging or analysis
+    PetscPrintf(PETSC_COMM_WORLD, "     - KSP Iterations: %d\n", numIterations);
+
+    PetscFunctionReturn(PETSC_SUCCESS); // Indicate successful execution
 }
 
-// Function documentation:
-// Forms the Jacobian matrix for the phi component of the NeuronGrowth model.
-//
-// Parameters:
-// - snes: The nonlinear solver context.
-// - x: The current solution vector.
-// - J: The Jacobian matrix.
-// - P: The preconditioner matrix (usually the same as J).
-// - ctx: User-defined context, cast to NeuronGrowth structure.
-//
-// Returns:
-// - PetscErrorCode: Error code indicating success or the nature of any failure.
-PetscErrorCode FormJacobian_phi(SNES snes, Vec x, Mat J, Mat P, void *ctx)
-{
-	NeuronGrowth *user = (NeuronGrowth *)ctx; // Cast context to NeuronGrowth structure
-	PetscErrorCode ierr;
+// Cleans up solvers and associated resources in the NeuronGrowth object
+PetscErrorCode CleanUpSolvers(NeuronGrowth &NG) {
+    // Safely destroy SNES solver for phi
+    NG.ierr = SNESDestroy(&NG.snes_phi); CHKERRQ(NG.ierr);
 
-	// Copy the predefined Jacobian from the user context to the PETSc Jacobian
-	ierr = MatCopy(user->J, J, SAME_NONZERO_PATTERN); CHKERRQ(ierr);
-	
-	return PETSC_SUCCESS; // Indicate successful execution
+    // Destroy Jacobian matrix and solution vector for phi
+    NG.ierr = MatDestroy(&NG.J); CHKERRQ(NG.ierr);
+    NG.ierr = VecDestroy(&NG.temp_phi); CHKERRQ(NG.ierr);
+
+    // Safely destroy KSP solver and resources for synaptogenesis (syn)
+    NG.ierr = KSPDestroy(&NG.ksp_syn); CHKERRQ(NG.ierr);
+    NG.ierr = MatDestroy(&NG.GK_syn); CHKERRQ(NG.ierr);
+    NG.ierr = VecDestroy(&NG.GR_syn); CHKERRQ(NG.ierr);
+    NG.ierr = VecDestroy(&NG.temp_syn); CHKERRQ(NG.ierr);
+
+    // Safely destroy KSP solver and resources for tubules (tub)
+    NG.ierr = KSPDestroy(&NG.ksp_tub); CHKERRQ(NG.ierr);
+    NG.ierr = MatDestroy(&NG.GK_tub); CHKERRQ(NG.ierr);
+    NG.ierr = VecDestroy(&NG.GR_tub); CHKERRQ(NG.ierr);
+    NG.ierr = VecDestroy(&NG.temp_tub); CHKERRQ(NG.ierr);
+
+    // Return the last error code (zero if successful)
+    return NG.ierr;
 }
 
-// Function documentation:
-// Custom SNES monitor function that displays the default short summary of the SNES progress
-// and additionally reports the number of KSP iterations.
-//
-// Parameters:
-// - snes: The nonlinear solver context.
-// - its: The number of nonlinear iterations completed.
-// - fnorm: The norm of the current function value.
-// - vf: Viewer and format context for output.
-//
-// Returns:
-// - PetscErrorCode: Error code indicating success or the nature of any failure.
-PetscErrorCode MySNESMonitor(SNES snes, PetscInt its, PetscReal fnorm, PetscViewerAndFormat *vf)
-{
-	PetscFunctionBeginUser; // PETSc macro for initiating user functions
-
-	// Call the default short summary monitor
-	SNESMonitorDefaultShort(snes, its, fnorm, vf);
-	
-	KSP ksp;
-	SNESGetKSP(snes, &ksp); // Retrieve the KSP solver associated with the SNES solver
-
-	// Uncomment the desired monitoring option:
-	// PetscOptionsSetValue(NULL, "-ksp_monitor", "");  // Monitor every KSP iteration
-	PetscOptionsSetValue(NULL, "-ksp_monitor_singular_value", "");  // Monitor singular values
-	// PetscOptionsSetValue(NULL, "-ksp_monitor_solution", "");  // Monitor the solution
-
-	PetscInt numIterations;
-	KSPGetTotalIterations(ksp, &numIterations); // Retrieve the total number of iterations from the KSP solver
-	PetscPrintf(PETSC_COMM_WORLD, "     - KSP Iterations: %d\n", numIterations); // Print the number of iterations
-
-	PetscFunctionReturn(PETSC_SUCCESS); // Indicate successful execution
-}
-
-// Function documentation:
-// Cleans up PETSc solvers and related resources for a NeuronGrowth object.
-// This includes destroying SNES, KSP, matrices, and vectors associated with
-// different aspects of neuron growth modeling (phi, syn, tub).
-//
-// Parameters:
-// - NG: Reference to a NeuronGrowth object containing solver objects and resources.
-//
-// Returns:
-// - PetscErrorCode: Error code indicating if the cleanup was successful or if an error occurred.
-PetscErrorCode CleanUpSolvers(NeuronGrowth &NG)
-{
-	// Destroy SNES solver for phi
-	NG.ierr = SNESDestroy(&NG.snes_phi); CHKERRQ(NG.ierr);
-	
-	// Destroy matrices and vectors associated with phi
-	NG.ierr = MatDestroy(&NG.J); CHKERRQ(NG.ierr);
-	NG.ierr = VecDestroy(&NG.temp_phi); CHKERRQ(NG.ierr);
-
-	// Destroy KSP solver and resources for synaptogenesis (syn)
-	NG.ierr = KSPDestroy(&NG.ksp_syn); CHKERRQ(NG.ierr);
-	NG.ierr = MatDestroy(&NG.GK_syn); CHKERRQ(NG.ierr);
-	NG.ierr = VecDestroy(&NG.GR_syn); CHKERRQ(NG.ierr);
-	NG.ierr = VecDestroy(&NG.temp_syn); CHKERRQ(NG.ierr);
-
-	// Destroy KSP solver and resources for tubules (tub)
-	NG.ierr = KSPDestroy(&NG.ksp_tub); CHKERRQ(NG.ierr);	
-	NG.ierr = MatDestroy(&NG.GK_tub); CHKERRQ(NG.ierr);
-	NG.ierr = VecDestroy(&NG.GR_tub); CHKERRQ(NG.ierr);
-	NG.ierr = VecDestroy(&NG.temp_tub); CHKERRQ(NG.ierr);
-
-	// Return the last error code (0 if no errors occurred)
-	return NG.ierr;
-}
-
-int RunNG(int n_bzmesh, vector<vector<int>> ele_process_in, vector<Vertex3D> cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts, string path_in, string path_out, int &iter, int end_iter_in,
-	vector<vector<float>> &NGvars, int &NX, int &NY, int &NZ, vector<array<float, 3>> &seed, int &originX, int &originY, int &originZ, bool &localRefine)
-{	
+int RunNG(
+    int n_bzmesh, vector<vector<int>> ele_process_in,
+    vector<Vertex3D> cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
+    string path_in, string path_out,
+    int &iter, int end_iter_in,
+    vector<vector<float>> &NGvars,
+    int &NX, int &NY, int &NZ,
+    vector<array<float, 3>> &seed, int &originX, int &originY, int &originZ,
+    bool &localRefine
+) {
 	/*========================================================*/
 	// Initializations
 	NeuronGrowth NG;
 	// // NG.SetVariables("simulation_parameters.txt");
-	NG.GaussInfo(3);
 	NG.n = iter;
 	NG.numNeuron = seed.size();
 	NG.end_iter = end_iter_in;
+
+	if (NG.comRank == 0) {
+		cout << cpts_initial.size() << " " << cpts.size() << " " << prev_cpts.size() << endl;
+	}
+	// Initialize vertex clouds for the current, fine, and previous configurations
+	Vertex3DCloud cloud_initial(cpts_initial);        		// Cloud for current points
+	Vertex3DCloud cloud(cpts); 		// Cloud for finer resolution points
+	Vertex3DCloud cloud_prev(prev_cpts);  		// Cloud for previous points
+	// Initialize KD-Trees for the current, fine, and previous vertex clouds
+	KDTree kdTree_initial(2 /* dim */, cloud_initial, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
+	KDTree kdTree(2 /* dim */, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
+	KDTree kdTree_prev(2 /* dim */, cloud_prev, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
+	// Build indexes for KD-Trees to optimize search operations
+	kdTree_initial.buildIndex();
+	kdTree.buildIndex();
+	kdTree_prev.buildIndex();
 
 	NG.InitializeProblemNG(n_bzmesh, cpts, prev_cpts, NGvars, seed);
 	NG.ToPETScVec(NG.phi, NG.temp_phi); // initial guess for SNES (optional)
@@ -3452,7 +3538,7 @@ int RunNG(int n_bzmesh, vector<vector<int>> ele_process_in, vector<Vertex3D> cpt
 	// Check MPI element assignments, and print out in orders
 	for (int i = 0; i < NG.nProcess; i++){
 		if (i == NG.comRank) {
-			std::cout << "comRank: " << NG.comRank << "/" << NG.nProcess << " - with element process size: " << NG.ele_process.size() << std::endl;
+			cout << "comRank: " << NG.comRank << "/" << NG.nProcess << " - with element process size: " << NG.ele_process.size() << endl;
 			NG.ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRQ(NG.ierr);
 		} else {
 			NG.ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRQ(NG.ierr);
@@ -3461,8 +3547,7 @@ int RunNG(int n_bzmesh, vector<vector<int>> ele_process_in, vector<Vertex3D> cpt
 	// Read bezier mesh and prepare SNES initial guess
 	NG.ReadBezierElementProcess(path_in);
 	PetscPrintf(PETSC_COMM_WORLD, "Read bzmesh!-----------------------------------------------------------------\n");	
-
-	NG.CheckVar(path_out + "/distI_", cpts, NG.distI);
+	// NG.CheckVar(path_out + "/distI_", cpts, NG.distI);
 
 	/*========================================================*/
 	// Initial neuron identifications and geodesic distance calculation
@@ -3502,91 +3587,57 @@ int RunNG(int n_bzmesh, vector<vector<int>> ele_process_in, vector<Vertex3D> cpt
 
 		/*========================================================*/
 		// Neuron identification and tip detection
-		// if (NG.n < 100 ) {	
-
-		// 	if ((NG.n % 25 == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size())) {	
-		// 		PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");	
-		// 		PetscPrintf(PETSC_COMM_WORLD, "Identifying neurons, calculating geodesic distances, and detecting tips\n");
-		// 		// NG.tips = NG.calculatePhiSum(cpts, 2, 2, 2);
-		// 		// NG.tips = NG.calculatePhiSum(cpts, 4, 4, 4);
-		// 		NG.calculatePhiSum(cpts, 4, 4, 4);
-		// 		NG.CheckVar(path_out + "/tips_", cpts, NG.tips);
-		// 		// NG.CheckVar("../io3D/outputs/tips_", cpts, tips);
-
-		// 		toc(t_collect);
-		// 		tic();
-		// 		t_write += t_collect;
-		// 		t_total += t_collect;
-		// 	}
-		// } else {
-		// 	if ((NG.n % 25 == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size())) {	
-		// 		PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");	
-		// 		PetscPrintf(PETSC_COMM_WORLD, "Identifying neurons, calculating geodesic distances, and detecting tips\n");
-		// 		// NG.tips = NG.calculatePhiSum(cpts, 2, 2, 2);
-		// 		// NG.tips = NG.calculatePhiSum(cpts, 4, 4, 4);
-		// 		NG.calculatePhiSum(cpts, 4, 4, 4);
-		// 		NG.CheckVar(path_out + "/tips_", cpts, NG.tips);
-		// 		// NG.CheckVar("../io3D/outputs/tips_", cpts, tips);
-
-		// 		toc(t_collect);
-		// 		tic();
-		// 		t_write += t_collect;
-		// 		t_total += t_collect;
-		// 	}
-		// }
-
-		// if ((NG.n % NG.var_save_invl == 0) && (NG.n != 0)) {	
-		// if ((NG.n % 25 == 0) && (NG.n != 0)) {
-		if ((NG.n % 25 == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size())) {	
-			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");	
-			
+		// Periodically save variables, detect tips, and write results
+		if ((NG.n % NG.var_save_invl == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size())) {
+			// Log progress and start collecting results
+			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			PetscPrintf(PETSC_COMM_WORLD, "Identifying neurons, calculating geodesic distances, and detecting tips\n");
-			// NG.tips = NG.calculatePhiSum(cpts, 2, 2, 2);
-			// NG.tips = NG.calculatePhiSum(cpts, 4, 4, 4);
-			NG.calculatePhiSum(cpts, 8, 8, 8);
-			NG.CheckVar(path_out + "/tips_", cpts, NG.tips);
-			// NG.CheckVar("../io3D/outputs/tips_", cpts, tips);
 
-			toc(t_collect);
-			tic();
+			// Detect tips and save intermediate results
+			NG.calculatePhiSum(cpts, 8, 8, 8, kdTree);
+			NG.CheckVar(path_out + "/tips_", cpts, NG.tips);
+
+			// Measure time for collection and add to total/write time
+			toc(t_collect);  // End timer for collecting
 			t_write += t_collect;
 			t_total += t_collect;
+			tic();  // Restart timer for subsequent operations
 
-			/*========================================================*/
-			// Writing results to files
-			// PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+			// Write physical domain results to file
 			NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
-			PetscPrintf(PETSC_COMM_WORLD, "Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
-				NG.n, NG.end_iter, t_write/NG.var_save_invl, t_total); CHKERRQ(NG.ierr);
+			PetscPrintf(PETSC_COMM_WORLD, 
+						"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
+						NG.n, NG.end_iter, t_write / NG.var_save_invl, t_total); 
+			CHKERRQ(NG.ierr);
+
+			// Separator for clarity in logs
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+
+			// Reset write time accumulator
 			t_write = 0;
 		}
+
+		// 	/*========================================================*/
+		// 	// Writing results to files
+		// 	// PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+		// 	NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
+		// 	PetscPrintf(PETSC_COMM_WORLD, "Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
+		// 		NG.n, NG.end_iter, t_write/NG.var_save_invl, t_total); CHKERRQ(NG.ierr);
+		// 	PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+		// 	t_write = 0;
+		// }
 
 		/*========================================================*/
 		/*Implcit Non-liear SNES solver for Phase field equation*/
 		NG.phi_prev = NG.phi;		
 
-		if (NG.judge_phi == 0) { 
-			NG.ierr = SNESCreate(PETSC_COMM_WORLD, &NG.snes_phi); CHKERRQ(NG.ierr);
-			NG.ierr = SNESSetType(NG.snes_phi, SNESNEWTONLS); CHKERRQ(NG.ierr);
-			NG.ierr = SNESSetTolerances(NG.snes_phi, 1e-5, 1e-7, 1e-9, 100, 1000); CHKERRQ(NG.ierr);
-			// NG.ierr = SNESSetTolerances(NG.snes_phi, 1e-4, 1e-6, 1e-8, 100, 1000); CHKERRQ(NG.ierr);
-			PetscPrintf(PETSC_COMM_WORLD, "Set Tolerance!---------------------------------------------------------------\n");
-			SNESLineSearch linesearch;
-			NG.ierr = SNESGetLineSearch(NG.snes_phi, &linesearch); CHKERRQ(NG.ierr);
-			NG.ierr = SNESLineSearchSetType(linesearch, SNESLINESEARCHCP); CHKERRQ(NG.ierr);
-			PetscPrintf(PETSC_COMM_WORLD, "Set LineSearch!--------------------------------------------------------------\n");	
-			NG.ierr = SNESSetFunction(NG.snes_phi, NULL, FormFunction_phi, &NG); CHKERRQ(NG.ierr);
-			NG.ierr = SNESSetJacobian(NG.snes_phi, NULL, NULL, FormJacobian_phi, &NG); CHKERRQ(NG.ierr);
-			PetscPrintf(PETSC_COMM_WORLD, "Set FormFunction and FormJacobian!-------------------------------------------\n");
+		// Phase Field Equation Solver (SNES)
+		if (NG.judge_phi == 0) {
+			SetupSNES(NG.snes_phi, SNESNEWTONLS, &NG, FormFunction_phi, FormJacobian_phi);
 
-			// PetscViewerAndFormat *vf;
-			// PetscViewerAndFormatCreate(PETSC_VIEWER_STDOUT_WORLD, PETSC_VIEWER_DEFAULT, &vf);
-			// SNESMonitorSet(NG.snes_phi, (PetscErrorCode(*)(SNES, PetscInt, PetscReal, void *))MySNESMonitor, vf, (PetscErrorCode(*)(void **))PetscViewerAndFormatDestroy);
-			// PetscPrintf(PETSC_COMM_WORLD, "Set Monitor!-----------------------------------------------------------------\n");
-			
-			if (NG.n == 0)
+			if (NG.n == 0) {
 				NG.ierr = SNESView(NG.snes_phi, PETSC_VIEWER_STDOUT_WORLD); CHKERRQ(NG.ierr);
+			}
 			NG.judge_phi = 1;
 		}
 
@@ -3645,21 +3696,13 @@ int RunNG(int n_bzmesh, vector<vector<int>> ele_process_in, vector<Vertex3D> cpt
 		NG.ierr = VecAssemblyEnd(NG.GR_tub); CHKERRQ(NG.ierr);
 		NG.ierr = MatAssemblyEnd(NG.GK_tub, MAT_FINAL_ASSEMBLY); CHKERRQ(NG.ierr);
 
-		/*Petsc solver setting for Synaptogenesis*/
+		// Synaptogenesis Solver (KSP)
 		if (NG.judge_syn == 0) {
-			NG.ierr = KSPCreate(PETSC_COMM_WORLD, &NG.ksp_syn); CHKERRQ(NG.ierr);
-			NG.ierr = KSPSetOperators(NG.ksp_syn, NG.GK_syn, NG.GK_syn); CHKERRQ(NG.ierr);
-			NG.ierr = KSPGetPC(NG.ksp_syn, &NG.pc_syn); CHKERRQ(NG.ierr);
-			NG.ierr = PCSetType(NG.pc_syn, PCBJACOBI); CHKERRQ(NG.ierr);
-			NG.ierr = KSPSetType(NG.ksp_syn, KSPGMRES); CHKERRQ(NG.ierr);
-			// NG.ierr = KSPSetType(NG.ksp_syn, KSPCGS); CHKERRQ(NG.ierr);
-			NG.ierr = KSPGMRESSetRestart(NG.ksp_syn, 100); CHKERRQ(NG.ierr);
-			NG.ierr = KSPSetInitialGuessNonzero(NG.ksp_syn, PETSC_TRUE); CHKERRQ(NG.ierr);
-			NG.ierr = KSPSetTolerances(NG.ksp_syn, 1.e-8, PETSC_DEFAULT, PETSC_DEFAULT, 100000); CHKERRQ(NG.ierr);
-			NG.ierr = KSPSetFromOptions(NG.ksp_syn); CHKERRQ(NG.ierr);
-			NG.ierr = KSPSetUp(NG.ksp_syn); CHKERRQ(NG.ierr);
-			if (NG.n == 0)
+			NG.ierr = SetupKSP(NG.ksp_syn, NG.GK_syn, KSPGMRES, PCBJACOBI, 1.e-8); CHKERRQ(NG.ierr);
+
+			if (NG.n == 0) {
 				NG.ierr = KSPView(NG.ksp_syn, PETSC_VIEWER_STDOUT_WORLD); CHKERRQ(NG.ierr);
+			}
 			NG.judge_syn = 1;
 		}
 
@@ -3678,21 +3721,13 @@ int RunNG(int n_bzmesh, vector<vector<int>> ele_process_in, vector<Vertex3D> cpt
 		t_write += t_syn;
 		t_total += t_syn;
 
-		/*Petsc solver setting for Tubulin*/
+		// Tubulin Solver (KSP)
 		if (NG.judge_tub == 0) {
-			NG.ierr = KSPCreate(PETSC_COMM_WORLD, &NG.ksp_tub); CHKERRQ(NG.ierr);
-			NG.ierr = KSPSetOperators(NG.ksp_tub, NG.GK_tub, NG.GK_tub); CHKERRQ(NG.ierr);
-			NG.ierr = KSPGetPC(NG.ksp_tub, &NG.pc_tub); CHKERRQ(NG.ierr);
-			NG.ierr = PCSetType(NG.pc_tub, PCBJACOBI); CHKERRQ(NG.ierr);
-			NG.ierr = KSPSetType(NG.ksp_tub, KSPGMRES); CHKERRQ(NG.ierr);
-			// NG.ierr = KSPSetType(NG.ksp_tub, KSPCGS); CHKERRQ(NG.ierr);
-			NG.ierr = KSPGMRESSetRestart(NG.ksp_tub, 100); CHKERRQ(NG.ierr);
-			NG.ierr = KSPSetInitialGuessNonzero(NG.ksp_tub, PETSC_TRUE); CHKERRQ(NG.ierr);
-			NG.ierr = KSPSetTolerances(NG.ksp_tub, 1.e-8, PETSC_DEFAULT, PETSC_DEFAULT, 100000); CHKERRQ(NG.ierr);
-			NG.ierr = KSPSetFromOptions(NG.ksp_tub); CHKERRQ(NG.ierr);
-			NG.ierr = KSPSetUp(NG.ksp_tub); CHKERRQ(NG.ierr);
-			if (NG.n == 0)
+			NG.ierr = SetupKSP(NG.ksp_tub, NG.GK_tub, KSPGMRES, PCBJACOBI, 1.e-8); CHKERRQ(NG.ierr);
+
+			if (NG.n == 0) {
 				NG.ierr = KSPView(NG.ksp_tub, PETSC_VIEWER_STDOUT_WORLD); CHKERRQ(NG.ierr);
+			}
 			NG.judge_tub = 1;
 		}
 
@@ -3746,50 +3781,50 @@ int RunNG(int n_bzmesh, vector<vector<int>> ele_process_in, vector<Vertex3D> cpt
 		PetscPrintf(PETSC_COMM_WORLD, "Step:%d/%d | Phi:%d[%d]%.3fs | Syn:%d[%d]%.3fs | Tub:%d[%d]%.3fs | Mesh:%d |\n",\
 			NG.n, NG.end_iter, reason_phi, its_phi, t_phi, reason_syn, its_syn, t_syn, reason_tub, its_tub, t_tub, n_bzmesh); CHKERRQ(NG.ierr);
 
-		/*========================================================*/
-		// Obtain initial local refinement information, the very first 25 iterations are purely used 
-		// for getting diffused interface for applying local refinements (phi initialization is binary) 
-		if ((NG.n == 10) && (localRefine == false)) {
-			// NGvars.clear(); NGvars.resize(6);
-			// NGvars[0] = NG.phi;	
-			// NGvars[1] = NG.syn;
-			// NGvars[2] = NG.tub;
-			// NGvars[3] = NG.theta;
-			// NGvars[4] = NG.phi_0;
-			// NGvars[5] = NG.tub_0;
+		// /*========================================================*/
+		// // Obtain initial local refinement information, the very first 25 iterations are purely used 
+		// // for getting diffused interface for applying local refinements (phi initialization is binary) 
+		// if ((NG.n == 10) && (localRefine == false)) {
+		// 	// NGvars.clear(); NGvars.resize(6);
+		// 	// NGvars[0] = NG.phi;	
+		// 	// NGvars[1] = NG.syn;
+		// 	// NGvars[2] = NG.tub;
+		// 	// NGvars[3] = NG.theta;
+		// 	// NGvars[4] = NG.phi_0;
+		// 	// NGvars[5] = NG.tub_0;
 
-			CleanUpSolvers(NG); // Destroy solvers
-			NG.ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRQ(NG.ierr);
-			iter = 0; // reset to 0 (beginning of the simulation)
-			localRefine = true;
+		// 	CleanUpSolvers(NG); // Destroy solvers
+		// 	NG.ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRQ(NG.ierr);
+		// 	iter = 0; // reset to 0 (beginning of the simulation)
+		// 	localRefine = true;
 
-			if (NG.comRank == 0) {
-				vector<float> ele_refine = ComputeRefine(NG.phi, NX, NY, NZ);
-				writeVectorToFile(ele_refine, path_in + "phi.txt", false);
-				NG.CheckVar("../io3D/phi", cpts, NG.phi);
-			}	
-			NG.ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRQ(NG.ierr);
-			// std::cout <<"!!!!!!!" << std::endl;
+		// 	if (NG.comRank == 0) {
+		// 		vector<float> ele_refine = ComputeRefine(NG.phi, NX, NY, NZ);
+		// 		writeVectorToFile(ele_refine, path_in + "phi.txt", false);
+		// 		NG.CheckVar("../io3D/phi", cpts, NG.phi);
+		// 	}	
+		// 	NG.ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRQ(NG.ierr);
+		// 	// cout <<"!!!!!!!" << endl;
 
-			return 2;
-		}
+		// 	return 2;
+		// }
 		
 		// /*========================================================*/
 		// // Neuron identification and tip detection
 		// if ((NG.n % 1 == 0) && (NG.n != 0)) {	
 		// 	// PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");	
 		// 	// PetscPrintf(PETSC_COMM_WORLD, "Identifying neurons, calculating geodesic distances, and detecting tips\n");
-		// 	// std::cout << "ck0" << std::endl;
+		// 	// cout << "ck0" << endl;
 		// 	// NG.IdentifyNeurons3D(neurons, seed, NX, NY, NZ, originX, originY, originZ);
 
-		// 	// std::cout << "ck1" << std::endl;
+		// 	// cout << "ck1" << endl;
 		// 	// vector<float> id = Convert3DIntTo1DFloatVector(neurons);
-		// 	// std::cout << NX << " " <<  NY << " " << NZ << " " << id.size() << " " << cpts_initial.size() << std::endl;
+		// 	// cout << NX << " " <<  NY << " " << NZ << " " << id.size() << " " << cpts_initial.size() << endl;
 		// 	// NG.CheckVar("../io3D/id", cpts_initial, id);
-		// 	// std::cout << "ck2" << std::endl;
+		// 	// cout << "ck2" << endl;
 		// 	// NG.DetectTipsMulti3D(id, NG.numNeuron, NG.tips, NX, NY, NZ);
 		// 	NG.tips = NG.calculatePhiSum(cpts, 4, 4, 4);
-		// 	// std::cout << "ck3" << std::endl;
+		// 	// cout << "ck3" << endl;
 
 		// 	// // vector<float> localMaximaMatrix = NG.FindLocalMaximaInClusters(tips, NX+1, NY+1);
 		// 	// // NG.tips = InterpolateVars(localMaximaMatrix, cpts_initial, cpts, 0);

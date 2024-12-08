@@ -306,55 +306,66 @@ void THS3D(const std::string &path_in) {
     }
 }
 
+void InitializeSoma(int numNeuron, vector<array<float, 3>>& seed, int& NX, int& NY, int& NZ) {
+    // Resize the seed vector to accommodate the number of neurons
+    seed.resize(numNeuron);
 
-//
-void InitializeSoma(int numNeuron, vector<array<float, 3>> &seed, int &NX, int &NY, int &NZ){
-	seed.resize(numNeuron);
-	// 2D neuron soma initialization
-	switch (numNeuron) {
-	case 1:
-		// NX = 10;
-		// NY = 10;
-		// NZ = 10;
-		// seed[0][0] = 5*4;		seed[0][1] = 5*4;		seed[0][2] = 5*4;
+    // Initialize neuron soma based on the number of neurons
+    switch (numNeuron) {
+        case 1:
+            // Single neuron case
+            NX = 20;
+            NY = 20;
+            NZ = 20;  // Assumes 3D initialization
+            seed[0] = {10.0f, 10.0f, 10.0f};
+            break;
 
-		NX = 20;
-		NY = 20;
-		NZ = 20;
-		seed[0][0] = 10;		seed[0][1] = 10;		seed[0][2] = 10;
-		
-		break;
-	case 2:
-		NX = 140;
-		NY = 70;
-		seed[0][0] = 35;    seed[0][1] = 35;
-		seed[1][0] = 105;   seed[1][1] = 35;
-		break;
-	case 3:
-		NX = 140;
-		NY = 130;
-		seed[0][0] = 35;    seed[0][1] = 35;
-		seed[1][0] = 105;   seed[1][1] = 35;
-		seed[2][0] = 70;    seed[2][1] = 95;
-		break;
-	case 4:
-		NX = 140;
-		NY = 140;
-		seed[0][0] = 35;    seed[0][1] = 35;
-		seed[1][0] = 105;   seed[1][1] = 35;
-		seed[2][0] = 35;    seed[2][1] = 105;
-		seed[3][0] = 105;   seed[3][1] = 105;
-		break;
-	case 5:
-		NX = 140;
-		NY = 140;
-		seed[0][0] = 35;    seed[0][1] = 35;
-		seed[1][0] = 105;   seed[1][1] = 35;
-		seed[2][0] = 35;    seed[2][1] = 105;
-		seed[3][0] = 105;   seed[3][1] = 105;
-		seed[4][0] = 70;    seed[4][1] = 70;
-		break;
-	}
+        case 2:
+            // Two neurons in a 2D plane
+            NX = 140;
+            NY = 70;
+            NZ = 1;  // Flat plane
+            seed[0] = {35.0f, 35.0f, 0.0f};
+            seed[1] = {105.0f, 35.0f, 0.0f};
+            break;
+
+        case 3:
+            // Three neurons in a 2D plane
+            NX = 140;
+            NY = 130;
+            NZ = 1;  // Flat plane
+            seed[0] = {35.0f, 35.0f, 0.0f};
+            seed[1] = {105.0f, 35.0f, 0.0f};
+            seed[2] = {70.0f, 95.0f, 0.0f};
+            break;
+
+        case 4:
+            // Four neurons in a 2D grid
+            NX = 140;
+            NY = 140;
+            NZ = 1;  // Flat plane
+            seed[0] = {35.0f, 35.0f, 0.0f};
+            seed[1] = {105.0f, 35.0f, 0.0f};
+            seed[2] = {35.0f, 105.0f, 0.0f};
+            seed[3] = {105.0f, 105.0f, 0.0f};
+            break;
+
+        case 5:
+            // Five neurons in a 2D grid with a center neuron
+            NX = 140;
+            NY = 140;
+            NZ = 1;  // Flat plane
+            seed[0] = {35.0f, 35.0f, 0.0f};
+            seed[1] = {105.0f, 35.0f, 0.0f};
+            seed[2] = {35.0f, 105.0f, 0.0f};
+            seed[3] = {105.0f, 105.0f, 0.0f};
+            seed[4] = {70.0f, 70.0f, 0.0f};
+            break;
+
+        default:
+            cerr << "Unsupported number of neurons: " << numNeuron << endl;
+            throw invalid_argument("Number of neurons must be between 1 and 5.");
+    }
 }
 
 void ReadMesh(string fn, vector<Vertex3D>& pts, vector<Element3D>& mesh)//need vtk file with point label

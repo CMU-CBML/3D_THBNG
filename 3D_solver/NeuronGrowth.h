@@ -1,122 +1,148 @@
-#ifndef NeuronGrowth_H
-#define NeuronGrowth_H
+#ifndef NEURONGROWTH_H
+#define NEURONGROWTH_H
 
 #include <vector>
 #include <array>
 #include "BasicDataStructure.h"
 #include "utils.h"
 #include "time.h"
+#include "../nanoflann/1.5.5/include/nanoflann.hpp" // for KDtree points search
 
 using namespace std;
 
-// timing function (similar to Matlab tic toc)
+// Timing functions (similar to MATLAB's tic/toc)
 void tic();
 void toc(float &t);
 
 float MatrixDet(float dxdt[2][2]);
+
 void Matrix2DInverse(float dxdt[2][2], float dtdx[2][2]);
 
-class NeuronGrowth
-{
-private:
+inline float SquaredDistance(const Vertex3D& first, const Vertex3D& other);
 
+void CheckAndPrintThresholdExceedance(const vector<float>& input, float threshold);
+
+struct Vertex3DCloud {
+    const vector<Vertex3D>& pts; // Reference to the 3D points
+
+    // Constructor
+    Vertex3DCloud(const vector<Vertex3D>& pts) : pts(pts) {}
+
+    // Returns the number of data points
+    inline size_t kdtree_get_point_count() const { return pts.size(); }
+
+    // Returns the dim'th component of the idx'th point
+    inline float kdtree_get_pt(const size_t idx, const size_t dim) const {
+        return pts[idx].coor[dim]; // Accessing coor[0], coor[1], coor[2]
+    }
+
+    // Optional bounding box computation; not implemented for simplicity
+    template <class BBOX>
+    bool kdtree_get_bbox(BBOX&) const { return false; }
+};
+
+// Alias for a 3D KDTree
+using KDTree = nanoflann::KDTreeSingleIndexAdaptor<
+    nanoflann::L2_Simple_Adaptor<float, Vertex3DCloud>,
+    Vertex3DCloud, 
+    3 /* dim */>;
+
+class NeuronGrowth {
 public:
-	// MPI parameters
-	PetscErrorCode ierr;
-	MPI_Comm comm;
-	int mpiErr;
-	int comRank;
-	int comSize;
-	int nProcess;
-	
-	// Spline parameters
-	int n_bzmesh;
-	vector<int> ele_process;
-	vector<float> Gpt, wght, N_0;
-	vector<Vertex3D> cpts;
-	vector<Element3D> bzmesh_process;
+    // MPI Parameters
+    PetscErrorCode ierr;       // PETSc error code
+    MPI_Comm comm;             // MPI communicator
+    int mpiErr;                // MPI error code
+    int comRank;               // MPI rank
+    int comSize;               // Number of processes in communicator
+    int nProcess;              // Total processes
 
-	float max_x, min_x, max_y, min_y, max_z, min_z;
+    // Spline Parameters
+    int n_bzmesh;                      // Number of Bezier mesh elements
+    vector<int> ele_process;           // Elements assigned to the process
+    vector<float> Gpt, wght, N_0;      // Gauss points, weights, and basis functions
+    vector<Vertex3D> cpts;             // Control points
+    vector<Element3D> bzmesh_process;  // Processed Bezier elements
 
-	// Pre-calculated variables to save computational cost
-	vector<vector<float>> pre_Nx;
-	vector<vector<array<float, 3>>> pre_dNdx;
-	vector<float> pre_detJ, pre_mag_grad_phi0, pre_C0, pre_C0_sp, pre_term_source;
-	vector<float> pre_eleEP, pre_eleEEP, pre_dAdx, pre_dAdy, pre_dAdz, pre_dAPdx, pre_dAPdy, pre_dAPdz;
-	vector<float> pre_eleP, pre_eleTh, pre_eleMp, pre_C1;
-	vector<float> pre_vars;
-	vector<vector<vector<float>>> pre_EMatrixSolve;
-	vector<vector<float>> pre_EVectorSolve;
+    // Spatial Bounds
+    float max_x, min_x;  // x-dimension bounds
+    float max_y, min_y;  // y-dimension bounds
+    float max_z, min_z;  // z-dimension bounds
 
-	// element stiffness matrix and load vector
-	int nen;
-	vector<vector<float>> EMatrixSolve;
-	vector<float> EVectorSolve;
-	vector<vector<float>> eleVal;
-	vector<float> vars;
-	vector<float> Nx;
-	vector<array<float, 3>> dNdx;
+    // Pre-calculated Variables (for computational efficiency)
+    vector<vector<float>> pre_Nx;
+    vector<vector<array<float, 3>>> pre_dNdx;
+    vector<float> pre_detJ, pre_mag_grad_phi0, pre_C0, pre_C0_sp, pre_term_source;
+    vector<float> pre_eleEP, pre_eleEEP, pre_dAdx, pre_dAdy, pre_dAdz, pre_dAPdx, pre_dAPdy, pre_dAPdz;
+    vector<float> pre_eleP, pre_eleTh, pre_eleMp, pre_C1;
+    vector<float> pre_vars;
+    vector<vector<vector<float>>> pre_EMatrixSolve;
+    vector<vector<float>> pre_EVectorSolve;
 
-	// Neuron growth variables
-	int n; 								// time step
-	int judge_phi, judge_syn, judge_tub;				// assembly state	
-	vector<float> phi, tub, syn, theta;				// variable to be solved 
-	//  polar, azimuth;
-	vector<float> phi_prev, phi_0, tub_0, tips, Mphi;			// assisting varibles
-	float sum_grad_phi0_local, sum_grad_phi0_global, dP0dx, dP0dy, dP0dz;	
-	vector<float> elePhi0, eleTheta;
+    // Element Stiffness Matrix and Load Vector
+    int nen;                         // Number of element nodes
+    vector<vector<float>> EMatrixSolve; // Element stiffness matrix
+    vector<float> EVectorSolve;        // Element load vector
+    vector<vector<float>> eleVal;      // Element values
+    vector<float> vars;                // Global variables
+    vector<float> Nx;                  // Shape functions
+    vector<array<float, 3>> dNdx;      // Shape function gradients
 
-	vector<float> distI;
+    // Neuron Growth Variables
+    int n;                              // Current time step
+    int judge_phi, judge_syn, judge_tub; // Assembly state flags
+    vector<float> phi, tub, syn, theta; // Variables to be solved
+    vector<float> phi_prev, phi_0, tub_0, tips, Mphi; // Supporting variables
+    float sum_grad_phi0_local, sum_grad_phi0_global;  // Gradient sums
+    float dP0dx, dP0dy, dP0dz;          // Derivatives of pressure
+    vector<float> elePhi0, eleTheta;    // Element-specific variables
+    vector<float> distI;                // Distances for interpolation
 
-	// PETSc solvers and variables
-	SNES snes_phi;				// PETSc SNES nonlinear solver
-	KSP ksp_syn, ksp_tub;			// PETSc KSP linear solver
-	PC pc_syn, pc_tub;			// PETSc preconditioner
-	Mat GK_syn, GK_tub, J;			// Jacobian matrix
-	Vec GR_syn, GR_tub;			// Residual vector
-	Vec temp_phi, temp_syn, temp_tub;	// Solution vector
+    // PETSc Solvers and Variables
+    SNES snes_phi;              // PETSc SNES nonlinear solver
+    KSP ksp_syn, ksp_tub;       // PETSc KSP linear solvers
+    PC pc_syn, pc_tub;          // PETSc preconditioners
+    Mat GK_syn, GK_tub, J;      // PETSc matrices
+    Vec GR_syn, GR_tub;         // Residual vectors
+    Vec temp_phi, temp_syn, temp_tub; // Temporary solution vectors
 
-	// // Parameters for neuron growth model
-	// int var_save_invl,expandCK_invl,numNeuron,gc_sz,end_iter,aniso,gamma;
-	// float seed_radius, kappa,dt,Dc,alpha,alphaOverPi,M_phi,s_coeff,delta,epsilonb,r,g,alphaT,betaT,Diff,source_coeff;
-	
-	// Parameters for neuron growth model
-	int var_save_invl;
-	int expandCK_invl;
-	int numNeuron;
-	int gc_sz;
-	int end_iter;
-	int aniso;
-	int gamma;
-	int seed_radius;
+    // Parameters for Neuron Growth Model
+    int var_save_invl;          // Interval for saving variables
+    int expandCK_invl;          // Interval for checking expansion
+    int numNeuron;              // Number of neurons
+    int gc_sz;                  // Grid cell size
+    int end_iter;               // Total number of iterations
+    int aniso;                  // Anisotropy parameter
+    int gamma;                  // Growth factor
+    int seed_radius;            // Radius for neuron seeding
 
-	float kappa;
-	float dt;
-	float Dc;
-	float kp75;
-	float k2;
-	float c_opt;
-	float alpha;
-	float alphaOverPi;
-	float M_phi;
-	float M_axon;
-	float M_neurite;
-	float s_coeff;
-	float delta;
-	float epsilonb;
-	float r;
-	float g;
-	float alphaT;
-	float betaT;
-	float Diff;
-	float source_coeff;
+    float kappa;                // Diffusion coefficient
+    float dt;                   // Time step
+    float Dc;                   // Diffusion constant
+    float kp75, k2;             // Material-specific parameters
+    float c_opt;                // Optimization parameter
+    float alpha;                // Growth rate
+    float alphaOverPi;          // Normalized growth rate
+    float M_phi, M_axon, M_neurite; // Mobility parameters
+    float s_coeff;              // Coefficient for stress
+    float delta;                // Growth parameter
+    float epsilonb;             // Boundary thickness
+    float r;                    // Radius
+    float g;                    // Growth anisotropy
+    float alphaT, betaT;        // Time-dependent parameters
+    float Diff;                 // Diffusion
+    float source_coeff;         // Source coefficient
 
 	// Initializations
 	NeuronGrowth();
 	void AssignProcessor(vector<vector<int>> &ele_proc); // assign elements to different processors
 	void SetVariables(string fn_par);
-	void InitializeProblemNG(const int n_bz, vector<Vertex3D>& cpts, vector<Vertex3D> prev_cpts, vector<vector<float>> &NGvars, vector<array<float, 3>> &seed);
-	void CheckVar(string fn, vector<Vertex3D> cpts, vector<float> input);
+	void InitializeProblemNG(const int n_bz, 
+							vector<Vertex3D>& cpts, 
+							vector<Vertex3D> prev_cpts, 
+							vector<vector<float>>& NGvars, 
+							vector<array<float, 3>>& seed);
+	void CheckVar(const string& fn, const vector<Vertex3D>& cpts, const vector<float>& input);
 	void ToPETScVec(vector<float> input, Vec& petscVec); // for SNES phi initial guess
 
 	// Read mesh, calculate basis function value, assemble matrix, etc
@@ -147,36 +173,36 @@ public:
 	void PointFormHess(vector<array<array<float, 2>, 2>>& d2Ndx2, const vector<float> &U, float Value[2][2]);
 	void ElementValue(const vector<float> &Nx, const vector<float> value_node, float &value);
 	void ElementValueAll(const vector<float> &Nx, const vector<float> elePhiGuess, float &elePG,
-		const vector<float> elePhi, float &eleP,
-		const vector<float> eleSyn, float &eleS,
-		const vector<float> eleTips, float &eleTp,
-		const vector<float> eleTubulin, float &eleTb,
-		const vector<float> eleEpsilon, float &eleEP,
-		const vector<float> eleEpsilonP, float &eleEEP);
+						const vector<float> elePhi, float &eleP,
+						const vector<float> eleSyn, float &eleS,
+						const vector<float> eleTips, float &eleTp,
+						const vector<float> eleTubulin, float &eleTb,
+						const vector<float> eleEpsilon, float &eleEP,
+						const vector<float> eleEpsilonP, float &eleEEP);
 	void ElementDeriv(const int nen, vector<array<float, 3>> &dNdx, const vector<float> value_node, float &dVdx, float &dVdy, float &dVdz);
 	void ElementDerivAll(const int nen, vector<array<float, 3>> &dNdx,
-		const vector<float> elePhiGuess, float &dPGdx, float &dPGdy,
-		const vector<float> eleTheta, float &dThedx, float &dThedy,
-		const vector<float> eleEpsilon, float &dAdx, float &dAdy,
-		const vector<float> eleEpsilonP, float &dAPdx, float &dAPdy);
+						const vector<float> elePhiGuess, float &dPGdx, float &dPGdy,
+						const vector<float> eleTheta, float &dThedx, float &dThedy,
+						const vector<float> eleEpsilon, float &dAdx, float &dAdy,
+						const vector<float> eleEpsilonP, float &dAPdx, float &dAPdy);
 	void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
-		const vector<float> elePhiGuess, float &elePG,
-		const vector<float> elePhi, float &eleP,
-		const vector<float> eleSyn, float &eleS,
-		const vector<float> eleTips, float &eleTp,
-		const vector<float> eleTubulin, float &eleTb,
-		float &dPGdx, float &dPGdy, float &dPGdz);
+								const vector<float> elePhiGuess, float &elePG,
+								const vector<float> elePhi, float &eleP,
+								const vector<float> eleSyn, float &eleS,
+								const vector<float> eleTips, float &eleTp,
+								const vector<float> eleTubulin, float &eleTb,
+								float &dPGdx, float &dPGdy, float &dPGdz);
 	void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
-		const vector<float> elePhiGuess, float &elePG,
-		const vector<float> elePhi, float &eleP,
-		const vector<float> eleSyn, float &eleS,
-		const vector<float> eleTips, float &eleTp,
-		const vector<float> eleTubulin, float &eleTb,
-		const vector<float> eleEpsilon, float &eleEP,
-		const vector<float> eleEpsilonP, float &eleEEP,
-		float &dPGdx, float &dPGdy,
-		float &dAdx, float &dAdy,
-		float &dAPdx, float &dAPdy);
+								const vector<float> elePhiGuess, float &elePG,
+								const vector<float> elePhi, float &eleP,
+								const vector<float> eleSyn, float &eleS,
+								const vector<float> eleTips, float &eleTp,
+								const vector<float> eleTubulin, float &eleTb,
+								const vector<float> eleEpsilon, float &eleEP,
+								const vector<float> eleEpsilonP, float &eleEEP,
+								float &dPGdx, float &dPGdy,
+								float &dAdx, float &dAdy,
+								float &dAPdx, float &dAPdy);
 	void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
 		vector<vector<float>> &eleVal, vector<float> &vars);
 	void ElementEvaluationAll_syn_tub(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
@@ -199,18 +225,23 @@ public:
 	void EvaluateEnergy(const int nen, const vector<float> &Nx, const vector<float> eleS, vector<float>& E);
 	float Regular_Heiviside_fun(float x);
 	void EvaluateOrientation(const int nen, const vector<float> &Nx, const vector<array<float, 3>> &dNdx, const vector<float> elePhi,
-		const vector<float> eleTheta,  float& eleAniso, float& dA_dPdx, float& dA_dPdy, float& dA_dPdz);
+							const vector<float> eleTheta,  float& eleAniso, float& dA_dPdx, float& dA_dPdy, float& dA_dPdz);
 	void EvaluateOrientationSpherical(const int nen, const vector<float> &Nx, const vector<array<float, 3>> &dNdx, const vector<float> elePhi,
-		const vector<float> elePolar, const vector<float> eleAzimuth, float& eleEpsilon, float dEdp, float dEda);
+							const vector<float> elePolar, const vector<float> eleAzimuth, float& eleEpsilon, float dEdp, float dEda);
 
 	// Build Synaptogenesis and Tubulin together
 	void CalculateSumGradPhi0(const vector<Vertex3D> &cpts);
 	void BuildLinearSystemProcessNG_syn_tub(const vector<Vertex3D> &cpts);
 
 	// Domain expansion
-	int CheckExpansion3D(vector<float> input, const std::vector<Vertex3D>& cpts, int NX, int NY, int NZ, int originX, int originY, int originZ);
+	int CheckExpansion3D(vector<float> input, const vector<Vertex3D>& cpts, int NX, int NY, int NZ, int originX, int originY, int originZ);
 	void PopulateRandom(vector<float> &input); // to populate theta with random after expansion
 
+	bool KD_SearchPair(const vector<Vertex3D>& cpts, 
+					const KDTree& kdTree, 
+					float targetX, float targetY, float targetZ, 
+					int& ind);
+	
 	// Tip detection
 	float RmOutlier(vector<float> &data); // standard deviation based outlier remover
 	float CellBoundary(float phi, float threshold); // threshould based boundary determination
@@ -219,11 +250,14 @@ public:
 	// Function to check if a point is within the specified box centered at 'center'
 	bool isInBox(const Vertex3D& point, const Vertex3D& center, float dx, float dy, float dz);
 	// Function to calculate the sum of phi within a specified box for each center point in cpts
-	void calculatePhiSum(const std::vector<Vertex3D>& cpts, float dx, float dy, float dz);
+
+	void calculatePhiSum(const vector<Vertex3D>& cpts, 
+						float dx, float dy, float dz, 
+						const KDTree& kdTree);
 	vector<float> InterpolateValues3D(const vector<Vertex3D>& cpts_initial, const vector<float>& input,
-                                      const vector<Vertex3D>& cpts_new);
-	std::vector<std::pair<Vertex3D, int>> FindClosestVerticesWithIndices(const std::vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k);
-	std::vector<std::tuple<Vertex3D, int, float>> FindClosestVerticesWithIndicesAndDistances(const std::vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k);
+		const vector<Vertex3D>& cpts_new);
+	vector<pair<Vertex3D, int>> FindClosestVerticesWithIndices(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k);
+	vector<tuple<Vertex3D, int, float>> FindClosestVerticesWithIndicesAndDistances(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k);
 
  	void bfs3D(const vector<float>& matrix, int depth, int rows, int cols, int dep, int row, int col,
 		vector<bool>& visited, vector<tuple<int, int, int>>& cluster);
@@ -231,29 +265,45 @@ public:
 	vector<float> FindLocalMaximaInClusters3D(const vector<float>& matrix, int depth, int rows, int cols);
 
 	// Neuron detection
-	vector<vector<vector<int>>> ConvertTo3DIntVector(const vector<float> input, int NX, int NY, int NZ);
-	vector<vector<vector<float>>> ConvertTo3DFloatVector(const vector<float> input, int NX, int NY, int NZ);
+    vector<vector<vector<int>>> ConvertTo3DIntVector(const vector<float>& input, int NX, int NY, int NZ);
+    vector<vector<vector<float>>> ConvertTo3DFloatVector(const vector<float>& input, int NX, int NY, int NZ);
 
-	void FloodFill3D(std::vector<std::vector<std::vector<int>>>& image, int x, int y, int z, int newColor, int originalColor);
-	void IdentifyNeurons3D(std::vector<std::vector<std::vector<int>>>& neurons, std::vector<std::array<int, 3>> seed, int NX, int NY, int NZ, int originX, int originY, int originZ);
+	void FloodFill3DWithKDTree(std::vector<std::vector<std::vector<int>>>& image,
+							int x, int y, int z, int newColor, int originalColor,
+							const KDTree& kdTree, const Vertex3DCloud& cloud);
+
+	void IdentifyNeurons3DWithKDTree(std::vector<std::vector<std::vector<int>>>& neurons, 
+									const std::vector<std::array<int, 3>>& seed,
+									int NX, int NY, int NZ, 
+									int originX, int originY, int originZ,
+									const KDTree& kdTree, const Vertex3DCloud& cloud);							 
 	bool isValid(int x, int y, int z, int rows, int cols, int depth);
-	std::vector<std::vector<std::vector<int>>> CalculateGeodesicDistanceFromPoint3D(std::vector<std::vector<std::vector<int>>> neurons, const std::vector<std::array<int, 3>>& seed, int originX, int originY, int originZ);
+	vector<vector<vector<int>>> CalculateGeodesicDistanceFromPoint3D(vector<vector<vector<int>>> neurons, const vector<array<int, 3>>& seed, int originX, int originY, int originZ);
 	// vector<vector<array<int, 3>>> NeuriteTracing(vector<vector<float>> distance);
 	void SaveNGvars(const vector<vector<float>> &NGvars, int NX, int NY, const string& fn);
 	void PrintOutNeurons3D(vector<vector<vector<int>>> neurons);
-
-	
-
 };
 
 // Phase field PETSc Nonlinear SNES solver functions (placing here due to non-static member function error)
+// Function to set up an SNES solver
+PetscErrorCode SetupSNES(SNES &snes, const char *solverType, void *ctx,
+						PetscErrorCode (*formFunction)(SNES, Vec, Vec, void *),
+						PetscErrorCode (*formJacobian)(SNES, Vec, Mat, Mat, void *),
+						PetscReal rtol, PetscReal atol, PetscReal stol, PetscInt maxIters, PetscInt maxFails);
+// Function to set up a KSP solver
+PetscErrorCode SetupKSP(KSP &ksp, Mat &A, const char *kspType, const char *pcType,
+                        PetscReal rtol, PetscReal atol, PetscReal dtol, PetscInt maxIters, PetscInt restart);
 PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx);
-PetscErrorCode FormFunction_phi_wip(SNES snes, Vec x, Vec F, void *ctx);
 PetscErrorCode FormJacobian_phi(SNES snes, Vec x, Mat J, Mat P, void *ctx);
 PetscErrorCode MySNESMonitor(SNES snes, PetscInt its, PetscReal fnorm, PetscViewerAndFormat *vf);
 PetscErrorCode CleanUpSolvers(NeuronGrowth &NG);
 
-int RunNG(int n_bzmesh, vector<vector<int>> ele_process_in, vector<Vertex3D> cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts, string path_in, string path_out, int &iter, int end_iter_in,
-	vector<vector<float>> &NGvars, int &NX, int &NY, int &NZ, vector<array<float, 3>> &seed, int &originX, int &originY, int &originZ, bool &localRefine);
-
+int RunNG(int n_bzmesh, vector<vector<int>> ele_process_in,
+		vector<Vertex3D> cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
+		string path_in, string path_out,
+		int &iter, int end_iter_in,
+		vector<vector<float>> &NGvars,
+		int &NX, int &NY, int &NZ,
+		vector<array<float, 3>> &seed, int &originX, int &originY, int &originZ,
+		bool &localRefine);
 #endif
