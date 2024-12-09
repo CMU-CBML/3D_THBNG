@@ -179,37 +179,6 @@ void PrintVec2TXT(const std::vector<float>& v, const std::string& fn, bool visua
     fout.close();
 }
 
-// void PrintVec2TXT(std::vector<float>& v, std::string fn, bool visualization)
-// {
-// 	std::ofstream fout;
-
-// 	fout.open(fn);
-
-// 	fout << std::setprecision(2) << std::fixed;
-
-// 	int v_size = v.size();
-// 	if (visualization == 0) {
-// 		for (int i = 0; i < v.size(); i++) {
-// 			fout << v[i] << std::endl;
-// 		}
-// 	} else {
-// 		int sq_sz = (int)sqrt(v_size);
-// 		int ind = 0;
-// 		for (int i = 0; i < sq_sz; i++) {
-// 			for (int j = 0; j < sq_sz; j++) {
-// 				if (v[ind] == 0) {
-// 					fout << "     ";
-// 				} else {
-// 					fout << v[ind] << " ";
-// 				}
-// 				ind += 1;
-// 			}
-// 		fout << std::endl;
-// 		}
-// 	}
-// 	fout.close();
-// }
-
 // // Export hex mesh to vtk for visualization
 // void write_hex_toVTK(const char* qs, vector<vector<float>>& vertices, vector<vector<int>>& elements)
 // {
@@ -268,24 +237,6 @@ void mpmetis(int n_process, string path_in){
 	system(mpmetis_cmd);
 }
 
-// // partitioning mesh using mpmetis
-// void THS3D(string path_in){
-// 	std::cout << "******************************************************************************" << std::endl;
-// 	std::cout << "Local refinement based on Xiaodong's THS3D code ... " << std::endl;
-// 	std::cout << "  - see: Truncated hierarchical " << std::endl << std::endl;
-// 	std::cout << "-----------------------------------------------------------------------------" << std::endl;
-// 	std::cout << "Calling command | input mesh directory | refine ID | refine element type" << std::endl << std::endl;
-// 	string ths2d_cmd_tmp("../THS3D/THS3D " + path_in);
-// 	// for (int i = 0; i < rfid.size(); i++) {
-// 	// 	ths2d_cmd_tmp = ths2d_cmd_tmp + std::to_string(rfid[i]) + " ";
-// 	// }
-// 	// for (int i = 0; i < rftype.size(); i++) {
-// 	// 	ths2d_cmd_tmp = ths2d_cmd_tmp + std::to_string(rftype[i]) + " ";
-// 	// }
-// 	std::cout << ths2d_cmd_tmp << std::endl;
-// 	const char* ths2d_cmd = ths2d_cmd_tmp.c_str();
-// 	system(ths2d_cmd);
-// }
 void THS3D(const std::string &path_in) {
     std::cout << "******************************************************************************" << std::endl;
     std::cout << "Local refinement based on Xiaodong's THS3D code ..." << std::endl;
@@ -316,7 +267,7 @@ void InitializeSoma(int numNeuron, vector<array<float, 3>>& seed, int& NX, int& 
             // Single neuron case
             NX = 20;
             NY = 20;
-            NZ = 20;  // Assumes 3D initialization
+            NZ = 15;  // Assumes 3D initialization
             seed[0] = {10.0f, 10.0f, 10.0f};
             break;
 
@@ -449,7 +400,6 @@ void ReadControlPoints(string fn, vector<Vertex3D>& pts)
 		PetscPrintf(PETSC_COMM_WORLD, "Cannot open %s!\n", fname.c_str());
 	}
 }
-
 
 void AssignProcessor(string fn, int &n_bzmesh, vector<vector<int>> &ele_process)
 {
@@ -1022,14 +972,3 @@ std::vector<float> readVectorFromFile(const std::string& filename, bool binary) 
 
 	return data;
 }
-
-
-// int FindCptID(const vector<Vertex3D> cpts, float x, float y, float z) {
-	
-// 	int id;
-// 	for (int i = 0; i < cpts.size(); i++) {
-
-// 	}
-
-// 	return id;
-// }

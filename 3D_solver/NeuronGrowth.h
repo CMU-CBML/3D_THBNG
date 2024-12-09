@@ -96,10 +96,10 @@ public:
 
     // PETSc Solvers and Variables
     SNES snes_phi;              // PETSc SNES nonlinear solver
-    KSP ksp_syn, ksp_tub;       // PETSc KSP linear solvers
-    PC pc_syn, pc_tub;          // PETSc preconditioners
-    Mat GK_syn, GK_tub, J;      // PETSc matrices
-    Vec GR_syn, GR_tub;         // Residual vectors
+    KSP ksp_phi, ksp_syn, ksp_tub;       // PETSc KSP linear solvers
+    PC pc_phi, pc_syn, pc_tub;          // PETSc preconditioners
+    Mat GK_phi, GK_syn, GK_tub, J;      // PETSc matrices
+    Vec GR_phi, GR_syn, GR_tub;         // Residual vectors
     Vec temp_phi, temp_syn, temp_tub; // Temporary solution vectors
 
     // Parameters for Neuron Growth Model
@@ -219,15 +219,16 @@ public:
 	void PreparePhaseField();
 	void PrepareTermSource();
 	void PrepareEpsilon();
-	// void prepareEE();
 
 	// Phase field equation
-	void EvaluateEnergy(const int nen, const vector<float> &Nx, const vector<float> eleS, vector<float>& E);
+	void EvaluateEnergy(const int nen, const vector<float>& Nx, const vector<float>& eleSyn, vector<float>& E);
 	float Regular_Heiviside_fun(float x);
-	void EvaluateOrientation(const int nen, const vector<float> &Nx, const vector<array<float, 3>> &dNdx, const vector<float> elePhi,
-							const vector<float> eleTheta,  float& eleAniso, float& dA_dPdx, float& dA_dPdy, float& dA_dPdz);
+	void EvaluateOrientation(const int nen, const vector<float>& Nx, const vector<array<float, 3>>& dNdx,
+							const vector<float>& elePhi, const vector<float>& eleTheta,
+							float& eleAniso, float& dA_dPdx, float& dA_dPdy, float& dA_dPdz);
 	void EvaluateOrientationSpherical(const int nen, const vector<float> &Nx, const vector<array<float, 3>> &dNdx, const vector<float> elePhi,
 							const vector<float> elePolar, const vector<float> eleAzimuth, float& eleEpsilon, float dEdp, float dEda);
+	void BuildLinearSystemProcessNG_phi(const vector<Vertex3D> &cpts);
 
 	// Build Synaptogenesis and Tubulin together
 	void CalculateSumGradPhi0(const vector<Vertex3D> &cpts);
@@ -270,18 +271,17 @@ public:
     vector<vector<vector<int>>> ConvertTo3DIntVector(const vector<float>& input, int NX, int NY, int NZ);
     vector<vector<vector<float>>> ConvertTo3DFloatVector(const vector<float>& input, int NX, int NY, int NZ);
 
-	void FloodFill3DWithKDTree(std::vector<std::vector<std::vector<int>>>& image,
+	void FloodFill3DWithKDTree(vector<vector<vector<int>>>& image,
 							int x, int y, int z, int newColor, int originalColor,
 							const KDTree& kdTree, const Vertex3DCloud& cloud);
 
-	void IdentifyNeurons3DWithKDTree(std::vector<std::vector<std::vector<int>>>& neurons, 
-									const std::vector<std::array<int, 3>>& seed,
+	void IdentifyNeurons3DWithKDTree(vector<vector<vector<int>>>& neurons, 
+									const vector<array<int, 3>>& seed,
 									int NX, int NY, int NZ, 
 									int originX, int originY, int originZ,
 									const KDTree& kdTree, const Vertex3DCloud& cloud);							 
 	bool IsValid(int x, int y, int z, int rows, int cols, int depth);
 	vector<vector<vector<int>>> CalculateGeodesicDistanceFromPoint3D(vector<vector<vector<int>>> neurons, const vector<array<int, 3>>& seed, int originX, int originY, int originZ);
-	// vector<vector<array<int, 3>>> NeuriteTracing(vector<vector<float>> distance);
 	void SaveNGvars(const vector<vector<float>> &NGvars, int NX, int NY, const string& fn);
 	void PrintOutNeurons3D(vector<vector<vector<int>>> neurons);
 };
