@@ -1,0 +1,350 @@
+mkdir: cannot create directory '../io3D/': File exists
+mkdir: cannot create directory '../io3D/outputs/': File exists
+Starting Simulation
+******************************************************************************
+Generating 3D structured initial mesh
+-----------------------------------------------------------------------------
+Nx by Ny by Nz: 20 x 20 x 20 | origin: 0,0,0
+******************************************************************************
+# 3D EP: 0
+# elements: 8000
+6000 2000 4000 1500 500 3500 4500 2500 1000 3000 7500 6500 5500 5000 7000 Bezier extracting...
+# Bezier: 8000
+2000 500 6500 5000 4500 6000 3500 5500 7500 7000 1000 3000 4000 1500 2500 DONE!
+******************************************************************************
+METIS 5.0 Copyright 1998-13, Regents of the University of Minnesota
+ (HEAD: , Built on: Aug 12 2018, 15:17:09)
+ size of idx_t: 32bits, real_t: 32bits, idx_t *: 64bits
+
+Mesh Information ------------------------------------------------------------
+ Name: ../io3D/bzmeshinfo.txt, #Elements: 8000, #Nodes: 9261, #Parts: 128
+
+Options ---------------------------------------------------------------------
+ ptype=kway, objtype=cut, ctype=shem, rtype=greedy, iptype=metisrb
+ dbglvl=0, ufactor=1.030, minconn=NO, contig=NO, nooutput=NO
+ seed=-1, niter=10, ncuts=1
+ gtype=dual, ncommon=1, niter=10, ncuts=1
+
+Direct k-way Partitioning ---------------------------------------------------
+ - Edgecut: 830858.
+
+
+Timing Information ----------------------------------------------------------
+  I/O:          		   0.015 sec
+  Partitioning: 		   0.821 sec   (METIS time)
+  Reporting:    		   0.000 sec
+
+Memory Information ----------------------------------------------------------
+  Max memory used:		  39.234 MB
+******************************************************************************
+Control Points Loaded!
+Control Points Loaded!
+Processor Assigned!
+9261 9261 0
+Initializing Neuron Growth Problem--------------------------------------------
+Bounds for current control points:
+max x: 20.000000, min x: 0.000000 | max y: 20.000000, min y: 0.000000 | max z: 20.000000, min z: 0.000000
+Bounds for previous control points:
+max px: 0.000000, min px: 0.000000 | max py: 0.000000, min py: 0.000000 | max pz: 0.000000, min pz: 0.000000
+Set initial guess!-----------------------------------------------------------
+comRank: 0/128 - with element process size: 60
+comRank: 1/128 - with element process size: 62
+comRank: 2/128 - with element process size: 62
+comRank: 3/128 - with element process size: 64
+comRank: 4/128 - with element process size: 60
+comRank: 5/128 - with element process size: 60
+comRank: 6/128 - with element process size: 60
+comRank: 7/128 - with element process size: 59
+comRank: 8/128 - with element process size: 64
+comRank: 9/128 - with element process size: 64
+comRank: 10/128 - with element process size: 60
+comRank: 11/128 - with element process size: 63
+comRank: 12/128 - with element process size: 60
+comRank: 13/128 - with element process size: 63
+comRank: 14/128 - with element process size: 61
+comRank: 15/128 - with element process size: 60
+comRank: 16/128 - with element process size: 64
+comRank: 17/128 - with element process size: 64
+comRank: 18/128 - with element process size: 64
+comRank: 19/128 - with element process size: 62
+comRank: 20/128 - with element process size: 62
+comRank: 21/128 - with element process size: 62
+comRank: 22/128 - with element process size: 64
+comRank: 23/128 - with element process size: 60
+comRank: 24/128 - with element process size: 61
+comRank: 25/128 - with element process size: 64
+comRank: 26/128 - with element process size: 64
+comRank: 27/128 - with element process size: 60
+comRank: 28/128 - with element process size: 60
+comRank: 29/128 - with element process size: 60
+comRank: 30/128 - with element process size: 61
+comRank: 31/128 - with element process size: 64
+comRank: 32/128 - with element process size: 64
+comRank: 33/128 - with element process size: 59
+comRank: 34/128 - with element process size: 64
+comRank: 35/128 - with element process size: 64
+comRank: 36/128 - with element process size: 64
+comRank: 37/128 - with element process size: 64
+comRank: 38/128 - with element process size: 64
+comRank: 39/128 - with element process size: 64
+comRank: 40/128 - with element process size: 64
+comRank: 41/128 - with element process size: 64
+comRank: 42/128 - with element process size: 64
+comRank: 43/128 - with element process size: 64
+comRank: 44/128 - with element process size: 64
+comRank: 45/128 - with element process size: 64
+comRank: 46/128 - with element process size: 64
+comRank: 47/128 - with element process size: 64
+comRank: 48/128 - with element process size: 64
+comRank: 49/128 - with element process size: 64
+comRank: 50/128 - with element process size: 64
+comRank: 51/128 - with element process size: 62
+comRank: 52/128 - with element process size: 60
+comRank: 53/128 - with element process size: 63
+comRank: 54/128 - with element process size: 64
+comRank: 55/128 - with element process size: 64
+comRank: 56/128 - with element process size: 64
+comRank: 57/128 - with element process size: 64
+comRank: 58/128 - with element process size: 64
+comRank: 59/128 - with element process size: 64
+comRank: 60/128 - with element process size: 60
+comRank: 61/128 - with element process size: 60
+comRank: 62/128 - with element process size: 60
+comRank: 63/128 - with element process size: 64
+comRank: 64/128 - with element process size: 64
+comRank: 65/128 - with element process size: 64
+comRank: 66/128 - with element process size: 61
+comRank: 67/128 - with element process size: 64
+comRank: 68/128 - with element process size: 62
+comRank: 69/128 - with element process size: 64
+comRank: 70/128 - with element process size: 60
+comRank: 71/128 - with element process size: 60
+comRank: 72/128 - with element process size: 62
+comRank: 73/128 - with element process size: 60
+comRank: 74/128 - with element process size: 64
+comRank: 75/128 - with element process size: 60
+comRank: 76/128 - with element process size: 60
+comRank: 77/128 - with element process size: 60
+comRank: 78/128 - with element process size: 64
+comRank: 79/128 - with element process size: 64
+comRank: 80/128 - with element process size: 60
+comRank: 81/128 - with element process size: 64
+comRank: 82/128 - with element process size: 60
+comRank: 83/128 - with element process size: 64
+comRank: 84/128 - with element process size: 64
+comRank: 85/128 - with element process size: 60
+comRank: 86/128 - with element process size: 64
+comRank: 87/128 - with element process size: 64
+comRank: 88/128 - with element process size: 60
+comRank: 89/128 - with element process size: 64
+comRank: 90/128 - with element process size: 64
+comRank: 91/128 - with element process size: 60
+comRank: 92/128 - with element process size: 64
+comRank: 93/128 - with element process size: 64
+comRank: 94/128 - with element process size: 64
+comRank: 95/128 - with element process size: 64
+comRank: 96/128 - with element process size: 60
+comRank: 97/128 - with element process size: 60
+comRank: 98/128 - with element process size: 60
+comRank: 99/128 - with element process size: 64
+comRank: 100/128 - with element process size: 64
+comRank: 101/128 - with element process size: 61
+comRank: 102/128 - with element process size: 64
+comRank: 103/128 - with element process size: 61
+comRank: 104/128 - with element process size: 64
+comRank: 105/128 - with element process size: 64
+comRank: 106/128 - with element process size: 60
+comRank: 107/128 - with element process size: 64
+comRank: 108/128 - with element process size: 64
+comRank: 109/128 - with element process size: 64
+comRank: 110/128 - with element process size: 64
+comRank: 111/128 - with element process size: 64
+comRank: 112/128 - with element process size: 64
+comRank: 113/128 - with element process size: 64
+comRank: 114/128 - with element process size: 64
+comRank: 115/128 - with element process size: 60
+comRank: 116/128 - with element process size: 64
+comRank: 117/128 - with element process size: 60
+comRank: 118/128 - with element process size: 64
+comRank: 119/128 - with element process size: 63
+comRank: 120/128 - with element process size: 64
+comRank: 121/128 - with element process size: 61
+comRank: 122/128 - with element process size: 64
+comRank: 123/128 - with element process size: 64
+comRank: 124/128 - with element process size: 60
+comRank: 125/128 - with element process size: 63
+comRank: 126/128 - with element process size: 60
+comRank: 127/128 - with element process size: 60
+Bezier Matrices Loaded!
+Bezier Points Loaded!
+Read bzmesh!-----------------------------------------------------------------
+Saving all variables!--------------------------------------------------------
+Prepared basis!--------------------------------------------------------------
+Calculated sum grad phi0!----------------------------------------------------
+Prepared variables!----------------------------------------------------------
+-----------------------------------------------------------------------------------------
+Identifying neurons, calculating geodesic distances, and detecting tips
+Step: 0/350000 | Wrote Physical Domain! | Average time 0.003463s | Total time: 0.346335 |
+-----------------------------------------------------------------------------------------
+SNES Object: 128 MPI processes
+  type: newtonls
+  SNES has not been set up so information may be incomplete
+  maximum iterations=100, maximum function evaluations=1000
+  tolerances: relative=1e-07, absolute=1e-05, solution=1e-09
+  total number of linear solver iterations=0
+  total number of function evaluations=0
+  norm schedule ALWAYS
+  SNESLineSearch Object: 128 MPI processes
+    type: cp
+    maxstep=1.000000e+08, minlambda=1.000000e-12
+    tolerances: relative=1.000000e-08, absolute=1.000000e-15, lambda=1.000000e-08
+    maximum iterations=1
+  KSP Object: 128 MPI processes
+    type not yet set
+    maximum iterations=10000, initial guess is zero
+    tolerances:  relative=1e-05, absolute=1e-50, divergence=10000.
+    left preconditioning
+    using DEFAULT norm type for convergence test
+KSP Object: 128 MPI processes
+  type: gmres
+    restart=30, using Classical (unmodified) Gram-Schmidt Orthogonalization with no iterative refinement
+    happy breakdown tolerance 1e-30
+  maximum iterations=100000, nonzero initial guess
+  tolerances:  relative=1e-08, absolute=1e-50, divergence=10000.
+  left preconditioning
+  using PRECONDITIONED norm type for convergence test
+PC Object: 128 MPI processes
+  type: bjacobi
+    number of blocks = 128
+    Local solver information for first block is in the following KSP and PC objects on rank 0:
+    Use -ksp_view ::ascii_info_detail to display information for all blocks
+  KSP Object: (sub_) 1 MPI process
+    type: preonly
+    maximum iterations=10000, initial guess is zero
+    tolerances:  relative=1e-05, absolute=1e-50, divergence=10000.
+    left preconditioning
+    using DEFAULT norm type for convergence test
+  PC Object: (sub_) 1 MPI process
+    type: ilu
+    PC has not been set up so information may be incomplete
+      out-of-place factorization
+      0 levels of fill
+      tolerance for zero pivot 2.22045e-14
+    linear system matrix = precond matrix:
+    Mat Object: (sub_) 1 MPI process
+      type: seqaij
+      rows=73, cols=73
+      total: nonzeros=1657, allocated nonzeros=5329
+      total number of mallocs used during MatSetValues calls=0
+        not using I-node routines
+  linear system matrix = precond matrix:
+  Mat Object: 128 MPI processes
+    type: mpiaij
+    rows=9261, cols=9261
+    total: nonzeros=2460375, allocated nonzeros=3278952
+    total number of mallocs used during MatSetValues calls=19575
+      not using I-node (on process 0) routines
+KSP Object: 128 MPI processes
+  type: gmres
+    restart=30, using Classical (unmodified) Gram-Schmidt Orthogonalization with no iterative refinement
+    happy breakdown tolerance 1e-30
+  maximum iterations=100000, nonzero initial guess
+  tolerances:  relative=1e-08, absolute=1e-50, divergence=10000.
+  left preconditioning
+  using PRECONDITIONED norm type for convergence test
+PC Object: 128 MPI processes
+  type: bjacobi
+    number of blocks = 128
+    Local solver information for first block is in the following KSP and PC objects on rank 0:
+    Use -ksp_view ::ascii_info_detail to display information for all blocks
+  KSP Object: (sub_) 1 MPI process
+    type: preonly
+    maximum iterations=10000, initial guess is zero
+    tolerances:  relative=1e-05, absolute=1e-50, divergence=10000.
+    left preconditioning
+    using DEFAULT norm type for convergence test
+  PC Object: (sub_) 1 MPI process
+    type: ilu
+    PC has not been set up so information may be incomplete
+      out-of-place factorization
+      0 levels of fill
+      tolerance for zero pivot 2.22045e-14
+    linear system matrix = precond matrix:
+    Mat Object: (sub_) 1 MPI process
+      type: seqaij
+      rows=73, cols=73
+      total: nonzeros=1657, allocated nonzeros=5329
+      total number of mallocs used during MatSetValues calls=0
+        not using I-node routines
+  linear system matrix = precond matrix:
+  Mat Object: 128 MPI processes
+    type: mpiaij
+    rows=9261, cols=9261
+    total: nonzeros=2460375, allocated nonzeros=3278952
+    total number of mallocs used during MatSetValues calls=19575
+      not using I-node (on process 0) routines
+Step:0/350000 | Phi:2[2]1.329s | Syn:2[80]0.973s | Tub:2[56]0.007s | Mesh:8000 |
+Step:1/350000 | Phi:2[2]0.940s | Syn:2[78]0.085s | Tub:2[48]0.005s | Mesh:8000 |
+Step:2/350000 | Phi:2[2]0.825s | Syn:2[75]0.086s | Tub:2[48]0.005s | Mesh:8000 |
+Step:3/350000 | Phi:2[2]3.396s | Syn:2[73]2.630s | Tub:2[47]1.470s | Mesh:8000 |
+Step:4/350000 | Phi:2[1]2.809s | Syn:2[71]1.096s | Tub:2[47]0.005s | Mesh:8000 |
+Step:5/350000 | Phi:2[1]0.686s | Syn:2[69]0.082s | Tub:2[46]0.005s | Mesh:8000 |
+Step:6/350000 | Phi:2[1]0.451s | Syn:2[65]0.082s | Tub:2[46]0.005s | Mesh:8000 |
+Step:7/350000 | Phi:2[1]0.812s | Syn:2[65]2.150s | Tub:2[46]0.102s | Mesh:8000 |
+Step:8/350000 | Phi:2[1]2.599s | Syn:2[65]0.976s | Tub:2[46]0.005s | Mesh:8000 |
+Step:9/350000 | Phi:2[1]0.452s | Syn:2[64]0.082s | Tub:2[45]0.005s | Mesh:8000 |
+Step:10/350000 | Phi:2[1]0.450s | Syn:2[63]0.082s | Tub:2[45]0.005s | Mesh:8000 |
+Step:11/350000 | Phi:2[1]0.449s | Syn:2[62]0.082s | Tub:2[45]0.005s | Mesh:8000 |
+Step:12/350000 | Phi:2[1]0.449s | Syn:2[61]0.082s | Tub:2[44]0.005s | Mesh:8000 |
+Step:13/350000 | Phi:2[1]0.448s | Syn:2[60]0.081s | Tub:2[44]0.005s | Mesh:8000 |
+Step:14/350000 | Phi:2[1]0.595s | Syn:2[59]1.977s | Tub:2[44]1.493s | Mesh:8000 |
+Step:15/350000 | Phi:2[1]2.008s | Syn:2[59]1.980s | Tub:2[43]1.329s | Mesh:8000 |
+Step:16/350000 | Phi:2[1]2.886s | Syn:2[58]2.073s | Tub:2[43]0.221s | Mesh:8000 |
+Step:17/350000 | Phi:2[1]0.451s | Syn:2[58]0.082s | Tub:2[43]0.005s | Mesh:8000 |
+Step:18/350000 | Phi:2[1]0.452s | Syn:2[57]0.082s | Tub:2[42]0.004s | Mesh:8000 |
+Step:19/350000 | Phi:2[1]0.453s | Syn:2[57]0.082s | Tub:2[42]0.004s | Mesh:8000 |
+Step:20/350000 | Phi:2[1]0.451s | Syn:2[57]0.082s | Tub:2[41]0.004s | Mesh:8000 |
+Step:21/350000 | Phi:2[1]0.450s | Syn:2[56]0.083s | Tub:2[41]0.004s | Mesh:8000 |
+Step:22/350000 | Phi:2[1]0.451s | Syn:2[56]0.082s | Tub:2[40]0.004s | Mesh:8000 |
+Step:23/350000 | Phi:2[1]0.452s | Syn:2[56]0.082s | Tub:2[40]0.004s | Mesh:8000 |
+Step:24/350000 | Phi:2[1]0.449s | Syn:2[56]0.082s | Tub:2[40]0.004s | Mesh:8000 |
+Step:25/350000 | Phi:2[1]0.450s | Syn:2[55]0.082s | Tub:2[39]0.004s | Mesh:8000 |
+Step:26/350000 | Phi:2[1]0.450s | Syn:2[55]0.082s | Tub:2[38]0.004s | Mesh:8000 |
+Step:27/350000 | Phi:2[1]0.669s | Syn:2[55]1.808s | Tub:2[36]1.189s | Mesh:8000 |
+Step:28/350000 | Phi:2[1]2.823s | Syn:2[55]1.991s | Tub:2[36]1.138s | Mesh:8000 |
+Step:29/350000 | Phi:2[1]2.906s | Syn:2[55]0.273s | Tub:2[37]0.004s | Mesh:8000 |
+Step:30/350000 | Phi:2[1]0.478s | Syn:2[54]0.081s | Tub:2[38]0.004s | Mesh:8000 |
+Step:31/350000 | Phi:2[1]0.443s | Syn:2[54]0.080s | Tub:2[39]0.004s | Mesh:8000 |
+Step:32/350000 | Phi:2[1]0.441s | Syn:2[54]0.081s | Tub:2[39]0.004s | Mesh:8000 |
+Step:33/350000 | Phi:2[1]0.441s | Syn:2[54]0.081s | Tub:2[39]0.004s | Mesh:8000 |
+Step:34/350000 | Phi:2[1]0.442s | Syn:2[54]0.080s | Tub:2[40]0.004s | Mesh:8000 |
+Step:35/350000 | Phi:2[1]0.442s | Syn:2[54]0.081s | Tub:2[40]0.004s | Mesh:8000 |
+Step:36/350000 | Phi:2[1]0.440s | Syn:2[53]0.081s | Tub:2[40]0.004s | Mesh:8000 |
+Step:37/350000 | Phi:2[1]0.441s | Syn:2[53]0.081s | Tub:2[40]0.004s | Mesh:8000 |
+Step:38/350000 | Phi:2[1]0.443s | Syn:2[53]0.081s | Tub:2[40]0.004s | Mesh:8000 |
+Step:39/350000 | Phi:2[1]0.440s | Syn:2[53]0.081s | Tub:2[39]0.004s | Mesh:8000 |
+Step:40/350000 | Phi:2[1]0.440s | Syn:2[53]0.081s | Tub:2[39]0.004s | Mesh:8000 |
+Step:41/350000 | Phi:2[2]0.762s | Syn:2[53]0.081s | Tub:2[39]0.004s | Mesh:8000 |
+Step:42/350000 | Phi:2[1]0.440s | Syn:2[53]0.081s | Tub:2[39]0.004s | Mesh:8000 |
+Step:43/350000 | Phi:2[1]0.440s | Syn:2[52]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:44/350000 | Phi:2[2]0.764s | Syn:2[52]0.081s | Tub:2[38]0.004s | Mesh:8000 |
+Step:45/350000 | Phi:2[1]0.441s | Syn:2[52]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:46/350000 | Phi:2[1]0.439s | Syn:2[52]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:47/350000 | Phi:2[1]0.438s | Syn:2[52]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:48/350000 | Phi:2[1]0.459s | Syn:2[52]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:49/350000 | Phi:2[1]0.439s | Syn:2[52]0.081s | Tub:2[38]0.004s | Mesh:8000 |
+Step:50/350000 | Phi:2[1]0.437s | Syn:2[52]0.081s | Tub:2[38]0.004s | Mesh:8000 |
+Step:51/350000 | Phi:2[1]0.437s | Syn:2[51]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:52/350000 | Phi:2[1]0.439s | Syn:2[51]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:53/350000 | Phi:2[1]0.439s | Syn:2[51]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:54/350000 | Phi:2[1]0.439s | Syn:2[51]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:55/350000 | Phi:2[1]0.439s | Syn:2[51]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:56/350000 | Phi:2[1]0.438s | Syn:2[51]0.081s | Tub:2[38]0.004s | Mesh:8000 |
+Step:57/350000 | Phi:2[1]0.439s | Syn:2[51]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:58/350000 | Phi:2[1]0.438s | Syn:2[51]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:59/350000 | Phi:2[1]0.438s | Syn:2[51]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:60/350000 | Phi:2[1]0.439s | Syn:2[51]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:61/350000 | Phi:2[1]0.439s | Syn:2[51]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:62/350000 | Phi:2[1]0.439s | Syn:2[50]0.080s | Tub:2[38]0.004s | Mesh:8000 |
+Step:63/350000 | Phi:2[1]0.500s | Syn:2[50]0.080s | Tub:2[37]0.004s | Mesh:8000 |
+Step:64/350000 | Phi:2[1]0.438s | Syn:2[50]0.080s | Tub:2[37]0.004s | Mesh:8000 |

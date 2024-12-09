@@ -1,0 +1,232 @@
+mkdir: cannot create directory '../io3D/': File exists
+mkdir: cannot create directory '../io3D/outputs/': File exists
+Starting Simulation
+******************************************************************************
+Generating 3D structured initial mesh
+-----------------------------------------------------------------------------
+Nx by Ny by Nz: 20 x 20 x 20 | origin: 0,0,0
+******************************************************************************
+# 3D EP: 0
+# elements: 8000
+1500 1000 450025002000   7500 7000 6500 500 55005000  3500 3000 6000 4000 Bezier extracting...
+# Bezier: 8000
+500 10004000  4500 5000 2000 3000 3500 2500 1500 5500 6000 7000 6500 7500 DONE!
+******************************************************************************
+METIS 5.0 Copyright 1998-13, Regents of the University of Minnesota
+ (HEAD: , Built on: Aug 12 2018, 15:17:09)
+ size of idx_t: 32bits, real_t: 32bits, idx_t *: 64bits
+
+Mesh Information ------------------------------------------------------------
+ Name: ../io3D/bzmeshinfo.txt, #Elements: 8000, #Nodes: 9261, #Parts: 32
+
+Options ---------------------------------------------------------------------
+ ptype=kway, objtype=cut, ctype=shem, rtype=greedy, iptype=metisrb
+ dbglvl=0, ufactor=1.030, minconn=NO, contig=NO, nooutput=NO
+ seed=-1, niter=10, ncuts=1
+ gtype=dual, ncommon=1, niter=10, ncuts=1
+
+Direct k-way Partitioning ---------------------------------------------------
+ - Edgecut: 537339.
+
+
+Timing Information ----------------------------------------------------------
+  I/O:          		   0.016 sec
+  Partitioning: 		   0.283 sec   (METIS time)
+  Reporting:    		   0.000 sec
+
+Memory Information ----------------------------------------------------------
+  Max memory used:		  39.535 MB
+******************************************************************************
+Control Points Loaded!
+Control Points Loaded!
+Processor Assigned!
+9261 9261 0
+Initializing Neuron Growth Problem--------------------------------------------
+Bounds for current control points:
+max x: 20.000000, min x: 0.000000 | max y: 20.000000, min y: 0.000000 | max z: 20.000000, min z: 0.000000
+Bounds for previous control points:
+max px: -0.000000, min px: 0.000000 | max py: 0.000000, min py: 0.000000 | max pz: 0.000000, min pz: -0.000000
+Set initial guess!-----------------------------------------------------------
+comRank: 0/32 - with element process size: 242
+comRank: 1/32 - with element process size: 253
+comRank: 2/32 - with element process size: 242
+comRank: 3/32 - with element process size: 242
+comRank: 4/32 - with element process size: 242
+comRank: 5/32 - with element process size: 256
+comRank: 6/32 - with element process size: 242
+comRank: 7/32 - with element process size: 257
+comRank: 8/32 - with element process size: 257
+comRank: 9/32 - with element process size: 257
+comRank: 10/32 - with element process size: 242
+comRank: 11/32 - with element process size: 256
+comRank: 12/32 - with element process size: 242
+comRank: 13/32 - with element process size: 257
+comRank: 14/32 - with element process size: 257
+comRank: 15/32 - with element process size: 257
+comRank: 16/32 - with element process size: 257
+comRank: 17/32 - with element process size: 244
+comRank: 18/32 - with element process size: 257
+comRank: 19/32 - with element process size: 242
+comRank: 20/32 - with element process size: 257
+comRank: 21/32 - with element process size: 249
+comRank: 22/32 - with element process size: 257
+comRank: 23/32 - with element process size: 242
+comRank: 24/32 - with element process size: 257
+comRank: 25/32 - with element process size: 257
+comRank: 26/32 - with element process size: 255
+comRank: 27/32 - with element process size: 242
+comRank: 28/32 - with element process size: 242
+comRank: 29/32 - with element process size: 242
+comRank: 30/32 - with element process size: 242
+comRank: 31/32 - with element process size: 257
+Bezier Matrices Loaded!
+Bezier Points Loaded!
+Read bzmesh!-----------------------------------------------------------------
+Saving all variables!--------------------------------------------------------
+Prepared basis!--------------------------------------------------------------
+Calculated sum grad phi0!----------------------------------------------------
+Prepared variables!----------------------------------------------------------
+-----------------------------------------------------------------------------------------
+Identifying neurons, calculating geodesic distances, and detecting tips
+Step: 0/350000 | Wrote Physical Domain! | Average time 0.003567s | Total time: 0.356662 |
+-----------------------------------------------------------------------------------------
+SNES Object: 32 MPI processes
+  type: newtonls
+  SNES has not been set up so information may be incomplete
+  maximum iterations=100, maximum function evaluations=1000
+  tolerances: relative=1e-07, absolute=1e-05, solution=1e-09
+  total number of linear solver iterations=0
+  total number of function evaluations=0
+  norm schedule ALWAYS
+  SNESLineSearch Object: 32 MPI processes
+    type: cp
+    maxstep=1.000000e+08, minlambda=1.000000e-12
+    tolerances: relative=1.000000e-08, absolute=1.000000e-15, lambda=1.000000e-08
+    maximum iterations=1
+  KSP Object: 32 MPI processes
+    type not yet set
+    maximum iterations=10000, initial guess is zero
+    tolerances:  relative=1e-05, absolute=1e-50, divergence=10000.
+    left preconditioning
+    using DEFAULT norm type for convergence test
+KSP Object: 32 MPI processes
+  type: gmres
+    restart=30, using Classical (unmodified) Gram-Schmidt Orthogonalization with no iterative refinement
+    happy breakdown tolerance 1e-30
+  maximum iterations=100000, nonzero initial guess
+  tolerances:  relative=1e-08, absolute=1e-50, divergence=10000.
+  left preconditioning
+  using PRECONDITIONED norm type for convergence test
+PC Object: 32 MPI processes
+  type: bjacobi
+    number of blocks = 32
+    Local solver information for first block is in the following KSP and PC objects on rank 0:
+    Use -ksp_view ::ascii_info_detail to display information for all blocks
+  KSP Object: (sub_) 1 MPI process
+    type: preonly
+    maximum iterations=10000, initial guess is zero
+    tolerances:  relative=1e-05, absolute=1e-50, divergence=10000.
+    left preconditioning
+    using DEFAULT norm type for convergence test
+  PC Object: (sub_) 1 MPI process
+    type: ilu
+    PC has not been set up so information may be incomplete
+      out-of-place factorization
+      0 levels of fill
+      tolerance for zero pivot 2.22045e-14
+    linear system matrix = precond matrix:
+    Mat Object: (sub_) 1 MPI process
+      type: seqaij
+      rows=290, cols=290
+      total: nonzeros=11450, allocated nonzeros=72500
+      total number of mallocs used during MatSetValues calls=0
+        not using I-node routines
+  linear system matrix = precond matrix:
+  Mat Object: 32 MPI processes
+    type: mpiaij
+    rows=9261, cols=9261
+    total: nonzeros=2460375, allocated nonzeros=4833150
+    total number of mallocs used during MatSetValues calls=13510
+      not using I-node (on process 0) routines
+KSP Object: 32 MPI processes
+  type: gmres
+    restart=30, using Classical (unmodified) Gram-Schmidt Orthogonalization with no iterative refinement
+    happy breakdown tolerance 1e-30
+  maximum iterations=100000, nonzero initial guess
+  tolerances:  relative=1e-08, absolute=1e-50, divergence=10000.
+  left preconditioning
+  using PRECONDITIONED norm type for convergence test
+PC Object: 32 MPI processes
+  type: bjacobi
+    number of blocks = 32
+    Local solver information for first block is in the following KSP and PC objects on rank 0:
+    Use -ksp_view ::ascii_info_detail to display information for all blocks
+  KSP Object: (sub_) 1 MPI process
+    type: preonly
+    maximum iterations=10000, initial guess is zero
+    tolerances:  relative=1e-05, absolute=1e-50, divergence=10000.
+    left preconditioning
+    using DEFAULT norm type for convergence test
+  PC Object: (sub_) 1 MPI process
+    type: ilu
+    PC has not been set up so information may be incomplete
+      out-of-place factorization
+      0 levels of fill
+      tolerance for zero pivot 2.22045e-14
+    linear system matrix = precond matrix:
+    Mat Object: (sub_) 1 MPI process
+      type: seqaij
+      rows=290, cols=290
+      total: nonzeros=11450, allocated nonzeros=72500
+      total number of mallocs used during MatSetValues calls=0
+        not using I-node routines
+  linear system matrix = precond matrix:
+  Mat Object: 32 MPI processes
+    type: mpiaij
+    rows=9261, cols=9261
+    total: nonzeros=2460375, allocated nonzeros=4833150
+    total number of mallocs used during MatSetValues calls=13510
+      not using I-node (on process 0) routines
+Step:0/350000 | Phi:2[2]2.442s | Syn:2[56]0.744s | Tub:2[45]0.008s | Mesh:8000 |
+Step:1/350000 | Phi:2[2]2.978s | Syn:2[55]0.291s | Tub:2[37]0.007s | Mesh:8000 |
+Step:2/350000 | Phi:2[2]2.965s | Syn:2[53]0.289s | Tub:2[36]0.006s | Mesh:8000 |
+Step:3/350000 | Phi:2[2]2.969s | Syn:2[52]0.288s | Tub:2[36]0.006s | Mesh:8000 |
+Step:4/350000 | Phi:2[1]1.712s | Syn:2[51]0.291s | Tub:2[35]0.007s | Mesh:8000 |
+Step:5/350000 | Phi:2[1]1.714s | Syn:2[50]0.291s | Tub:2[35]0.006s | Mesh:8000 |
+Step:6/350000 | Phi:2[1]1.707s | Syn:2[49]0.293s | Tub:2[34]0.007s | Mesh:8000 |
+Step:7/350000 | Phi:2[1]1.738s | Syn:2[48]0.293s | Tub:2[34]0.006s | Mesh:8000 |
+Step:8/350000 | Phi:2[1]1.733s | Syn:2[47]0.288s | Tub:2[33]0.006s | Mesh:8000 |
+Step:9/350000 | Phi:2[1]1.715s | Syn:2[46]0.294s | Tub:2[33]0.006s | Mesh:8000 |
+Step:10/350000 | Phi:2[1]1.705s | Syn:2[46]0.288s | Tub:2[33]0.006s | Mesh:8000 |
+Step:11/350000 | Phi:2[1]1.704s | Syn:2[45]0.288s | Tub:2[32]0.006s | Mesh:8000 |
+Step:12/350000 | Phi:2[1]1.722s | Syn:2[44]0.287s | Tub:2[32]0.006s | Mesh:8000 |
+Step:13/350000 | Phi:2[1]1.714s | Syn:2[44]0.289s | Tub:2[32]0.006s | Mesh:8000 |
+Step:14/350000 | Phi:2[1]1.707s | Syn:2[43]0.289s | Tub:2[31]0.005s | Mesh:8000 |
+Step:15/350000 | Phi:2[1]1.707s | Syn:2[42]0.289s | Tub:2[31]0.005s | Mesh:8000 |
+Step:16/350000 | Phi:2[1]1.710s | Syn:2[42]0.290s | Tub:2[31]0.006s | Mesh:8000 |
+Step:17/350000 | Phi:2[1]1.697s | Syn:2[41]0.289s | Tub:2[31]0.006s | Mesh:8000 |
+Step:18/350000 | Phi:2[1]1.705s | Syn:2[41]0.291s | Tub:2[30]0.005s | Mesh:8000 |
+Step:19/350000 | Phi:2[1]1.706s | Syn:2[41]0.290s | Tub:2[30]0.005s | Mesh:8000 |
+Step:20/350000 | Phi:2[1]1.707s | Syn:2[40]0.290s | Tub:2[30]0.005s | Mesh:8000 |
+Step:21/350000 | Phi:2[1]1.689s | Syn:2[40]0.273s | Tub:2[30]0.005s | Mesh:8000 |
+Step:22/350000 | Phi:2[1]1.611s | Syn:2[40]0.308s | Tub:2[30]0.005s | Mesh:8000 |
+Step:23/350000 | Phi:2[1]1.788s | Syn:2[40]0.306s | Tub:2[30]0.005s | Mesh:8000 |
+Step:24/350000 | Phi:2[1]1.793s | Syn:2[39]0.306s | Tub:2[30]0.005s | Mesh:8000 |
+Step:25/350000 | Phi:2[1]1.788s | Syn:2[39]0.306s | Tub:2[30]0.006s | Mesh:8000 |
+Step:26/350000 | Phi:2[1]1.777s | Syn:2[39]0.273s | Tub:2[30]0.005s | Mesh:8000 |
+Step:27/350000 | Phi:2[1]1.583s | Syn:2[39]0.286s | Tub:2[30]0.005s | Mesh:8000 |
+Step:28/350000 | Phi:2[1]1.702s | Syn:2[39]0.285s | Tub:2[29]0.005s | Mesh:8000 |
+Step:29/350000 | Phi:2[1]1.691s | Syn:2[39]0.286s | Tub:2[29]0.005s | Mesh:8000 |
+Step:30/350000 | Phi:2[1]1.706s | Syn:2[39]0.287s | Tub:2[29]0.005s | Mesh:8000 |
+Step:31/350000 | Phi:2[1]1.716s | Syn:2[38]0.287s | Tub:2[29]0.005s | Mesh:8000 |
+Step:32/350000 | Phi:2[1]1.712s | Syn:2[38]0.285s | Tub:2[29]0.006s | Mesh:8000 |
+Step:33/350000 | Phi:2[1]1.704s | Syn:2[38]0.286s | Tub:2[29]0.005s | Mesh:8000 |
+Step:34/350000 | Phi:2[1]1.700s | Syn:2[38]0.287s | Tub:2[29]0.005s | Mesh:8000 |
+Step:35/350000 | Phi:2[1]1.710s | Syn:2[38]0.289s | Tub:2[29]0.005s | Mesh:8000 |
+Step:36/350000 | Phi:2[1]1.706s | Syn:2[38]0.287s | Tub:2[29]0.005s | Mesh:8000 |
+Step:37/350000 | Phi:2[1]1.701s | Syn:2[38]0.287s | Tub:2[29]0.005s | Mesh:8000 |
+Step:38/350000 | Phi:2[1]1.714s | Syn:2[38]0.287s | Tub:2[29]0.005s | Mesh:8000 |
+Step:39/350000 | Phi:2[1]1.719s | Syn:2[38]0.296s | Tub:2[29]0.005s | Mesh:8000 |
+Step:40/350000 | Phi:2[1]1.705s | Syn:2[38]0.286s | Tub:2[29]0.005s | Mesh:8000 |
+Step:41/350000 | Phi:2[2]2.960s | Syn:2[37]0.288s | Tub:2[29]0.005s | Mesh:8000 |
+Step:42/350000 | Phi:2[1]1.708s | Syn:2[37]0.288s | Tub:2[29]0.005s | Mesh:8000 |

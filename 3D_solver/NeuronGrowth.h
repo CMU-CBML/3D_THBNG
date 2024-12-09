@@ -3,47 +3,43 @@
 
 #include <vector>
 #include <array>
+#include <string>
+#include <cmath>
+#include <queue>
+#include <numeric>
 #include "BasicDataStructure.h"
 #include "utils.h"
-#include "time.h"
-#include "../nanoflann/1.5.5/include/nanoflann.hpp" // for KDtree points search
+#include "../nanoflann/1.5.5/include/nanoflann.hpp" // KDTree for spatial searches
 
 using namespace std;
 
-// Timing functions (similar to MATLAB's tic/toc)
-void tic();
-void toc(float &t);
+// **Utility Functions**: Timing and Matrix Operations
+void tic();                              // Start timing
+void toc(float &t);                      // End timing and update time
 
-float MatrixDet(float dxdt[2][2]);
+float MatrixDet(float dxdt[2][2]);       // 2x2 matrix determinant
+void Matrix2DInverse(float dxdt[2][2], float dtdx[2][2]); // Inverse of a 2x2 matrix
 
-void Matrix2DInverse(float dxdt[2][2], float dtdx[2][2]);
+inline float SquaredDistance(const Vertex3D &first, const Vertex3D &other); // Squared Euclidean distance
+void CheckAndPrintThresholdExceedance(const vector<float> &input, float threshold); // Print values exceeding a threshold
 
-inline float SquaredDistance(const Vertex3D& first, const Vertex3D& other);
-
-void CheckAndPrintThresholdExceedance(const vector<float>& input, float threshold);
-
+// **Vertex3DCloud Struct**: KDTree Point Cloud Wrapper
 struct Vertex3DCloud {
-    const vector<Vertex3D>& pts; // Reference to the 3D points
+    const vector<Vertex3D>& pts;
 
-    // Constructor
-    Vertex3DCloud(const vector<Vertex3D>& pts) : pts(pts) {}
+    explicit Vertex3DCloud(const vector<Vertex3D>& pts) : pts(pts) {}
 
-    // Returns the number of data points
     inline size_t kdtree_get_point_count() const { return pts.size(); }
-
-    // Returns the dim'th component of the idx'th point
     inline float kdtree_get_pt(const size_t idx, const size_t dim) const {
-        return pts[idx].coor[dim]; // Accessing coor[0], coor[1], coor[2]
+        return pts[idx].coor[dim];
     }
 
-    // Optional bounding box computation; not implemented for simplicity
     template <class BBOX>
     bool kdtree_get_bbox(BBOX&) const { return false; }
 };
 
-// Alias for a 3D KDTree
 using KDTree = nanoflann::KDTreeSingleIndexAdaptor<
-    nanoflann::L2_Simple_Adaptor<float, Vertex3DCloud>,
+    nanoflann::L2_Simple_Adaptor<float, Vertex3DCloud>, 
     Vertex3DCloud, 
     3 /* dim */>;
 
@@ -137,10 +133,14 @@ public:
 	NeuronGrowth();
 	void AssignProcessor(vector<vector<int>> &ele_proc); // assign elements to different processors
 	void SetVariables(string fn_par);
-	void InitializeProblemNG(const int n_bz, 
-							vector<Vertex3D>& cpts, 
-							vector<Vertex3D> prev_cpts, 
-							vector<vector<float>>& NGvars, 
+	void InitializeProblemNG(const int n_bz,
+							vector<Vertex3D>& cpts,
+							const Vertex3DCloud& cloud,
+							KDTree& kdTree,
+							const vector<Vertex3D>& prev_cpts,
+							const Vertex3DCloud& cloud_prev,
+							KDTree& kdTree_prev,
+							vector<vector<float>>& NGvars,
 							vector<array<float, 3>>& seed);
 	void CheckVar(const string& fn, const vector<Vertex3D>& cpts, const vector<float>& input);
 	void ToPETScVec(vector<float> input, Vec& petscVec); // for SNES phi initial guess
@@ -215,10 +215,10 @@ public:
 		vector<vector<float>> &eleVal, vector<float> &vars);
 
 	// pre-calculate variables to save computational cost
-	void prepareBasis();
-	void preparePhaseField();
-	void prepareTerm_source();
-	void prepareEpsilon();
+	void PrepareBasis();
+	void PreparePhaseField();
+	void PrepareTermSource();
+	void PrepareEpsilon();
 	// void prepareEE();
 
 	// Phase field equation
@@ -240,7 +240,7 @@ public:
 	bool KD_SearchPair(const vector<Vertex3D>& cpts, 
 					const KDTree& kdTree, 
 					float targetX, float targetY, float targetZ, 
-					int& ind);
+					int& ind, float tolerance);
 	
 	// Tip detection
 	float RmOutlier(vector<float> &data); // standard deviation based outlier remover
@@ -248,18 +248,20 @@ public:
 	void DetectTipsMulti3D(vector<float> id, int numNeuron, vector<float> &tips, int NX, int NY, int NZ);
 	
 	// Function to check if a point is within the specified box centered at 'center'
-	bool isInBox(const Vertex3D& point, const Vertex3D& center, float dx, float dy, float dz);
+	bool IsInBox(const Vertex3D& point, const Vertex3D& center, float dx, float dy, float dz);
 	// Function to calculate the sum of phi within a specified box for each center point in cpts
 
-	void calculatePhiSum(const vector<Vertex3D>& cpts, 
+	void CalculatePhiSum(const vector<Vertex3D>& cpts, 
 						float dx, float dy, float dz, 
 						const KDTree& kdTree);
 	vector<float> InterpolateValues3D(const vector<Vertex3D>& cpts_initial, const vector<float>& input,
 		const vector<Vertex3D>& cpts_new);
 	vector<pair<Vertex3D, int>> FindClosestVerticesWithIndices(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k);
-	vector<tuple<Vertex3D, int, float>> FindClosestVerticesWithIndicesAndDistances(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k);
+	// vector<tuple<Vertex3D, int, float>> FindClosestVerticesWithIndicesAndDistances(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k);
+	vector<tuple<Vertex3D, int, float>> FindClosestVerticesWithIndicesAndDistances(const KDTree& kdTree, const Vertex3DCloud& cloud,
+																				const Vertex3D& inputVertex, int k);
 
- 	void bfs3D(const vector<float>& matrix, int depth, int rows, int cols, int dep, int row, int col,
+ 	void BFS3D(const vector<float>& matrix, int depth, int rows, int cols, int dep, int row, int col,
 		vector<bool>& visited, vector<tuple<int, int, int>>& cluster);
 	vector<vector<tuple<int, int, int>>> FindClusters3D(const vector<float>& matrix, int depth, int rows, int cols);
 	vector<float> FindLocalMaximaInClusters3D(const vector<float>& matrix, int depth, int rows, int cols);
@@ -277,7 +279,7 @@ public:
 									int NX, int NY, int NZ, 
 									int originX, int originY, int originZ,
 									const KDTree& kdTree, const Vertex3DCloud& cloud);							 
-	bool isValid(int x, int y, int z, int rows, int cols, int depth);
+	bool IsValid(int x, int y, int z, int rows, int cols, int depth);
 	vector<vector<vector<int>>> CalculateGeodesicDistanceFromPoint3D(vector<vector<vector<int>>> neurons, const vector<array<int, 3>>& seed, int originX, int originY, int originZ);
 	// vector<vector<array<int, 3>>> NeuriteTracing(vector<vector<float>> distance);
 	void SaveNGvars(const vector<vector<float>> &NGvars, int NX, int NY, const string& fn);
@@ -285,14 +287,13 @@ public:
 };
 
 // Phase field PETSc Nonlinear SNES solver functions (placing here due to non-static member function error)
-// Function to set up an SNES solver
 PetscErrorCode SetupSNES(SNES &snes, const char *solverType, void *ctx,
 						PetscErrorCode (*formFunction)(SNES, Vec, Vec, void *),
 						PetscErrorCode (*formJacobian)(SNES, Vec, Mat, Mat, void *),
 						PetscReal rtol, PetscReal atol, PetscReal stol, PetscInt maxIters, PetscInt maxFails);
-// Function to set up a KSP solver
 PetscErrorCode SetupKSP(KSP &ksp, Mat &A, const char *kspType, const char *pcType,
                         PetscReal rtol, PetscReal atol, PetscReal dtol, PetscInt maxIters, PetscInt restart);
+PetscErrorCode ScatterVector(Vec src, vector<float>& target, PetscInt size, bool applyBoundary, NeuronGrowth* NG);
 PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx);
 PetscErrorCode FormJacobian_phi(SNES snes, Vec x, Mat J, Mat P, void *ctx);
 PetscErrorCode MySNESMonitor(SNES snes, PetscInt its, PetscReal fnorm, PetscViewerAndFormat *vf);

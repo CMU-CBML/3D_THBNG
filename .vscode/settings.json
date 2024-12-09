@@ -49,6 +49,19 @@
                 "stdexcept": "cpp",
                 "streambuf": "cpp",
                 "typeinfo": "cpp",
-                "algorithm": "cpp"
+                "algorithm": "cpp",
+                "__hash_table": "cpp",
+                "bitset": "cpp",
+                "deque": "cpp",
+                "hash_map": "cpp",
+                "list": "cpp",
+                "queue": "cpp",
+                "set": "cpp",
+                "stack": "cpp",
+                "string_view": "cpp",
+                "unordered_map": "cpp",
+                "unordered_set": "cpp",
+                "valarray": "cpp",
+                "istream": "cpp"
         }
 }

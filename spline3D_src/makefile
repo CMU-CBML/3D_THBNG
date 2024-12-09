@@ -5,13 +5,13 @@
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
-	Compiler=g++
-	EIGEN_DIR = /home/kuanrenqian/Research/THBNG/eigen-3.4.0
+	Compiler=/ocean/projects/eng170006p/ussqww/petsc/arch-linux-c-opt/bin/mpic++
 endif
 ifeq ($(UNAME_S),Darwin)
 	Compiler=/opt/homebrew/Cellar/gcc/14.2.0_1/bin/aarch64-apple-darwin24-g++-14
-	EIGEN_DIR = ../eigen-3.4.0
 endif
+
+EIGEN_DIR = ../eigen-3.4.0
 
 CFLAGS= --fast-math -O3 -c -std=c++11 -I ${EIGEN_DIR} -Wall 
 #-DMKL_ILP64

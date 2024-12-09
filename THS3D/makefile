@@ -1,15 +1,14 @@
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
-	PETSC_DIR = /home/kuanrenqian/Research/petsc
-	EIGEN_DIR = /home/kuanrenqian/Research/THBNG/eigen-3.4.0
-	Compiler=g++
+	PETSC_DIR = /ocean/projects/eng170006p/ussqww/petsc
+	Compiler = /ocean/projects/eng170006p/ussqww/petsc/arch-linux-c-opt/bin/mpic++
 endif
 ifeq ($(UNAME_S),Darwin)
 	PETSC_DIR = /Users/kuanrenqian/petsc
-	EIGEN_DIR = ../eigen-3.4.0
 	Compiler=/opt/homebrew/Cellar/gcc/14.2.0_1/bin/aarch64-apple-darwin24-g++-14
 endif
+EIGEN_DIR = ../eigen-3.4.0
 CFLAGS= ${PETSC_CC_INCLUDES} ${CXX_FLAGS} ${CXXFLAGS} ${CPPFLAGS}  ${PSOURCECXX} --fast-math -O3 -std=c++11 -fopenmp -Wall -I ${EIGEN_DIR}
 
 all: THS3D

@@ -1,0 +1,17 @@
+#!/bin/sh
+
+#SBATCH -N 1
+#SBATCH -p RM
+#SBATCH --ntasks-per-node=128
+#SBATCH --job-name=THBNG
+#SBATCH --output=THBNG%j.out
+#SBATCH --time=24:00:00
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=kuanrenq@andrew.cmu.edu
+mkdir ../io3D/
+mkdir ../io3D/outputs/
+
+/ocean/projects/eng170006p/ussqww/petsc/arch-linux-c-opt/bin/mpiexec -np 128 ./3DNG 1 350000 ../io3D/
+
+#-- exit
+#
