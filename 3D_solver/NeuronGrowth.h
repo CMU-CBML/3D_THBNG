@@ -98,7 +98,8 @@ public:
     SNES snes_phi;              // PETSc SNES nonlinear solver
     KSP ksp_phi, ksp_syn, ksp_tub;       // PETSc KSP linear solvers
     PC pc_phi, pc_syn, pc_tub;          // PETSc preconditioners
-    Mat GK_phi, GK_syn, GK_tub, J;      // PETSc matrices
+	Mat J;
+    Mat GK_phi, GK_syn, GK_tub;      // PETSc matrices
     Vec GR_phi, GR_syn, GR_tub;         // Residual vectors
     Vec temp_phi, temp_syn, temp_tub; // Temporary solution vectors
 
@@ -185,26 +186,42 @@ public:
 						const vector<float> eleTheta, float &dThedx, float &dThedy,
 						const vector<float> eleEpsilon, float &dAdx, float &dAdy,
 						const vector<float> eleEpsilonP, float &dAPdx, float &dAPdy);
-	void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
-								const vector<float> elePhiGuess, float &elePG,
-								const vector<float> elePhi, float &eleP,
-								const vector<float> eleSyn, float &eleS,
-								const vector<float> eleTips, float &eleTp,
-								const vector<float> eleTubulin, float &eleTb,
-								float &dPGdx, float &dPGdy, float &dPGdz);
-	void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
-								const vector<float> elePhiGuess, float &elePG,
-								const vector<float> elePhi, float &eleP,
-								const vector<float> eleSyn, float &eleS,
-								const vector<float> eleTips, float &eleTp,
-								const vector<float> eleTubulin, float &eleTb,
-								const vector<float> eleEpsilon, float &eleEP,
-								const vector<float> eleEpsilonP, float &eleEEP,
-								float &dPGdx, float &dPGdy,
-								float &dAdx, float &dAdy,
-								float &dAPdx, float &dAPdy);
-	void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
-		vector<vector<float>> &eleVal, vector<float> &vars);
+	// void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
+	// 							const vector<float> elePhiGuess, float &elePG,
+	// 							const vector<float> elePhi, float &eleP,
+	// 							const vector<float> eleSyn, float &eleS,
+	// 							const vector<float> eleTips, float &eleTp,
+	// 							const vector<float> eleTubulin, float &eleTb,
+	// 							float &dPGdx, float &dPGdy, float &dPGdz);
+	// void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
+	// 							const vector<float> elePhiGuess, float &elePG,
+	// 							const vector<float> elePhi, float &eleP,
+	// 							const vector<float> eleSyn, float &eleS,
+	// 							const vector<float> eleTips, float &eleTp,
+	// 							const vector<float> eleTubulin, float &eleTb,
+	// 							const vector<float> eleEpsilon, float &eleEP,
+	// 							const vector<float> eleEpsilonP, float &eleEEP,
+	// 							float &dPGdx, float &dPGdy,
+	// 							float &dAdx, float &dAdy,
+	// 							float &dAPdx, float &dAPdy);
+	inline void ElementEvaluationAll_phi(
+		int nen,
+		const std::vector<float> &Nx,
+		const std::vector<std::array<float, 3>> &dNdx,
+		const std::vector<std::vector<float>> &eleVal,
+		std::vector<float> &vars);
+	void ElementEvaluationAll_phi_test(const uint &nen, 
+								const std::vector<float> &Nx, 
+								const std::vector<std::array<float, 3>> &dNdx, 
+								const std::vector<float> &elePhiGuess, 
+								std::vector<float> &vars);
+	void ElementEvaluationAll_phi_opt(const uint &nen, 
+								const std::vector<float> &Nx, 
+								const std::vector<std::array<float, 3>> &dNdx, 
+								const std::vector<float> &elePhiGuess, 
+								std::vector<float> &vars);
+	// void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
+	// 	vector<vector<float>> &eleVal, vector<float> &vars);
 	void ElementEvaluationAll_syn_tub(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
 		const vector<float> elePhiDiff, float &elePf, 
 		const vector<float> eleSyn,float &eleS, const vector<float> elePhi, float &eleP,
@@ -223,6 +240,8 @@ public:
 	// Phase field equation
 	void EvaluateEnergy(const int nen, const vector<float>& Nx, const vector<float>& eleSyn, vector<float>& E);
 	float Regular_Heiviside_fun(float x);
+	void EvaluateOrientation_prev(const uint& nen, const vector<float>& Nx, const vector<array<float, 3>>& dNdx,
+									const vector<float>& elePhi, const vector<float>& eleTheta, vector<float>& eleEpsilon, vector<float>& eleEpsilonP);
 	void EvaluateOrientation(const int nen, const vector<float>& Nx, const vector<array<float, 3>>& dNdx,
 							const vector<float>& elePhi, const vector<float>& eleTheta,
 							float& eleAniso, float& dA_dPdx, float& dA_dPdy, float& dA_dPdz);
