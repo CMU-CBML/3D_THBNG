@@ -12,8 +12,8 @@ endif
 EIGEN_DIR = ../eigen-3.4.0
 
 include ${PETSC_DIR}/lib/petsc/conf/variables
-CFLAGS= ${PETSC_CC_INCLUDES} ${CXX_FLAGS} ${CXXFLAGS} ${CPPFLAGS} ${PSOURCECXX} -Ofast -march=native -march=native -std=c++17 -fopenmp -flto -I ${EIGEN_DIR}
-
+CFLAGS= ${PETSC_CC_INCLUDES} ${CXX_FLAGS} ${CXXFLAGS} ${CPPFLAGS} ${PSOURCECXX} -Ofast -march=native -march=native -std=c++17 -fopenmp -I ${EIGEN_DIR}
+# -flto 
 all: 3DNG
 
 3DNG: BasicDataStructure.o NeuronGrowth.o utils.o main.o 
@@ -22,17 +22,8 @@ all: 3DNG
 BasicDataStructure.o: BasicDataStructure.cpp
 	$(Compiler)	-c BasicDataStructure.cpp $(CFLAGS)
 	
-# UserSetting.o: UserSetting.cpp
-# 	$(Compiler)	-c UserSetting.cpp $(CFLAGS)
-	
 NeuronGrowth.o: NeuronGrowth.cpp
 	$(Compiler)	-c NeuronGrowth.cpp $(CFLAGS)
-
-# ngfunc.o: ngfunc.cpp
-# 	$(Compiler)	-c ngfunc.cpp $(CFLAGS)
-
-# NeuronGrowth.o: NeuronGrowth.cpp
-# 	$(Compiler)	-c NeuronGrowth.cpp $(CFLAGS)
 
 utils.o: utils.cpp
 	$(Compiler)	-c utils.cpp $(CFLAGS)

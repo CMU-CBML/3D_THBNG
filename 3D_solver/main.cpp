@@ -78,7 +78,12 @@ int main(int argc, char** argv) {
     // User inputs
     int numNeuron = atoi(argv[1]);   // Number of neurons
     int end_iter = atoi(argv[2]);   // Number of iterations
-    string path_in = argv[3];       // Working directory path
+    string phi_solver = string(argv[3]);
+    if (phi_solver != "ksp" && phi_solver != "snes") {
+        PetscPrintf(PETSC_COMM_WORLD, "Please specify phi solver type: snes or ksp.\n");
+        return 0;
+    }
+    string path_in = argv[4];       // Working directory path
     string path_out = path_in + "outputs/";
 
     // Simulation parameters
@@ -130,7 +135,7 @@ int main(int argc, char** argv) {
 
         // Run neuron growth simulation for the current iteration
         state = RunNG(nProcs, ele_process, cpts_initial, cpts, prev_cpts, path_in, path_out,
-                      iter, end_iter, NGvars, NX, NY, NZ, seed, originX, originY, originZ, localRefine);
+                      iter, end_iter, NGvars, NX, NY, NZ, seed, originX, originY, originZ, localRefine, phi_solver);
 
         // Exit if simulation diverges
         if (state == 3) {

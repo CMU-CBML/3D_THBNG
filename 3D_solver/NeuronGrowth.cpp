@@ -3,6 +3,7 @@
 #include <cmath>                        // For mathematical operations
 #include <fstream>                      // For file operations
 #include <iostream>                     // For console I/O
+#include <sstream>
 #include <iomanip>                      // For formatted I/O
 #include <algorithm>                    // For STL algorithms
 #include <numeric>                      // For numeric operations
@@ -46,18 +47,6 @@ void toc(double &elapsed_time) {
         elapsed_time = 0.0; // Handle case where tic was not called
     }
 }
-// stack<clock_t> tictoc_stack;
-// float t_phi, t_syn, t_tub, t_collect, t_write(0), t_total(0);
-
-// void tic() 
-// {
-// 	tictoc_stack.push(clock());
-// }
-// void toc(float &t) 
-// {
-// 	t = ((float)(clock() - tictoc_stack.top())) / CLOCKS_PER_SEC;
-// 	tictoc_stack.pop();
-// }
 
 float MatrixDet(float dxdt[3][3])
 {
@@ -107,7 +96,7 @@ void CheckAndPrintThresholdExceedance(const vector<float>& input, float threshol
     }
 }
 
-NeuronGrowth::NeuronGrowth() {
+NeuronGrowth::NeuronGrowth(const string& phi_solver) {
     // MPI setup
     comm = PETSC_COMM_WORLD; // Initialize MPI communicator
     mpiErr = MPI_Comm_rank(comm, &comRank); // Get rank of the process
@@ -121,58 +110,73 @@ NeuronGrowth::NeuronGrowth() {
     sum_grad_phi0_local = 0; // Local gradient sum of phi
     sum_grad_phi0_global = 0; // Global gradient sum of phi
 
-	// var_save_invl 	= 10;
-	// expandCK_invl	 = 10000;
-	// aniso 		= 6;
-	// numNeuron 	= 1;
-	// gc_sz 		= 2;
-	// Diff 		= 4;
-	// M_axon 		= 100;
-	// M_neurite 	= 50;
-	// M_phi 		= 60;
-	// alpha 		= 0.9;
-	// alphaT 		= 0.001;
-	// betaT 		= 0.001;
-	// c_opt 		= 1;
-	// delta 		= 0.20;
-	// // dt 		= 0.0005;
-	// dt 		= 1e-2;
-	// epsilonb 	= 0.04;
-	// g 		= 0.1;
-	// gamma 		= 10;
-	// k2 		= 0;
-	// kappa 		= 2;
-	// Dc 		= 6;
-	// kp75 		= 0;
-	// r 		= 5;
-	// s_coeff 	= 0.007;
-	// seed_radius 	= 5;
-	// source_coeff 	= 15;
+	if (phi_solver == "ksp") {
+		// Simulation parameters
+		var_save_invl   = 100;       // Interval for saving variables
+		expandCK_invl   = 100000;     // Interval for expanding control knots
 
-    // Integer variable setup
-    expandCK_invl = 10000;    // Interval for expanding computation kernels
-    var_save_invl = 10;     // Interval for saving variables
-    numNeuron = 1;          // Number of neurons
-    aniso = 6;              // Anisotropy factor
-    gamma = 10;             // Gamma parameter for equations
-    seed_radius = 4;        // Seed radius
+		// Neuron-specific parameters
+		aniso           = 6;         // Anisotropy constant
+		numNeuron       = 1;         // Number of neurons
+		gc_sz           = 2;         // Growth cone size
 
-    // Variable setup
-    kappa = 1.8;            // Kappa parameter
-    dt = 1e-2;              // Time step size
-    Dc = 3;                 // Diffusion coefficient for synapse
-    alpha = 0.9;            // Alpha parameter
-    alphaOverPi = alpha / PI; // Alpha divided by PI
-    M_phi = 10;             // Mobility for phase field
-    s_coeff = 0.007;        // Source coefficient
-    delta = 0.50;           // Delta parameter
-    epsilonb = 0.01;        // Regularization parameter for boundary
-    r = 5;                  // Radius for initialization
-    g = 0.1;                // Growth factor
-    alphaT = 0.001;         // Temperature-related parameter alphaT
-    betaT = 0.001;          // Temperature-related parameter betaT
-    Diff = 4;               // Diffusion coefficient
-    source_coeff = 15;      // Source coefficient for boundary conditions
+		// Diffusion and mobility
+		Diff            = 4;         // Diffusion coefficient
+		M_axon          = 100;       // Mobility for axon
+		M_neurite       = 50;        // Mobility for neurite
+		M_phi           = 60;        // Mobility for phase field
+
+		// Growth-related parameters
+		alpha           = 0.9;       // Growth rate scaling factor
+		alphaT          = 0.001;     // Tubulin production scaling factor
+		betaT           = 0.001;     // Tubulin degradation scaling factor
+		c_opt           = 1;         // Optimization constant for growth
+		delta           = 0.20;      // Growth anisotropy coefficient
+
+		// Time-stepping
+		dt              = 0.0005;    // Time step size
+
+		// Phase field model parameters
+		epsilonb        = 0.04;      // Baseline epsilon for growth anisotropy
+		g               = 0.1;       // Threshold for growth regulation
+		gamma           = 10;        // Growth feedback factor
+		k2              = 0;         // Secondary feedback term
+		kappa           = 2;         // Stiffness constant for bending
+		Dc              = 6;         // Diffusion coefficient for concentration
+
+		// Boundary and seed-related parameters
+		kp75            = 0;         // Placeholder constant for tuning
+		r               = 5;         // Seed radius
+		s_coeff         = 0.007;     // Source coefficient for growth
+		seed_radius     = 5;         // Initial seed radius
+		source_coeff    = 15;        // Source term coefficient
+		
+	} else if (phi_solver == "snes") {
+		// Integer variable setup
+		expandCK_invl = 100000;    // Interval for expanding computation kernels
+		var_save_invl = 100;     // Interval for saving variables
+		numNeuron = 1;          // Number of neurons
+		aniso = 6;              // Anisotropy factor
+		gamma = 10;             // Gamma parameter for equations
+		seed_radius = 4;        // Seed radius
+
+		// Variable setup
+		kappa = 1.8;            // Kappa parameter
+		dt = 1e-2;              // Time step size
+		Dc = 3;                 // Diffusion coefficient for synapse
+		alpha = 0.9;            // Alpha parameter
+		alphaOverPi = alpha / PI; // Alpha divided by PI
+		M_phi = 10;             // Mobility for phase field
+		s_coeff = 0.007;        // Source coefficient
+		delta = 0.50;           // Delta parameter
+		epsilonb = 0.01;        // Regularization parameter for boundary
+		r = 5;                  // Radius for initialization
+		g = 0.1;                // Growth factor
+		alphaT = 0.001;         // Temperature-related parameter alphaT
+		betaT = 0.001;          // Temperature-related parameter betaT
+		Diff = 4;               // Diffusion coefficient
+		source_coeff = 15;      // Source coefficient for boundary conditions
+	}
 }
 	// expandCK_invl		= 1; 		// var_save_invl
 	// var_save_invl		= 25; 		// var_save_invl
@@ -199,63 +203,128 @@ NeuronGrowth::NeuronGrowth() {
 	// Diff			= 4;		// Diff
 	// source_coeff		= 15;		// source_coeff
 
-void NeuronGrowth::AssignProcessor(vector<vector<int>> &ele_proc)
-{
-	ele_process.clear();
-	for (int i = 0; i < ele_proc[comRank].size(); i++)
-		ele_process.push_back(ele_proc[comRank][i]);
+// Assign processor-specific elements to the local process
+void NeuronGrowth::AssignProcessor(vector<vector<int>> &ele_proc) {
+    ele_process = ele_proc[comRank]; // Direct assignment is more efficient
 }
 
-void NeuronGrowth::SetVariables(string fn_par) {
-	ifstream inputFile(fn_par);
-	if (!inputFile.is_open()) {
-		PetscPrintf(PETSC_COMM_WORLD, "Error: Unable to open file %s\n", fn_par.c_str());
-		return;
-	}
+// Load variables from a parameter file
+void NeuronGrowth::SetVariables(const string &fn_par) {
+    ifstream inputFile(fn_par);
+    if (!inputFile.is_open()) {
+        PetscPrintf(PETSC_COMM_WORLD, "Error: Unable to open file %s\n", fn_par.c_str());
+        return;
+    }
 
-	string line;
+    string line;
+    while (getline(inputFile, line)) {
+        istringstream iss(line);
+        string variableName;
+        char equalsSign;
+        float value;
 
-	while (getline(inputFile, line)) {
-		istringstream iss(line);
-		string variableName;
-		char equalsSign;
-		if (!(iss >> variableName >> equalsSign)) {
-			PetscPrintf(PETSC_COMM_WORLD, "Error: Reading variable failed!\n");
-			break;
-		}
-		if (variableName == "expandCK_invl") iss >> expandCK_invl;
-		else if (variableName == "var_save_invl") iss >> var_save_invl;
-		else if (variableName == "numNeuron") iss >> numNeuron;
-		else if (variableName == "gc_sz") iss >> gc_sz;
-		else if (variableName == "aniso") iss >> aniso;
-		else if (variableName == "gamma") iss >> gamma;
-		else if (variableName == "seed_radius") iss >> seed_radius;
-		else if (variableName == "kappa") iss >> kappa;
-		else if (variableName == "dt") iss >> dt;
-		else if (variableName == "Dc") iss >> Dc;
-		else if (variableName == "kp75") iss >> kp75;
-		else if (variableName == "k2") iss >> k2;
-		else if (variableName == "c_opt") iss >> c_opt;
-		else if (variableName == "alpha") iss >> alpha;
-		else if (variableName == "M_phi") iss >> M_phi;
-		else if (variableName == "M_axon") iss >> M_axon;
-		else if (variableName == "M_neurite") iss >> M_neurite;
-		else if (variableName == "s_coeff") iss >> s_coeff;
-		else if (variableName == "delta") iss >> delta;
-		else if (variableName == "epsilonb") iss >> epsilonb;
-		else if (variableName == "r") iss >> r;
-		else if (variableName == "g") iss >> g;
-		else if (variableName == "alphaT") iss >> alphaT;
-		else if (variableName == "betaT") iss >> betaT;
-		else if (variableName == "Diff") iss >> Diff;
-		else if (variableName == "source_coeff") iss >> source_coeff;
-	}
-	inputFile.close();
-	PetscPrintf(PETSC_COMM_WORLD, "Parameter Loaded!\n");
+        // Parse each line for a variable and its value
+        if (!(iss >> variableName >> equalsSign >> value) || equalsSign != '=') {
+            PetscPrintf(PETSC_COMM_WORLD, "Warning: Invalid format in line: %s\n", line.c_str());
+            continue;
+        }
 
-	// Calculate alphaOverPi after all variables are loaded
-	alphaOverPi = alpha / PI;
+        // Map variable names to class members
+        if (variableName == "expandCK_invl") expandCK_invl = value;
+        else if (variableName == "var_save_invl") var_save_invl = value;
+        else if (variableName == "numNeuron") numNeuron = value;
+        else if (variableName == "gc_sz") gc_sz = value;
+        else if (variableName == "aniso") aniso = value;
+        else if (variableName == "gamma") gamma = value;
+        else if (variableName == "seed_radius") seed_radius = value;
+        else if (variableName == "kappa") kappa = value;
+        else if (variableName == "dt") dt = value;
+        else if (variableName == "Dc") Dc = value;
+        else if (variableName == "kp75") kp75 = value;
+        else if (variableName == "k2") k2 = value;
+        else if (variableName == "c_opt") c_opt = value;
+        else if (variableName == "alpha") alpha = value;
+        else if (variableName == "M_phi") M_phi = value;
+        else if (variableName == "M_axon") M_axon = value;
+        else if (variableName == "M_neurite") M_neurite = value;
+        else if (variableName == "s_coeff") s_coeff = value;
+        else if (variableName == "delta") delta = value;
+        else if (variableName == "epsilonb") epsilonb = value;
+        else if (variableName == "r") r = value;
+        else if (variableName == "g") g = value;
+        else if (variableName == "alphaT") alphaT = value;
+        else if (variableName == "betaT") betaT = value;
+        else if (variableName == "Diff") Diff = value;
+        else if (variableName == "source_coeff") source_coeff = value;
+        else {
+            PetscPrintf(PETSC_COMM_WORLD, "Warning: Unknown variable %s in file.\n", variableName.c_str());
+        }
+    }
+
+    inputFile.close();
+    PetscPrintf(PETSC_COMM_WORLD, "Parameters loaded successfully.\n");
+
+    // Recompute dependent parameters
+    alphaOverPi = alpha / PI;
 }
+
+// void NeuronGrowth::AssignProcessor(vector<vector<int>> &ele_proc)
+// {
+// 	ele_process.clear();
+// 	for (int i = 0; i < ele_proc[comRank].size(); i++)
+// 		ele_process.push_back(ele_proc[comRank][i]);
+// }
+
+// void NeuronGrowth::SetVariables(string fn_par) {
+// 	ifstream inputFile(fn_par);
+// 	if (!inputFile.is_open()) {
+// 		PetscPrintf(PETSC_COMM_WORLD, "Error: Unable to open file %s\n", fn_par.c_str());
+// 		return;
+// 	}
+
+// 	string line;
+
+// 	while (getline(inputFile, line)) {
+// 		istringstream iss(line);
+// 		string variableName;
+// 		char equalsSign;
+// 		if (!(iss >> variableName >> equalsSign)) {
+// 			PetscPrintf(PETSC_COMM_WORLD, "Error: Reading variable failed!\n");
+// 			break;
+// 		}
+// 		if (variableName == "expandCK_invl") iss >> expandCK_invl;
+// 		else if (variableName == "var_save_invl") iss >> var_save_invl;
+// 		else if (variableName == "numNeuron") iss >> numNeuron;
+// 		else if (variableName == "gc_sz") iss >> gc_sz;
+// 		else if (variableName == "aniso") iss >> aniso;
+// 		else if (variableName == "gamma") iss >> gamma;
+// 		else if (variableName == "seed_radius") iss >> seed_radius;
+// 		else if (variableName == "kappa") iss >> kappa;
+// 		else if (variableName == "dt") iss >> dt;
+// 		else if (variableName == "Dc") iss >> Dc;
+// 		else if (variableName == "kp75") iss >> kp75;
+// 		else if (variableName == "k2") iss >> k2;
+// 		else if (variableName == "c_opt") iss >> c_opt;
+// 		else if (variableName == "alpha") iss >> alpha;
+// 		else if (variableName == "M_phi") iss >> M_phi;
+// 		else if (variableName == "M_axon") iss >> M_axon;
+// 		else if (variableName == "M_neurite") iss >> M_neurite;
+// 		else if (variableName == "s_coeff") iss >> s_coeff;
+// 		else if (variableName == "delta") iss >> delta;
+// 		else if (variableName == "epsilonb") iss >> epsilonb;
+// 		else if (variableName == "r") iss >> r;
+// 		else if (variableName == "g") iss >> g;
+// 		else if (variableName == "alphaT") iss >> alphaT;
+// 		else if (variableName == "betaT") iss >> betaT;
+// 		else if (variableName == "Diff") iss >> Diff;
+// 		else if (variableName == "source_coeff") iss >> source_coeff;
+// 	}
+// 	inputFile.close();
+// 	PetscPrintf(PETSC_COMM_WORLD, "Parameter Loaded!\n");
+
+// 	// Calculate alphaOverPi after all variables are loaded
+// 	alphaOverPi = alpha / PI;
+// }
 
 void NeuronGrowth::InitializeProblemNG(const int n_bz,
 						vector<Vertex3D>& cpts,
@@ -572,7 +641,7 @@ void NeuronGrowth::ToPETScVec(vector<float> input, Vec& petscVec)
 	VecAssemblyEnd(petscVec);
 }
 
-void NeuronGrowth::ReadBezierElementProcess(string fn)
+void NeuronGrowth::ReadBezierElementProcess(const string& fn)
 {
 	string stmp;
 	int npts, neles, nfunctions, itmp, itmp1;
@@ -824,164 +893,146 @@ void NeuronGrowth::BasisFunction(float u, float v, float w, const vector<array<f
 	}
 }
 
-void NeuronGrowth::ApplyBoundaryCondition(const float bc_value, int pt_num, int variable_num, vector<vector<float>> &EMatrixSolve, vector<float> &EVectorSolve)
+void NeuronGrowth::ApplyBoundaryCondition(
+    const float bc_value, int pt_num, int variable_num,
+    vector<vector<float>> &EMatrixSolve, vector<float> &EVectorSolve)
 {
-	int j, k;
-	int nen = EVectorSolve.size();
-	for (j = 0; j < nen; j++)
-	{
-		EVectorSolve[j] -= bc_value * EMatrixSolve[j][pt_num + variable_num * nen];
-	}
-	for (j = 0; j < nen; j++)
-	{
-		EMatrixSolve[j][pt_num + variable_num * nen] = 0.0;
-		EMatrixSolve[pt_num + variable_num * nen][j] = 0.0;
-	}
-	EMatrixSolve[pt_num + variable_num * nen][pt_num + variable_num * nen] = 1.0;
-	EVectorSolve[pt_num + variable_num * nen] = bc_value;
+    int nen = EVectorSolve.size();
+    int boundary_index = pt_num + variable_num * nen;
+
+    // Update the RHS vector with the boundary condition value
+    for (int j = 0; j < nen; ++j) {
+        EVectorSolve[j] -= bc_value * EMatrixSolve[j][boundary_index];
+        EMatrixSolve[j][boundary_index] = 0.0f; // Clear column
+    }
+
+    // Clear row and set diagonal
+    fill(EMatrixSolve[boundary_index].begin(), EMatrixSolve[boundary_index].end(), 0.0f);
+    EMatrixSolve[boundary_index][boundary_index] = 1.0f;
+
+    // Set RHS boundary value
+    EVectorSolve[boundary_index] = bc_value;
 }
 
-void NeuronGrowth::MatrixAssembly(vector<vector<float>> &EMatrixSolve, const vector<int> &IEN, Mat &GK)
+void NeuronGrowth::MatrixAssembly(
+	vector<vector<float>> &EMatrixSolve, const vector<int> &IEN, Mat &GK) 
 {
-	int i, j, A, B, m, n;
-	int row_start, row_end, row_now;
-	int add = 0;
-	int nen = IEN.size();
+    int nen = IEN.size();
 
-	PetscInt *nodeList = new PetscInt[nen * 1];
-	PetscReal *tmpGK = new PetscReal[nen * 1 * nen * 1];
+    // Pre-allocate for typical case when nen <= 64
+    PetscInt nodeListStatic[64];
+    PetscScalar tmpGKStatic[64 * 64];
 
-	for (m = 0; m < IEN.size(); m++)
-	{
-		A = IEN[m];
-		nodeList[1 * m] = 1 * A;
-		for (n = 0; n < IEN.size(); n++)
-		{
-				tmpGK[add] = EMatrixSolve[m][n];
-				add++;
-		}
-	}
-	MatSetValues(GK, nen * 1, nodeList, nen * 1, nodeList, tmpGK, ADD_VALUES);
-	delete nodeList;
-	delete tmpGK;
+    PetscInt *nodeList = (nen <= 64) ? nodeListStatic : new PetscInt[nen];
+    PetscScalar *tmpGK = (nen <= 64) ? tmpGKStatic : new PetscScalar[nen * nen];
+
+    int add = 0;
+    for (int m = 0; m < nen; ++m) {
+        nodeList[m] = IEN[m];
+        for (int n = 0; n < nen; ++n) {
+            tmpGK[add++] = EMatrixSolve[m][n];
+        }
+    }
+
+    // Insert values into the PETSc matrix
+    MatSetValues(GK, nen, nodeList, nen, nodeList, tmpGK, ADD_VALUES);
+
+    // Free dynamically allocated memory if used
+    if (nen > 64) {
+        delete[] nodeList;
+        delete[] tmpGK;
+    }
 }
 
-void NeuronGrowth::ResidualAssembly(vector<float> &EVectorSolve, const vector<int> &IEN, Vec &GR)
+void NeuronGrowth::ResidualAssembly(
+    vector<float> &EVectorSolve, const vector<int> &IEN, Vec &GR)
 {
-	int i, m, A;
-	int add = 0;
-	int nen = IEN.size();
+    int nen = IEN.size();
 
-	PetscInt *nodeList = new PetscInt[nen];
-	PetscReal *tmpGR = new PetscReal[nen];
+    // Use stack-allocated arrays to reduce heap allocations
+    PetscInt nodeList[64];  // Assuming nen <= 64
+    PetscScalar tmpGR[64];
 
-	for (i = 0; i < IEN.size(); i++)
-	{
-		A = IEN[i];
-		nodeList[i * 1 + 0] = A * 1 + 0;
-		tmpGR[add] = EVectorSolve[i];
-		add += 1;
-	}
-	VecSetValues(GR, nen * 1, nodeList, tmpGR, ADD_VALUES);
-	delete nodeList;
-	delete tmpGR;
+    // Populate node list and local residual vector
+    for (int i = 0; i < nen; ++i) {
+        nodeList[i] = IEN[i];
+        tmpGR[i] = EVectorSolve[i];
+    }
+
+    // Add values to the global residual vector
+    VecSetValues(GR, nen, nodeList, tmpGR, ADD_VALUES);
 }
 
-void NeuronGrowth::MatrixAssembly_insert(vector<vector<float>> &EMatrixSolve, const vector<int> &IEN, Mat &GK)
-{
-	int i, j, A, B, m, n;
-	int row_start, row_end, row_now;
-	int add = 0;
-	int nen = IEN.size();
+// void NeuronGrowth::ApplyBoundaryCondition(
+//     const float bc_value, int pt_num, int variable_num,
+//     vector<vector<float>> &EMatrixSolve, vector<float> &EVectorSolve)
+// {
+//     int nen = EVectorSolve.size();
+    
+//     // Update the RHS vector with the boundary condition value
+//     for (int j = 0; j < nen; j++) {
+//         EVectorSolve[j] -= bc_value * EMatrixSolve[j][pt_num + variable_num * nen];
+//     }
 
-	PetscInt *nodeList = new PetscInt[nen * 1];
-	PetscReal *tmpGK = new PetscReal[nen * 1 * nen * 1];
+//     // Zero out rows and columns corresponding to the boundary node
+//     for (int j = 0; j < nen; j++) {
+//         EMatrixSolve[j][pt_num + variable_num * nen] = 0.0f;
+//         EMatrixSolve[pt_num + variable_num * nen][j] = 0.0f;
+//     }
 
-	for (m = 0; m < IEN.size(); m++)
-	{
-		A = IEN[m];
-		nodeList[1 * m] = 1 * A;
-		for (n = 0; n < IEN.size(); n++)
-		{
-				tmpGK[add] = EMatrixSolve[m][n];
-				add++;
-		}
-	}
-	MatSetValues(GK, nen * 1, nodeList, nen * 1, nodeList, tmpGK, INSERT_VALUES);
-	delete nodeList;
-	delete tmpGK;
-}
+//     // Set diagonal value and update the RHS
+//     EMatrixSolve[pt_num + variable_num * nen][pt_num + variable_num * nen] = 1.0f;
+//     EVectorSolve[pt_num + variable_num * nen] = bc_value;
+// }
 
-void NeuronGrowth::ResidualAssembly_insert(vector<float> &EVectorSolve, const vector<int> &IEN, Vec &GR)
-{
-	int i, m, A;
-	int add = 0;
-	int nen = IEN.size();
+// void NeuronGrowth::MatrixAssembly(
+//     vector<vector<float>> &EMatrixSolve, const vector<int> &IEN, Mat &GK)
+// {
+//     int nen = IEN.size();
+//     int add = 0;
 
-	PetscInt *nodeList = new PetscInt[nen];
-	PetscReal *tmpGR = new PetscReal[nen];
+//     // Allocate arrays for PETSc matrix assembly
+//     PetscInt *nodeList = new PetscInt[nen];
+//     PetscReal *tmpGK = new PetscReal[nen * nen];
 
-	for (i = 0; i < IEN.size(); i++)
-	{
-		A = IEN[i];
-		nodeList[i * 1 + 0] = A * 1 + 0;
-		tmpGR[add] = EVectorSolve[i];
-		add += 1;
-	}
-	VecSetValues(GR, nen * 1, nodeList, tmpGR, INSERT_VALUES);
-	delete nodeList;
-	delete tmpGR;
-}
+//     // Populate node list and local stiffness matrix
+//     for (int m = 0; m < nen; m++) {
+//         nodeList[m] = IEN[m];
+//         for (int n = 0; n < nen; n++) {
+//             tmpGK[add++] = EMatrixSolve[m][n];
+//         }
+//     }
 
-void NeuronGrowth::MatrixAssembly_2var(vector<vector<float>>& EMatrixSolve, const vector<int>& IEN, Mat& GK)
-{
-	int i, j, A, B, m, n;
-	int row_start, row_end, row_now;
-	int add = 0;
-	int nen = IEN.size();
+//     // Add values to the global stiffness matrix
+//     MatSetValues(GK, nen, nodeList, nen, nodeList, tmpGK, ADD_VALUES);
 
+//     // Clean up allocated memory
+//     delete[] nodeList;
+//     delete[] tmpGK;
+// }
 
-	PetscInt *nodeList = new PetscInt[nen * 2];	
-	PetscReal *tmpGK = new PetscReal[nen * 2 * nen * 2];
-	
-	for (m = 0; m<IEN.size(); m++){
-		A = IEN[m];
-		for (i = 0; i < 2; i++)	{
-			nodeList[2 * m + i] = 2 * A + i;
-			for (n = 0; n<IEN.size(); n++){
-				for (j = 0; j < 2; j++)	{
-					tmpGK[add] = EMatrixSolve[m + i*nen][n + j*nen];
-					add++;
-				}   
-			}
-		}
-	}	
-	MatSetValues(GK, nen * 2, nodeList, nen * 2, nodeList, tmpGK, ADD_VALUES);
-	delete nodeList;
-	delete tmpGK;
-}
+// void NeuronGrowth::ResidualAssembly(
+//     vector<float> &EVectorSolve, const vector<int> &IEN, Vec &GR)
+// {
+//     int nen = IEN.size();
 
-void NeuronGrowth::ResidualAssembly_2var(vector<float>& EVectorSolve, const vector<int>& IEN, Vec& GR)
-{
-	int i, m, A;
-	int add = 0;
-	int nen = IEN.size();
+//     // Allocate arrays for PETSc vector assembly
+//     PetscInt *nodeList = new PetscInt[nen];
+//     PetscReal *tmpGR = new PetscReal[nen];
 
-	PetscInt *nodeList = new PetscInt[nen * 2];
-	PetscReal *tmpGR = new PetscReal[nen * 2];
-	
-	for (i = 0; i<IEN.size(); i++){
-		A = IEN[i];
-		nodeList[i * 2 + 0] = A * 2 + 0;
-		nodeList[i * 2 + 1] = A * 2 + 1;
-		tmpGR[add] = EVectorSolve[i];
-		tmpGR[add + 1] = EVectorSolve[i + nen];
-		add+=2;
-	}
-	VecSetValues(GR, nen * 2, nodeList, tmpGR, ADD_VALUES);
-	delete nodeList;
-	delete tmpGR;
-}
+//     // Populate node list and local residual vector
+//     for (int i = 0; i < nen; i++) {
+//         nodeList[i] = IEN[i];
+//         tmpGR[i] = EVectorSolve[i];
+//     }
+
+//     // Add values to the global residual vector
+//     VecSetValues(GR, nen, nodeList, tmpGR, ADD_VALUES);
+
+//     // Clean up allocated memory
+//     delete[] nodeList;
+//     delete[] tmpGR;
+// }
 
 void NeuronGrowth::VisualizeVTK_ControlMesh(const vector<Vertex3D> &spt, const vector<Element3D> &mesh, int step, string fn, vector<float> var, string varName)
 {
@@ -1373,50 +1424,33 @@ void NeuronGrowth::CalculateVarsForOutput(vector<array<float, 3>> &spt_all, vect
 	}
 }
 
-/**
- * Visualizes the physical domain of neuron growth for all variables using VTK.
- *
- * @param step The current simulation step (used for time-stepping control).
- * @param fn The filename prefix for the output VTK files.
- */
-void NeuronGrowth::VisualizeVTK_PhysicalDomain_All(int step, string fn) {
-	// Initialize containers for sample points, simulation results, and element connectivity for all variables
-	vector<vector<array<float, 3>>> spt_all_4var(4); // Sample points for all 4 variables
-	vector<vector<float>> sresult_all_4var(4); // Simulation results for all 4 variables
-	vector<vector<array<int, 8>>> sele_all_4var(4); // Element connectivity for all 4 variables
+void NeuronGrowth::VisualizeVTK_PhysicalDomain_All(int step, const string& fn) {
+    // Containers for all variables (phi, syn, tub, tips)
+    vector<vector<array<float, 3>>> spt_all_4var(4);    // Sample points for each variable
+    vector<vector<float>> sresult_all_4var(4);          // Simulation results for each variable
+    vector<vector<array<int, 8>>> sele_all_4var(4);     // Element connectivity for each variable
 
-	// Set current variable to phi and calculate its output variables
-	N_0 = phi;
-	CalculateVarsForOutput(spt_all_4var[0], sresult_all_4var[0], sele_all_4var[0]);
+    // Array of pointers to variables for streamlined processing
+    vector<vector<float>*> variables = {&phi, &syn, &tub, &tips};
 
-	// Set current variable to syn and calculate its output variables
-	N_0 = syn;
-	CalculateVarsForOutput(spt_all_4var[1], sresult_all_4var[1], sele_all_4var[1]);
+    // Calculate output variables for each simulation variable
+    for (size_t varIdx = 0; varIdx < variables.size(); ++varIdx) {
+        N_0 = *variables[varIdx]; // Set current variable (phi, syn, tub, tips)
+        CalculateVarsForOutput(spt_all_4var[varIdx], sresult_all_4var[varIdx], sele_all_4var[varIdx]);
+    }
 
-	// Set current variable to tub and calculate its output variables
-	N_0 = tub;
-	CalculateVarsForOutput(spt_all_4var[2], sresult_all_4var[2], sele_all_4var[2]);
-
-	// Set current variable to tips and calculate its output variables
-	N_0 = tips;
-	CalculateVarsForOutput(spt_all_4var[3], sresult_all_4var[3], sele_all_4var[3]);
-
-	// If running on the master process (comRank == 0), write the VTK file for visualization
-	if (comRank == 0) {
-		WriteVTK_ALL(spt_all_4var[0], sresult_all_4var, sele_all_4var[0], step, fn);
-	}
+    // Master process writes the VTK file for visualization
+    if (comRank == 0) {
+        WriteVTK_ALL(spt_all_4var[0], sresult_all_4var, sele_all_4var[0], step, fn);
+    }
 }
 
-/**
- * Writes the simulation data to a VTK file for visualization.
- *
- * @param spt Sample points' coordinates.
- * @param sdisp Scalar displacements for each variable at the sample points.
- * @param sele Connectivity information for the cells (elements).
- * @param step The current simulation step, used for generating the filename.
- * @param fn The base filename to which the step number and extension are appended.
- */
-void NeuronGrowth::WriteVTK_ALL(const vector<array<float, 3>> spt, const vector<vector<float>> sdisp, const vector<array<int, 8>> sele, int step, string fn) {
+void NeuronGrowth::WriteVTK_ALL(const vector<array<float, 3>>& spt, 
+							const vector<vector<float>>& sdisp, 
+							const vector<array<int, 8>>& sele, 
+							int step, 
+							const string& fn) 
+{
 	stringstream ss;
 	ss << step;
 	string fname = fn + "/physics_allparticle_" + ss.str() + ".vtk";
@@ -1461,7 +1495,9 @@ void NeuronGrowth::WriteVTK_ALL(const vector<array<float, 3>> spt, const vector<
 	}
 }
 
-void NeuronGrowth::PointFormValue(vector<float> &Nx, const vector<float> &U, float Value)
+void NeuronGrowth::PointFormValue(vector<float>& Nx,
+								const vector<float>& U,
+								float& Value)
 {
 	Value = 0;
 
@@ -1469,7 +1505,9 @@ void NeuronGrowth::PointFormValue(vector<float> &Nx, const vector<float> &U, flo
 		Value += U[j] * Nx[j];
 }
 
-void NeuronGrowth::PointFormGrad(vector<array<float, 3>> &dNdx, const vector<float> &U, float Value[2])
+void NeuronGrowth::PointFormGrad(vector<array<float, 3>>& dNdx,
+								const vector<float>& U,
+								float Value[2])
 {
 	for (int j = 0; j < 2; j++)
 		Value[j] = 0.;
@@ -1479,7 +1517,9 @@ void NeuronGrowth::PointFormGrad(vector<array<float, 3>> &dNdx, const vector<flo
 			Value[j] += U[k] * dNdx[k][j];
 }
 
-void NeuronGrowth::PointFormHess(vector<array<array<float, 2>, 2>> &d2Ndx2, const vector<float> &U, float Value[2][2])
+void NeuronGrowth::PointFormHess(vector<array<array<float, 2>, 2>>& d2Ndx2,
+								const vector<float>& U,
+								float Value[2][2])
 {
 	for (int j = 0; j < 2; j++)
 	{
@@ -1500,14 +1540,23 @@ void NeuronGrowth::PointFormHess(vector<array<array<float, 2>, 2>> &d2Ndx2, cons
 	}
 }
 
-void NeuronGrowth::ElementValue(const vector<float> &Nx, const vector<float> value_node, float &value)
+void NeuronGrowth::ElementValue(const vector<float>& Nx,
+							const vector<float>& value_node,
+							float& value)
 {
 	value = 0.;
 	for (int i = 0; i < Nx.size(); i++)
 		value += value_node[i] * Nx[i];
 }
 
-void NeuronGrowth::ElementValueAll(const vector<float> &Nx, const vector<float> elePhiGuess, float &elePG, const vector<float> elePhi, float &eleP, const vector<float> eleSyn, float &eleS, const vector<float> eleTips, float &eleTp, const vector<float> eleTubulin, float &eleTb, const vector<float> eleEpsilon, float &eleEP, const vector<float> eleEpsilonP, float &eleEEP)
+void NeuronGrowth::ElementValueAll(const vector<float>& Nx,
+								const vector<float>& elePhiGuess, float& elePG,
+								const vector<float>& elePhi, float& eleP,
+								const vector<float>& eleSyn, float& eleS,
+								const vector<float>& eleTips, float& eleTp,
+								const vector<float>& eleTubulin, float& eleTb,
+								const vector<float>& eleEpsilon, float& eleEP,
+								const vector<float>& eleEpsilonP, float& eleEEP)
 {
 	elePG = 0.;
 	eleP = 0.;
@@ -1527,7 +1576,10 @@ void NeuronGrowth::ElementValueAll(const vector<float> &Nx, const vector<float> 
 	}
 }
 
-void NeuronGrowth::ElementDeriv(const int nen, vector<array<float, 3>> &dNdx, const vector<float> value_node, float &dVdx, float &dVdy, float &dVdz)
+void NeuronGrowth::ElementDeriv(const int nen,
+							vector<array<float, 3>>& dNdx,
+							const vector<float>& value_node,
+							float& dVdx, float& dVdy, float& dVdz)
 {
 	dVdx = 0;
 	dVdy = 0.;
@@ -1540,7 +1592,12 @@ void NeuronGrowth::ElementDeriv(const int nen, vector<array<float, 3>> &dNdx, co
 }
 
 
-void NeuronGrowth::ElementDerivAll(const int nen, vector<array<float, 3>> &dNdx, const vector<float> elePhiGuess, float &dPGdx, float &dPGdy, const vector<float> eleTheta, float &dThedx, float &dThedy, const vector<float> eleEpsilon, float &dAdx, float &dAdy, const vector<float> eleEpsilonP, float &dAPdx, float &dAPdy)
+void NeuronGrowth::ElementDerivAll(const int nen,
+								vector<array<float, 3>>& dNdx,
+								const vector<float>& elePhiGuess, float& dPGdx, float& dPGdy,
+								const vector<float>& eleTheta, float& dThedx, float& dThedy,
+								const vector<float>& eleEpsilon, float& dAdx, float& dAdy,
+								const vector<float>& eleEpsilonP, float& dAPdx, float& dAPdy)
 {	
 	dPGdx = 0; dPGdy = 0.;
 	dThedx = 0; dThedy = 0.;
@@ -1652,12 +1709,11 @@ inline void NeuronGrowth::ElementEvaluationAll_phi(
     }
 }
 
-
 void NeuronGrowth::ElementEvaluationAll_phi_test(const uint &nen, 
-                                            const std::vector<float> &Nx, 
-                                            const std::vector<std::array<float, 3>> &dNdx, 
-                                            const std::vector<float> &elePhiGuess, 
-                                            std::vector<float> &vars) 
+	const vector<float> &Nx, 
+	const vector<array<float, 3>> &dNdx, 
+	const vector<float> &elePhiGuess, 
+	vector<float> &vars) 
 {
     // Reset variables
     vars[0] = 0.;  // elePG (element value for PhiGuess)
@@ -1676,10 +1732,10 @@ void NeuronGrowth::ElementEvaluationAll_phi_test(const uint &nen,
 
 void NeuronGrowth::ElementEvaluationAll_phi_opt(
     const uint &nen,
-    const std::vector<float> &Nx,
-    const std::vector<std::array<float, 3>> &dNdx,
-    const std::vector<float> &elePhiGuess,
-    std::vector<float> &vars
+    const vector<float> &Nx,
+    const vector<array<float, 3>> &dNdx,
+    const vector<float> &elePhiGuess,
+    vector<float> &vars
 ) {
     // Initialize variables in a single step
     vars[0] = vars[1] = vars[2] = vars[3] = 0.0f;
@@ -2215,8 +2271,17 @@ void NeuronGrowth::EvaluateOrientation(
 // 		// }
 // 	}
 // }
-
-void NeuronGrowth::EvaluateOrientationSpherical(const int nen, const vector<float> &Nx, const vector<array<float, 3>> &dNdx, const vector<float> elePhi, const vector<float> elePolar, const vector<float> eleAzimuth, float& eleEpsilon, float dEdp, float dEda)
+void NeuronGrowth::EvaluateOrientationSpherical(
+		const int nen,                    // Number of nodes in the element
+		const vector<float>& Nx,          // Basis function values
+		const vector<array<float, 3>>& dNdx, // Basis function derivatives
+		const vector<float>& elePhi,      // Phase field values
+		const vector<float>& elePolar,    // Polar angle values
+		const vector<float>& eleAzimuth,  // Azimuthal angle values
+		float& eleEpsilon,                // Output epsilon value
+		float dEdp,                       // Derivative w.r.t polar angle
+		float dEda                        // Derivative w.r.t azimuthal angle
+)
 {
 	for (int i = 0; i < nen; i++) {
 		float polar = Nx[i] * elePolar[i];
@@ -2235,15 +2300,15 @@ void NeuronGrowth::EvaluateOrientationSpherical(const int nen, const vector<floa
 	}
 }
 
-void NeuronGrowth::BuildLinearSystemProcessNG_phi(const std::vector<Vertex3D> &cpts) {
+void NeuronGrowth::BuildLinearSystemProcessNG_phi(const vector<Vertex3D> &cpts) {
     /* Build linear system in each process */
     int ind = 0; // Pre-calculated variable index
 
     // Preallocate memory for temporary storage
-    std::vector<float> eleMphi;
-    std::vector<std::vector<float>> EMatrixSolve;
-    std::vector<float> EVectorSolve;
-    std::vector<float> elePhiGuess;
+    // vector<float> eleMphi;
+    vector<vector<float>> EMatrixSolve;
+    vector<float> EVectorSolve;
+    vector<float> elePhiGuess;
 
     eleVal.resize(4); // Assuming 4 fields are used in eleVal
 
@@ -2255,10 +2320,10 @@ void NeuronGrowth::BuildLinearSystemProcessNG_phi(const std::vector<Vertex3D> &c
         const int nen = bzmesh_process[e].IEN.size(); // Number of nodes in the element
 
         // Resize vectors for current element
-        eleMphi.assign(nen, 0.0f);
-        elePhiGuess.assign(nen, 0.0f);
+        // eleMphi.assign(nen, 0.0f);
+        // elePhiGuess.assign(nen, 0.0f);
         EVectorSolve.assign(nen, 0.0f);
-        EMatrixSolve.assign(nen, std::vector<float>(nen, 0.0f));
+        EMatrixSolve.assign(nen, vector<float>(nen, 0.0f));
 
         // Resize and initialize vectors
         eleVal[0].resize(nen, 0.0f);
@@ -2268,7 +2333,7 @@ void NeuronGrowth::BuildLinearSystemProcessNG_phi(const std::vector<Vertex3D> &c
 
         // Initialize element values for PhiGuess
         for (int i = 0; i < nen; ++i) {
-            elePhiGuess[i] = phi[bzmesh_process[e].IEN[i]];
+            // elePhiGuess[i] = phi[bzmesh_process[e].IEN[i]];
 			eleVal[0][i] = phi[bzmesh_process[e].IEN[i]]; // Set PhiGuess
         }
 
@@ -2279,9 +2344,6 @@ void NeuronGrowth::BuildLinearSystemProcessNG_phi(const std::vector<Vertex3D> &c
 				for (int k = 0; k < GptSize; k++) {
 					// ElementEvaluationAll_phi_test(nen, pre_Nx[ind], pre_dNdx[ind], eleVal[0], vars);
 					ElementEvaluationAll_phi_opt(nen, pre_Nx[ind], pre_dNdx[ind], eleVal[0], vars);
-                    const float eleMp = 1.0f; // Assume constant; update if required
-					// ElementValue(pre_Nx[ind], eleMphi, eleMp);
-
 					// vars[0] = vars[8] - pre_C0_sp[ind];
 					// float tau = sqrt(pow(vars[3],2) + pow(vars[4],2));
 					// float mode_grad_p_2 = pow(sqrt(pow(vars[3],2) + pow(vars[4],2) + pow(vars[18],2)), 2);
@@ -2646,31 +2708,6 @@ void NeuronGrowth::PopulateRandom(vector<float> &input) {
     });
 }
 
-// bool NeuronGrowth::KD_SearchPair(const vector<Vertex3D>& cpts, 
-//                                  const KDTree& kdTree, 
-//                                  float targetX, float targetY, float targetZ, 
-//                                  int& ind) {
-//     const float query_pt[3] = {targetX, targetY, targetZ};
-//     size_t closestIndex;
-//     float out_dist_sqr;
-//     nanoflann::KNNResultSet<float> resultSet(1);
-//     resultSet.init(&closestIndex, &out_dist_sqr);
-
-//     // Perform the nearest-neighbor search
-//     kdTree.findNeighbors(resultSet, query_pt, nanoflann::SearchParameters(0));
-
-//     float x = cpts[closestIndex].coor[0];
-//     float y = cpts[closestIndex].coor[1];
-//     float z = cpts[closestIndex].coor[2];
-
-//     // Check if the closest point is within the acceptable distance
-//     if (max({abs(x - targetX), abs(y - targetY), abs(z - targetZ)}) <= 1) {
-//         ind = static_cast<int>(closestIndex);
-//         return true; // Found a valid neighbor
-//     } else {
-//         return false; // Neighbor is too far or invalid
-//     }
-// }
 bool NeuronGrowth::KD_SearchPair(const vector<Vertex3D>& cpts, 
                                  const KDTree& kdTree, 
                                  float targetX, float targetY, float targetZ, 
@@ -2947,32 +2984,6 @@ vector<pair<Vertex3D, int>> NeuronGrowth::FindClosestVerticesWithIndices(const v
 
 	return closestVertices;
 }
-
-// vector<tuple<Vertex3D, int, float>> NeuronGrowth::FindClosestVerticesWithIndicesAndDistances(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k) {
-// 	// Custom comparator that prioritizes larger squared distances and considers the vertex index
-// 	auto comp = [&inputVertex](const tuple<Vertex3D, int, float>& a, const tuple<Vertex3D, int, float>& b) {
-// 		return get<2>(a) < get<2>(b); // Compare based on squared distance
-// 	};
-
-// 	// Initialize the priority queue with the custom comparator
-// 	priority_queue<tuple<Vertex3D, int, float>, vector<tuple<Vertex3D, int, float>>, decltype(comp)> pq(comp);
-
-// 	for (int i = 0; i < vertices.size(); ++i) {
-// 		float distance = SquaredDistance(inputVertex, vertices[i]);
-// 		pq.emplace(vertices[i], i, distance);
-// 		if (pq.size() > k) pq.pop(); // Remove the vertex with the largest distance
-// 	}
-
-// 	vector<tuple<Vertex3D, int, float>> closestVertices;
-// 	while (!pq.empty()) {
-// 		closestVertices.push_back(pq.top()); // Collect the closest vertices, their indices, and squared distances
-// 		pq.pop();
-// 	}
-// 	// Reverse to correct the order from farthest of the closest to nearest
-// 	reverse(closestVertices.begin(), closestVertices.end());
-
-// 	return closestVertices;
-// }
 
 vector<tuple<Vertex3D, int, float>> NeuronGrowth::FindClosestVerticesWithIndicesAndDistances(
     const KDTree& kdTree, const Vertex3DCloud& cloud, const Vertex3D& inputVertex, int k) 
@@ -3264,7 +3275,7 @@ void NeuronGrowth::SaveNGvars(const vector<vector<float>>& NGvars, int NX, int N
 	}
 }
 
-void NeuronGrowth::PrintOutNeurons3D(vector<vector<vector<int>>> neurons) 
+void NeuronGrowth::PrintOutNeurons3D(const vector<vector<vector<int>>>& neurons) 
 {
 	ierr = PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------------\n");
 	int dwnRatio = 1;
@@ -3288,24 +3299,43 @@ void NeuronGrowth::PrintOutNeurons3D(vector<vector<vector<int>>> neurons)
 	ierr = PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------------\n");
 }
 
+void NeuronGrowth::PrintStatus(int n, int end_iter, int reason_phi, int its_phi, double t_phi,
+                 int reason_syn, int its_syn, double t_syn,
+                 int reason_tub, int its_tub, double t_tub,
+                 int n_bzmesh) {
+    ostringstream oss;
+
+    // Use setw for compact alignment
+    oss << "Step: " << setw(3) << n << "/" << setw(3) << end_iter
+        << " | Phi: " << setw(2) << reason_phi << "[" << setw(2) << its_phi << "] " 
+        << fixed << setprecision(2) << t_phi << "s"
+        << " | Syn: " << setw(2) << reason_syn << "[" << setw(2) << its_syn << "] " 
+        << fixed << setprecision(2) << t_syn << "s"
+        << " | Tub: " << setw(2) << reason_tub << "[" << setw(2) << its_tub << "] " 
+        << fixed << setprecision(2) << t_tub << "s"
+        << " | Mesh: " << setw(3) << n_bzmesh;
+
+    // Use PetscPrintf for MPI-safe output
+    PetscPrintf(PETSC_COMM_WORLD, "%s\n", oss.str().c_str());
+}
+
 PetscErrorCode SetupSNES(SNES &snes, const char *solverType, void *ctx,
                          PetscErrorCode (*formFunction)(SNES, Vec, Vec, void *),
                          PetscErrorCode (*formJacobian)(SNES, Vec, Mat, Mat, void *),
                          PetscReal rtol = 1e-5, PetscReal atol = 1e-7, PetscReal dtol = 1e-9,
                          PetscInt maxIters = 100, PetscInt maxFails = 1000) {
-    PetscErrorCode ierr;
-
     // Create and set SNES type
-    ierr = SNESCreate(PETSC_COMM_WORLD, &snes); CHKERRQ(ierr);
-    ierr = SNESSetType(snes, solverType); CHKERRQ(ierr);
+    CHKERRQ(SNESCreate(PETSC_COMM_WORLD, &snes));
+    CHKERRQ(SNESSetType(snes, solverType));
 
     // Set solver tolerances
-    ierr = SNESSetTolerances(snes, rtol, atol, dtol, maxIters, maxFails); CHKERRQ(ierr);
+    CHKERRQ(SNESSetTolerances(snes, rtol, atol, dtol, maxIters, maxFails));
 
     // Configure line search
     SNESLineSearch linesearch;
-    ierr = SNESGetLineSearch(snes, &linesearch); CHKERRQ(ierr);
-    ierr = SNESLineSearchSetType(linesearch, SNESLINESEARCHCP); CHKERRQ(ierr);
+    CHKERRQ(SNESGetLineSearch(snes, &linesearch));
+    CHKERRQ(SNESLineSearchSetType(linesearch, SNESLINESEARCHCP));
+    CHKERRQ(SNESLineSearchSetDamping(linesearch, 0.8));
 
     // Validate function pointers
     if (!formFunction || !formJacobian) {
@@ -3313,69 +3343,77 @@ PetscErrorCode SetupSNES(SNES &snes, const char *solverType, void *ctx,
     }
 
     // Set function and Jacobian
-    ierr = SNESSetFunction(snes, NULL, formFunction, ctx); CHKERRQ(ierr);
-    ierr = SNESSetJacobian(snes, NULL, NULL, formJacobian, ctx); CHKERRQ(ierr);
+    CHKERRQ(SNESSetFunction(snes, NULL, formFunction, ctx));
+    CHKERRQ(SNESSetJacobian(snes, NULL, NULL, formJacobian, ctx));
 
-    return ierr;
+    return PETSC_SUCCESS; // Explicitly return PETSC_SUCCESS on success
 }
 
 PetscErrorCode SetupKSP(KSP &ksp, Mat &A, const char *kspType, const char *pcType,
                         PetscReal rtol = 1.e-8, PetscReal atol = PETSC_DEFAULT,
                         PetscReal dtol = PETSC_DEFAULT, PetscInt maxIters = 100000, PetscInt restart = 100) {
-    PetscErrorCode ierr;
-
     // Validate matrix
     if (!A) {
         SETERRQ(PETSC_COMM_SELF, PETSC_ERR_ARG_NULL, "Matrix A is not initialized");
     }
 
     // Create and configure KSP solver
-    ierr = KSPCreate(PETSC_COMM_WORLD, &ksp); CHKERRQ(ierr);
-    ierr = KSPSetOperators(ksp, A, A); CHKERRQ(ierr);
-    ierr = KSPSetType(ksp, kspType); CHKERRQ(ierr);
+    CHKERRQ(KSPCreate(PETSC_COMM_WORLD, &ksp));
+    CHKERRQ(KSPSetOperators(ksp, A, A));
+    CHKERRQ(KSPSetType(ksp, kspType));
 
     // Configure preconditioner
     PC pc;
-    ierr = KSPGetPC(ksp, &pc); CHKERRQ(ierr);
-    ierr = PCSetType(pc, pcType); CHKERRQ(ierr);
+    CHKERRQ(KSPGetPC(ksp, &pc));
+    CHKERRQ(PCSetType(pc, pcType));
+    // Additional preconditioner options can be set here if needed
+    // Example: CHKERRQ(PCSetType(pc, PCFIELDSPLIT)); or CHKERRQ(PCSetType(pc, PCGAMG));
 
-    // Set additional solver options
-    if (string(kspType) == "KSPGMRES") {
-        ierr = KSPGMRESSetRestart(ksp, restart); CHKERRQ(ierr);
+    // Set GMRES-specific options
+    if (std::string(kspType) == "KSPGMRES") {
+        CHKERRQ(KSPGMRESSetRestart(ksp, restart));
     }
-    ierr = KSPSetInitialGuessNonzero(ksp, PETSC_TRUE); CHKERRQ(ierr);
-    ierr = KSPSetTolerances(ksp, rtol, atol, dtol, maxIters); CHKERRQ(ierr);
-    ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
-    ierr = KSPSetUp(ksp); CHKERRQ(ierr);
 
-    return ierr;
+    // Configure solver tolerances and options
+    CHKERRQ(KSPSetInitialGuessNonzero(ksp, PETSC_TRUE));
+    CHKERRQ(KSPSetTolerances(ksp, rtol, atol, dtol, maxIters));
+    CHKERRQ(KSPSetFromOptions(ksp));
+    CHKERRQ(KSPSetUp(ksp));
+
+    return PETSC_SUCCESS; // Explicitly return success
 }
 
-PetscErrorCode ScatterVector(Vec src, vector<float>& target, PetscInt size, 
-                             bool applyBoundary = false, NeuronGrowth* NG = nullptr) {
-    PetscErrorCode ierr;
-    Vec temp_seq;
-    VecScatter ctx;
-    PetscScalar* array;
+PetscErrorCode ScatterVector(Vec src, std::vector<float>& target, PetscInt size, 
+							bool applyBoundary = false, NeuronGrowth* NG = nullptr) {
+							PetscErrorCode ierr;
+							Vec temp_seq;             // Sequential vector for scattered data
+							VecScatter ctx;           // Scatter context
+							const PetscScalar* array; // Array pointer for data in `temp_seq`
 
-    // Create a scatter context and scatter data
+    // Create scatter context and scatter data from distributed vector to sequential vector
     ierr = VecScatterCreateToAll(src, &ctx, &temp_seq); CHKERRQ(ierr);
     ierr = VecScatterBegin(ctx, src, temp_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
     ierr = VecScatterEnd(ctx, src, temp_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
-    ierr = VecGetArray(temp_seq, &array); CHKERRQ(ierr);
+
+    // Access the array in the sequential vector
+    ierr = VecGetArrayRead(temp_seq, &array); CHKERRQ(ierr);
+
+    // Resize target vector to match the size
+    target.resize(size);
 
     // Populate the target vector
     for (PetscInt i = 0; i < size; ++i) {
         if (applyBoundary && NG) {
+            // Apply boundary function and clamp values as needed
             target[i] = PetscMax(PetscRealPart(array[i]), 0.0f) * NG->CellBoundary(NG->phi[i], 0.5);
-            if (isnan(target[i]) || target[i] > 1) target[i] = 0;
+            target[i] = std::isnan(target[i]) || target[i] > 1 ? 0 : target[i];
         } else {
             target[i] = PetscRealPart(array[i]);
         }
     }
 
-    // Clean up resources
-    ierr = VecRestoreArray(temp_seq, &array); CHKERRQ(ierr);
+    // Restore the array and clean up resources
+    ierr = VecRestoreArrayRead(temp_seq, &array); CHKERRQ(ierr);
     ierr = VecScatterDestroy(&ctx); CHKERRQ(ierr);
     ierr = VecDestroy(&temp_seq); CHKERRQ(ierr);
 
@@ -3930,8 +3968,8 @@ PetscErrorCode MySNESMonitor(SNES snes, PetscInt its, PetscReal fnorm, PetscView
 
 // Cleans up solvers and associated resources in the NeuronGrowth object
 PetscErrorCode CleanUpSolvers(NeuronGrowth &NG) {
-    // // Safely destroy SNES solver for phi
-    // CHKERRQ(SNESDestroy(&NG.snes_phi));
+    // Safely destroy SNES solver for phi
+    CHKERRQ(SNESDestroy(&NG.snes_phi));
 
     // Destroy Jacobian matrix and solution vector for phi
     CHKERRQ(MatDestroy(&NG.J));
@@ -3965,12 +4003,12 @@ int RunNG(
     vector<vector<float>> &NGvars,
     int &NX, int &NY, int &NZ,
     vector<array<float, 3>> &seed, int &originX, int &originY, int &originZ,
-    bool &localRefine
-) 
+    bool &localRefine,
+	const string& phi_solver) 
 {
 	/*========================================================*/
 	// Initializations
-	NeuronGrowth NG;
+	NeuronGrowth NG(phi_solver);
 	// // NG.SetVariables("simulation_parameters.txt");
 	NG.n = iter;
 	NG.numNeuron = seed.size();
@@ -3999,14 +4037,15 @@ int RunNG(
 	
 	NG.AssignProcessor(ele_process_in);
 	// Check MPI element assignments, and print out in orders
-	for (int i = 0; i < NG.nProcess; i++){
+	for (int i = 0; i < NG.nProcess; i++) {
 		if (i == NG.comRank) {
-			cout << "comRank: " << NG.comRank << "/" << NG.nProcess << " - with element process size: " << NG.ele_process.size() << endl;
-			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
-		} else {
-			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+			cout << "[Rank " << NG.comRank << "/" << NG.nProcess << "] "
+				<< "Element process size: " << NG.ele_process.size() << endl;
 		}
-	}				
+		// Ensure barrier synchronization for clean output order
+		CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+	}
+
 	// Read bezier mesh and prepare SNES initial guess
 	NG.ReadBezierElementProcess(path_in);
 	PetscPrintf(PETSC_COMM_WORLD, "Read bzmesh!-----------------------------------------------------------------\n");	
@@ -4079,191 +4118,275 @@ int RunNG(
 		tic();		
 
 		/*==============================================================================*/
-		/*Implcit Non-liear Newton Raphson solver for Phase field equation*/
-		NG.phi_prev = NG.phi;	
-		NG.PreparePhaseField();
+		/* Implicit Nonlinear Solver for Phase Field Equation */
+		PetscInt its_phi;               // KSP iteration count
+		KSPConvergedReason ksp_reason_phi;  // KSP convergence reason
+		SNESConvergedReason snes_reason_phi; // SNES convergence reason
+		if (phi_solver == "ksp") {
+			/*------------------------------------------------------------------------------*/
+			/* Implicit Nonlinear Newton-Raphson Solver with Adaptive Time-Stepping for Phase Field Equation */
 
-		float tol = 1e-4;
-		float residual = INF;
-		int NR_itr = 0;
-		PetscInt its_phi;
-		KSPConvergedReason reason_phi;
-		while (residual > tol) {
-			NG.ierr = MatZeroEntries(NG.GK_phi); CHKERRQ(NG.ierr);
-			NG.ierr = VecSet(NG.GR_phi, 0); CHKERRQ(NG.ierr);
-			NG.BuildLinearSystemProcessNG_phi(cpts);
-			// PetscPrintf(PETSC_COMM_WORLD, "Finished assembly");
-			NG.ierr = VecAssemblyEnd(NG.GR_phi); CHKERRQ(NG.ierr);
-			NG.ierr = MatAssemblyEnd(NG.GK_phi, MAT_FINAL_ASSEMBLY); CHKERRQ(NG.ierr);
+			// Time-stepping parameters
+			double dt_min = 1e-6;      // Minimum time step
+			double dt_max = 1e-2;      // Maximum time step
+			double factor_grow = 1.5;  // Time step growth factor
+			double factor_shrink = 0.5; // Time step shrink factor
+			double tol_increase = 1e-3; // Residual tolerance for increasing dt
+			double tol_decrease = 1e-1; // Residual tolerance for decreasing dt
 
-			/*Petsc solver setting for phi*/
+			NG.phi_prev = NG.phi; // Save previous phi state for comparison
+			NG.PreparePhaseField(); // Prepare necessary data structures for solving
+
+			// Initialize residuals and other variables
+			double tol = 1e-4;   // Convergence tolerance
+			double residual = INF;  // Initialize residual
+			int NR_itr = 0;      // Newton-Raphson iteration counter
+			int max_NR_iters = 50;  // Maximum NR iterations allowed per time step
+
+			while (residual > tol) {
+				// === Step 1: Reset Linear System ===
+				NG.ierr = MatZeroEntries(NG.GK_phi); CHKERRQ(NG.ierr);
+				NG.ierr = VecSet(NG.GR_phi, 0); CHKERRQ(NG.ierr);
+
+				// Build the linear system for the current iteration
+				NG.BuildLinearSystemProcessNG_phi(cpts);
+
+				// Finalize assembly of matrix and residual vector
+				NG.ierr = VecAssemblyEnd(NG.GR_phi); CHKERRQ(NG.ierr);
+				NG.ierr = MatAssemblyEnd(NG.GK_phi, MAT_FINAL_ASSEMBLY); CHKERRQ(NG.ierr);
+
+				// === Step 2: Initialize KSP Solver (if not done) ===
+				if (NG.judge_phi == 0) {
+					CHKERRQ(SetupKSP(NG.ksp_phi, NG.GK_phi, KSPGMRES, PCBJACOBI, 1.e-6));
+					// CHKERRQ(SetupKSP(NG.ksp_phi, NG.GK_phi, KSPGMRES, PCASM, 1.e-6));
+					// CHKERRQ(SetupKSP(NG.ksp_phi, NG.GK_phi, KSPGMRES, PCHYPRE, 1.e-6));
+					if (NG.n == 0) {
+						CHKERRQ(KSPView(NG.ksp_phi, PETSC_VIEWER_STDOUT_WORLD));
+					}
+					NG.judge_phi = 1; // Mark solver as initialized
+				}
+
+				// === Step 3: Solve Linear System ===
+				NG.ierr = KSPSolve(NG.ksp_phi, NG.GR_phi, NG.temp_phi); CHKERRQ(NG.ierr);
+
+				// Retrieve solver statistics
+				NG.ierr = KSPGetIterationNumber(NG.ksp_phi, &its_phi); CHKERRQ(NG.ierr);
+				NG.ierr = KSPGetConvergedReason(NG.ksp_phi, &ksp_reason_phi); CHKERRQ(NG.ierr);
+
+				// Check if KSP solver converged
+				if (ksp_reason_phi < 0) {
+					PetscPrintf(PETSC_COMM_WORLD, 
+								"[ERROR] KSP did not converge. Reason: %d | Iterations: %d\n", 
+								ksp_reason_phi, its_phi);
+
+					// Reduce time step and restart if solver fails
+					NG.dt = PetscMax(NG.dt * factor_shrink, dt_min);
+					// PetscPrintf(PETSC_COMM_WORLD, "[INFO] Reducing time step to %.5e and restarting.\n", NG.dt);
+					NR_itr = 0;  // Reset NR iteration counter
+					continue;    // Restart NR solver with reduced time step
+				}
+
+				// === Step 4: Update Solution and Compute Residual ===
+				Vec temp_phi_seq;
+				VecScatter ctx_phi;
+				PetscScalar *_p;
+
+				// Scatter solution to all processors
+				NG.ierr = VecScatterCreateToAll(NG.temp_phi, &ctx_phi, &temp_phi_seq); CHKERRQ(NG.ierr);
+				NG.ierr = VecScatterBegin(ctx_phi, NG.temp_phi, temp_phi_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(NG.ierr);
+				NG.ierr = VecScatterEnd(ctx_phi, NG.temp_phi, temp_phi_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(NG.ierr);
+
+				// Retrieve array for computation
+				NG.ierr = VecGetArray(temp_phi_seq, &_p); CHKERRQ(NG.ierr);
+
+				// Compute residual and update phi
+				double prev_residual = residual; // Save previous residual
+				residual = 0;
+				for (size_t i = 0; i < NG.phi.size(); i++) {
+					double delta_phi = PetscRealPart(_p[i]);
+					NG.phi[i] -= delta_phi; // Update phi
+					residual = PetscMax(residual, fabs(delta_phi)); // Update residual
+
+					// Check for divergence
+					if (fabs(NG.phi[i]) > 3) {
+						PetscPrintf(PETSC_COMM_WORLD, 
+									"[ERROR] Diverging phi detected! Stopping simulation.\n");
+						return 3;
+					}
+				}
+
+				// Restore and clean up scattered vector
+				NG.ierr = VecRestoreArray(temp_phi_seq, &_p); CHKERRQ(NG.ierr);
+				NG.ierr = VecScatterDestroy(&ctx_phi); CHKERRQ(NG.ierr);
+				NG.ierr = VecDestroy(&temp_phi_seq); CHKERRQ(NG.ierr);
+
+				// Increment NR iteration counter
+				NR_itr++;
+
+				// === Step 5: Adjust Time Step ===
+				if (residual < tol_increase * prev_residual) {
+					// Increase time step if residual decreases significantly
+					NG.dt = PetscMin(NG.dt * factor_grow, dt_max);
+					// PetscPrintf(PETSC_COMM_WORLD, "[INFO] Increasing time step to %.5e.\n", NG.dt);
+				} else if (residual > tol_decrease * prev_residual) {
+					// Reduce time step if residual decreases insufficiently
+					NG.dt = PetscMax(NG.dt * factor_shrink, dt_min);
+					// PetscPrintf(PETSC_COMM_WORLD, "[INFO] Reducing time step to %.5e.\n", NG.dt);
+				}
+
+				// Check for maximum NR iterations per step
+				if (NR_itr > max_NR_iters) {
+					PetscPrintf(PETSC_COMM_WORLD, 
+								"[ERROR] Maximum Newton-Raphson iterations exceeded. Stopping.\n");
+					return 3;
+				}
+			}
+		} else if (phi_solver == "snes") {
+			/*------------------------------------------------------------------------------*/
+			/*Implcit Non-liear SNES solver for Phase field equation*/
+			NG.phi_prev = NG.phi;		
+
+			// Phase Field Equation Solver (SNES)
 			if (NG.judge_phi == 0) {
-				CHKERRQ(SetupKSP(NG.ksp_phi, NG.GK_phi, KSPGMRES, PCBJACOBI, 1.e-8));
+				SetupSNES(NG.snes_phi, SNESNEWTONLS, &NG, FormFunction_phi, FormJacobian_phi);
+
 				if (NG.n == 0) {
-					CHKERRQ(KSPView(NG.ksp_phi, PETSC_VIEWER_STDOUT_WORLD));
+					CHKERRQ(SNESView(NG.snes_phi, PETSC_VIEWER_STDOUT_WORLD));
 				}
 				NG.judge_phi = 1;
 			}
 
-			// PetscPrintf(PETSC_COMM_WORLD, "Before solve"); 
-
-			NG.ierr = KSPSolve(NG.ksp_phi, NG.GR_phi, NG.temp_phi); CHKERRQ(NG.ierr);
-			NG.ierr = KSPGetIterationNumber(NG.ksp_phi, &its_phi); CHKERRQ(NG.ierr);
-			NG.ierr = KSPGetConvergedReason(NG.ksp_phi, &reason_phi); CHKERRQ(NG.ierr);
-			if (reason_phi < 0) {
-				PetscPrintf(PETSC_COMM_WORLD, "KSP phi not converging  | KSPreason:  %d | KSPiter: %d \n", reason_phi, its_phi);
-				return 3;	
+			CHKERRQ(SNESSolve(NG.snes_phi, NULL, NG.temp_phi));
+			CHKERRQ(SNESGetIterationNumber(NG.snes_phi, &its_phi));
+			CHKERRQ(SNESGetConvergedReason(NG.snes_phi, &snes_reason_phi));
+			if (snes_reason_phi < 0) {
+				PetscPrintf(PETSC_COMM_WORLD, "SNES phi not converging ........ | SNESreason: %d | SNESiter: %d \n", snes_reason_phi, its_phi);	
+				return 3; // divering, ending simulation
 			}
-
-			NR_itr += 1;
 
 			/*Collecting scattered Phi variable from all processors*/
-			Vec temp_phi_seq;
-			VecScatter ctx_phi;
-			PetscScalar *_p;
-
-			NG.ierr = VecScatterCreateToAll(NG.temp_phi, &ctx_phi, &temp_phi_seq); CHKERRQ(NG.ierr);
-			NG.ierr = VecScatterBegin(ctx_phi, NG.temp_phi, temp_phi_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(NG.ierr);
-			NG.ierr = VecScatterEnd(ctx_phi, NG.temp_phi, temp_phi_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(NG.ierr);
-			NG.ierr = VecGetArray(temp_phi_seq, &_p);
-
-			residual = 0;
-			for (size_t i = 0; i < NG.phi.size(); i++) {
-				NG.phi[i] = NG.phi[i] - PetscRealPart(_p[i]);
-				residual = PetscMax(residual, abs(PetscRealPart(_p[i])));
-
-				if (abs(NG.phi[i]) > 3) {
-					PetscPrintf(PETSC_COMM_WORLD, "Incorrect diverging phi!-----------------------------------------------------\n");
-					return 3;
-				}
-			}
-
-			NG.ierr = VecRestoreArray(temp_phi_seq, &_p); CHKERRQ(NG.ierr);
-			NG.ierr = VecScatterDestroy(&ctx_phi); CHKERRQ(NG.ierr);
-			NG.ierr = VecDestroy(&temp_phi_seq); CHKERRQ(NG.ierr);
-
+			// Scatter phi variable
+			CHKERRQ(ScatterVector(NG.temp_phi, NG.phi, NG.phi.size()));
 		}
-
-		toc(t_phi);
-		tic();
-		t_write += t_phi;
-		t_total += t_phi;
 		
-		// /*========================================================*/
-		// /*Implcit Non-liear SNES solver for Phase field equation*/
-		// NG.phi_prev = NG.phi;		
-
-		// // Phase Field Equation Solver (SNES)
-		// if (NG.judge_phi == 0) {
-		// 	SetupSNES(NG.snes_phi, SNESNEWTONLS, &NG, FormFunction_phi, FormJacobian_phi);
-
-		// 	if (NG.n == 0) {
-		// 		CHKERRQ(SNESView(NG.snes_phi, PETSC_VIEWER_STDOUT_WORLD));
-		// 	}
-		// 	NG.judge_phi = 1;
-		// }
-
-		// CHKERRQ(SNESSolve(NG.snes_phi, NULL, NG.temp_phi));
-		// PetscInt its_phi;
-		// CHKERRQ(SNESGetIterationNumber(NG.snes_phi, &its_phi));
-		// SNESConvergedReason reason_phi;
-		// CHKERRQ(SNESGetConvergedReason(NG.snes_phi, &reason_phi));
-		// if (reason_phi < 0) {
-		// 	PetscPrintf(PETSC_COMM_WORLD, "SNES phi not converging ........ | SNESreason: %d | SNESiter: %d \n", reason_phi, its_phi);	
-		// 	return 3; // divering, ending simulation
-		// }
-
-		// /*Collecting scattered Phi variable from all processors*/
-		// // Scatter phi variable
-		// CHKERRQ(ScatterVector(NG.temp_phi, NG.phi, NG.phi.size()));
-
-		// toc(t_phi);
-		// tic();
-		// t_write += t_phi;
-		// t_total += t_phi;
+		// === Final Timing and Cleanup ===
+		toc(t_phi);   // Measure total time for NR solver
+		tic();        // Start timing for next process
+		t_write += t_phi; // Accumulate write time
+		t_total += t_phi; // Accumulate total simulation time
 		
 		/*========================================================*/
-		/*Synaptogenesis and Tubulin equation*/
+		/* Synaptogenesis and Tubulin Equations Solver */
+		// Synchronize and update global values
 		CHKERRQ(MPI_Allreduce(&NG.sum_grad_phi0_local, &NG.sum_grad_phi0_global, 1, MPI_FLOAT, MPI_SUM, PETSC_COMM_WORLD));
+
+		// Prepare source terms
 		NG.PrepareTermSource();
-	
-		/*Build Linear System*/
-		if (NG.judge_syn == 0) {
-			CHKERRQ(MatZeroEntries(NG.GK_syn));
-		}
-		CHKERRQ(VecSet(NG.GR_syn, 0));
-		CHKERRQ(MatZeroEntries(NG.GK_tub));
-		CHKERRQ(VecSet(NG.GR_tub, 0));
-		NG.BuildLinearSystemProcessNG_syn_tub(cpts); // build both Synaptogenesis and tubulin in the same loop
-		CHKERRQ(VecAssemblyEnd(NG.GR_syn));
-		if (NG.judge_syn == 0) {
-			CHKERRQ(MatAssemblyEnd(NG.GK_syn, MAT_FINAL_ASSEMBLY));
-		}
-		CHKERRQ(VecAssemblyEnd(NG.GR_tub));
-		CHKERRQ(MatAssemblyEnd(NG.GK_tub, MAT_FINAL_ASSEMBLY));
 
-		// Synaptogenesis Solver (KSP)
+		// Build Linear Systems
 		if (NG.judge_syn == 0) {
-			CHKERRQ(SetupKSP(NG.ksp_syn, NG.GK_syn, KSPGMRES, PCBJACOBI, 1.e-8));
+			CHKERRQ(MatZeroEntries(NG.GK_syn)); // Reset Synaptogenesis matrix if needed
+		}
+		CHKERRQ(VecSet(NG.GR_syn, 0));          // Reset Synaptogenesis RHS
+		CHKERRQ(MatZeroEntries(NG.GK_tub));    // Reset Tubulin matrix
+		CHKERRQ(VecSet(NG.GR_tub, 0));         // Reset Tubulin RHS
+
+		// Build both Synaptogenesis and Tubulin systems in one loop
+		NG.BuildLinearSystemProcessNG_syn_tub(cpts);
+
+		// Assemble RHS vectors and matrices
+		CHKERRQ(VecAssemblyEnd(NG.GR_syn)); // Synaptogenesis RHS
+		if (NG.judge_syn == 0) {
+			CHKERRQ(MatAssemblyEnd(NG.GK_syn, MAT_FINAL_ASSEMBLY)); // Synaptogenesis matrix
+		}
+		CHKERRQ(VecAssemblyEnd(NG.GR_tub)); // Tubulin RHS
+		CHKERRQ(MatAssemblyEnd(NG.GK_tub, MAT_FINAL_ASSEMBLY));    // Tubulin matrix
+
+		/*========================================================*/
+		/* Synaptogenesis Solver (KSP) */
+
+		// Initialize KSP solver for Synaptogenesis if needed
+		if (NG.judge_syn == 0) {
+			CHKERRQ(SetupKSP(NG.ksp_syn, NG.GK_syn, KSPGMRES, PCBJACOBI, 1.e-8)); // GMRES with Jacobi preconditioner
 			if (NG.n == 0) {
-				CHKERRQ(KSPView(NG.ksp_syn, PETSC_VIEWER_STDOUT_WORLD));
+				CHKERRQ(KSPView(NG.ksp_syn, PETSC_VIEWER_STDOUT_WORLD)); // View KSP configuration for debugging
 			}
-			NG.judge_syn = 1;
+			NG.judge_syn = 1; // Mark as initialized
 		}
 
-		CHKERRQ(KSPSolve(NG.ksp_syn, NG.GR_syn, NG.temp_syn));
+		// Solve Synaptogenesis equation
+		CHKERRQ(KSPSolve(NG.ksp_syn, NG.GR_syn, NG.temp_syn)); // Solve system
 		PetscInt its_syn;
-		CHKERRQ(KSPGetIterationNumber(NG.ksp_syn, &its_syn));
 		KSPConvergedReason reason_syn;
-		CHKERRQ(KSPGetConvergedReason(NG.ksp_syn, &reason_syn));
+		CHKERRQ(KSPGetIterationNumber(NG.ksp_syn, &its_syn));    // Get iteration count
+		CHKERRQ(KSPGetConvergedReason(NG.ksp_syn, &reason_syn)); // Get convergence reason
+
+		// Check for divergence
 		if (reason_syn < 0) {
-			PetscPrintf(PETSC_COMM_WORLD, "KSP Synaptogenesis not converging  | KSPreason:  %d | KSPiter: %d \n", reason_syn, its_syn);
-			return 3; // divering, ending simulation
+			PetscPrintf(PETSC_COMM_WORLD, "KSP Synaptogenesis not converging  | KSPreason: %d | KSPiter: %d \n", reason_syn, its_syn);
+			return 3; // Divergence detected
 		}
 
+		// Timing updates for Synaptogenesis
 		toc(t_syn);
 		tic();
 		t_write += t_syn;
 		t_total += t_syn;
 
-		// Tubulin Solver (KSP)
+		/*========================================================*/
+		/* Tubulin Solver (KSP) */
+
+		// Initialize KSP solver for Tubulin if needed
 		if (NG.judge_tub == 0) {
-			CHKERRQ(SetupKSP(NG.ksp_tub, NG.GK_tub, KSPGMRES, PCBJACOBI, 1.e-8));
+			CHKERRQ(SetupKSP(NG.ksp_tub, NG.GK_tub, KSPGMRES, PCBJACOBI, 1.e-8)); // GMRES with Jacobi preconditioner
 			if (NG.n == 0) {
-				CHKERRQ(KSPView(NG.ksp_tub, PETSC_VIEWER_STDOUT_WORLD));
+				CHKERRQ(KSPView(NG.ksp_tub, PETSC_VIEWER_STDOUT_WORLD)); // View KSP configuration for debugging
 			}
-			NG.judge_tub = 1;
+			NG.judge_tub = 1; // Mark as initialized
 		}
 
-		CHKERRQ(KSPSolve(NG.ksp_tub, NG.GR_tub, NG.temp_tub));
+		// Solve Tubulin equation
+		CHKERRQ(KSPSolve(NG.ksp_tub, NG.GR_tub, NG.temp_tub)); // Solve system
 		PetscInt its_tub;
-		CHKERRQ(KSPGetIterationNumber(NG.ksp_tub, &its_tub));
 		KSPConvergedReason reason_tub;
-		CHKERRQ(KSPGetConvergedReason(NG.ksp_tub, &reason_tub));
+		CHKERRQ(KSPGetIterationNumber(NG.ksp_tub, &its_tub));    // Get iteration count
+		CHKERRQ(KSPGetConvergedReason(NG.ksp_tub, &reason_tub)); // Get convergence reason
+
+		// Check for divergence
 		if (reason_tub < 0) {
-			PetscPrintf(PETSC_COMM_WORLD, "KSP tubulin not converging ..... | KSPreason:  %d | KSPiter: %d \n", reason_tub, its_tub);		
-			return 3; // divering, ending simulation
+			PetscPrintf(PETSC_COMM_WORLD, "KSP Tubulin not converging ..... | KSPreason: %d | KSPiter: %d \n", reason_tub, its_tub);
+			return 3; // Divergence detected
 		}
 
+		// Timing updates for Tubulin
 		toc(t_tub);
 		tic();
 		t_write += t_tub;
 		t_total += t_tub;
 
-		/*========================================================*/
-		/*Collecting scattered Synaptogenesis and Tubulin variableS from all processors*/
+		/*Collecting scattered Synaptogenesis and Tubulin variables from all processors*/
 		// Scatter synaptogenesis variable
 		CHKERRQ(ScatterVector(NG.temp_syn, NG.syn, NG.syn.size()));
 		// Scatter tubulin variable with boundary adjustments
 		CHKERRQ(ScatterVector(NG.temp_tub, NG.tub, NG.tub.size(), true, &NG));
 
-		PetscPrintf(PETSC_COMM_WORLD, 
-			"Step: %d/%d | Phi: %d[%d] %.2fs | Syn: %d[%d] %.2fs | Tub: %d[%d] %.2fs | Mesh: %d\n",
-			NG.n, NG.end_iter, 
-			reason_phi, its_phi, t_phi, 
-			reason_syn, its_syn, t_syn, 
-			reason_tub, its_tub, t_tub, 
-			n_bzmesh);
+		/*========================================================*/
+		/*Iteration summary printout*/	
+		auto reason_phi = (phi_solver == "snes") ? snes_reason_phi : ksp_reason_phi;
+		// int reason_phi = (nonlinear != nullptr) ? snes_reason_phi : ksp_reason_phi;
+		NG.PrintStatus(NG.n, NG.end_iter, 
+            reason_phi, its_phi, t_phi, 
+            reason_syn, its_syn, t_syn, 
+            reason_tub, its_tub, t_tub, 
+            n_bzmesh);
+
+		// PetscPrintf(PETSC_COMM_WORLD, 
+		// 	"Step: %d/%d | Phi: %d[%d] %.2fs | Syn: %d[%d] %.2fs | Tub: %d[%d] %.2fs | Mesh: %d\n",
+		// 	NG.n, NG.end_iter, 
+		// 	reason_phi, its_phi, t_phi, 
+		// 	reason_syn, its_syn, t_syn, 
+		// 	reason_tub, its_tub, t_tub, 
+		// 	n_bzmesh);
 
 		// /*========================================================*/
 		// // Obtain initial local refinement information, the very first 25 iterations are purely used 

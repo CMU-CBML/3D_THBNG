@@ -65,15 +65,41 @@ public:
     float max_y, min_y;  // y-dimension bounds
     float max_z, min_z;  // z-dimension bounds
 
-    // Pre-calculated Variables (for computational efficiency)
-    vector<vector<float>> pre_Nx;
-    vector<vector<array<float, 3>>> pre_dNdx;
-    vector<float> pre_detJ, pre_mag_grad_phi0, pre_C0, pre_C0_sp, pre_term_source;
-    vector<float> pre_eleEP, pre_eleEEP, pre_dAdx, pre_dAdy, pre_dAdz, pre_dAPdx, pre_dAPdy, pre_dAPdz;
-    vector<float> pre_eleP, pre_eleTh, pre_eleMp, pre_C1;
-    vector<float> pre_vars;
-    vector<vector<vector<float>>> pre_EMatrixSolve;
-    vector<vector<float>> pre_EVectorSolve;
+	// Basis Function Values and Derivatives
+	vector<vector<float>> pre_Nx;                   // Shape function values at Gauss points
+	vector<vector<array<float, 3>>> pre_dNdx;      // Shape function derivatives at Gauss points
+
+	// Jacobian and Related Properties
+	vector<float> pre_detJ;                        // Determinant of Jacobian at Gauss points
+	vector<float> pre_mag_grad_phi0;               // Magnitude of gradient of phi at Gauss points
+
+	// Phase Field-Related Parameters
+	vector<float> pre_C0;                          // Pre-calculated C0 values
+	vector<float> pre_C0_sp;                       // Pre-calculated specific C0 values
+	vector<float> pre_term_source;                 // Source term contributions
+	vector<float> pre_eleEP;                       // Element epsilon values
+	vector<float> pre_eleEEP;                      // Element epsilon derivative values
+
+	// Gradients of Phase Field Variables
+	vector<float> pre_dAdx;                        // Derivative of A w.r.t. x
+	vector<float> pre_dAdy;                        // Derivative of A w.r.t. y
+	vector<float> pre_dAdz;                        // Derivative of A w.r.t. z
+	vector<float> pre_dAPdx;                       // Derivative of AP w.r.t. x
+	vector<float> pre_dAPdy;                       // Derivative of AP w.r.t. y
+	vector<float> pre_dAPdz;                       // Derivative of AP w.r.t. z
+
+	// Element Properties
+	vector<float> pre_eleP;                        // Pre-calculated element P values
+	vector<float> pre_eleTh;                       // Pre-calculated element theta values
+	vector<float> pre_eleMp;                       // Pre-calculated element mass values
+	vector<float> pre_C1;                          // Pre-calculated C1 values
+
+	// Miscellaneous Precomputed Variables
+	vector<float> pre_vars;                        // General-purpose precomputed variables
+
+	// Matrices and Vectors for Assembly
+	vector<vector<vector<float>>> pre_EMatrixSolve; // Pre-calculated element stiffness matrices
+	vector<vector<float>> pre_EVectorSolve;         // Pre-calculated element residual vectors
 
     // Element Stiffness Matrix and Load Vector
     int nen;                         // Number of element nodes
@@ -130,62 +156,193 @@ public:
     float Diff;                 // Diffusion
     float source_coeff;         // Source coefficient
 
-	// Initializations
-	NeuronGrowth();
-	void AssignProcessor(vector<vector<int>> &ele_proc); // assign elements to different processors
-	void SetVariables(string fn_par);
-	void InitializeProblemNG(const int n_bz,
-							vector<Vertex3D>& cpts,
-							const Vertex3DCloud& cloud,
-							KDTree& kdTree,
-							const vector<Vertex3D>& prev_cpts,
-							const Vertex3DCloud& cloud_prev,
-							KDTree& kdTree_prev,
-							vector<vector<float>>& NGvars,
-							vector<array<float, 3>>& seed);
-	void CheckVar(const string& fn, const vector<Vertex3D>& cpts, const vector<float>& input);
-	void ToPETScVec(vector<float> input, Vec& petscVec); // for SNES phi initial guess
+	// Class Methods for NeuronGrowth
+	NeuronGrowth(const string& phi_solver); // Constructor
 
-	// Read mesh, calculate basis function value, assemble matrix, etc
-	void ReadBezierElementProcess(string fn);
-	void GaussInfo(int ng);
-	void BasisFunction(float u, float v, float w, const vector<array<float, 3>>& pt, const vector<array<float, 64>> &cmat,
-		vector<float> &Nx, vector<array<float, 3>> &dNdx, float dudx[3][3], float& detJ);
-	void ApplyBoundaryCondition(const float bc_value, int pt_num, int variable_num, vector<vector<float>>& EMatrixSolve, vector<float>& EVectorSolve);
-	void MatrixAssembly(vector<vector<float>>& EMatrixSolve, const vector<int>& IEN, Mat& GK);
-	void ResidualAssembly(vector<float>& EVectorSolve, const vector<int>& IEN, Vec& GR);
-	void MatrixAssembly_insert(vector<vector<float>>& EMatrixSolve, const vector<int>& IEN, Mat& GK);
-	void ResidualAssembly_insert(vector<float>& EVectorSolve, const vector<int>& IEN, Vec& GR);
-	void MatrixAssembly_2var(vector<vector<float>>& EMatrixSolve, const vector<int>& IEN, Mat& GK);
-	void ResidualAssembly_2var(vector<float>& EVectorSolve, const vector<int>& IEN, Vec& GR);
+	// Assign elements to different processors
+	void AssignProcessor(vector<vector<int>> &ele_proc); 
 
-	// writing files
-	void VisualizeVTK_ControlMesh(const vector<Vertex3D> &spt, const vector<Element3D> &mesh, int step, string fn, vector<float> var, string varName);
-	void ConcentrationCal_Coupling_Bezier(float u, float v, float w, const Element3D& bzel, float pt[3], float& disp, float dudx[3], float& detJ);
-	void VisualizeVTK_PhysicalDomain(int step, string var, string fn);
-	void WriteVTK(const vector<array<float, 3>> spt, const vector<float> sdisp, const vector<array<int, 8>> sele, int step, string fn);
-	void CalculateVarsForOutput(vector<array<float, 3>> &spt_all, vector<float> &sresult_all, vector<array<int, 8>> &sele_all);
-	void VisualizeVTK_PhysicalDomain_All(int step, string fn);
-	void WriteVTK_ALL(const vector<array<float, 3>> spt, const vector<vector<float>> sdisp, const vector<array<int, 8>> sele, int step, string fn);
+	// Load simulation variables from a parameter file
+	void SetVariables(const string &fn_par);
 
-	// element based operation
-	void PointFormValue(vector<float> &Nx, const vector<float> &U, float Value);
-	void PointFormGrad(vector<array<float, 3>> &dNdx, const vector<float> &U, float Value[2]);
-	void PointFormHess(vector<array<array<float, 2>, 2>>& d2Ndx2, const vector<float> &U, float Value[2][2]);
-	void ElementValue(const vector<float> &Nx, const vector<float> value_node, float &value);
-	void ElementValueAll(const vector<float> &Nx, const vector<float> elePhiGuess, float &elePG,
-						const vector<float> elePhi, float &eleP,
-						const vector<float> eleSyn, float &eleS,
-						const vector<float> eleTips, float &eleTp,
-						const vector<float> eleTubulin, float &eleTb,
-						const vector<float> eleEpsilon, float &eleEP,
-						const vector<float> eleEpsilonP, float &eleEEP);
-	void ElementDeriv(const int nen, vector<array<float, 3>> &dNdx, const vector<float> value_node, float &dVdx, float &dVdy, float &dVdz);
-	void ElementDerivAll(const int nen, vector<array<float, 3>> &dNdx,
-						const vector<float> elePhiGuess, float &dPGdx, float &dPGdy,
-						const vector<float> eleTheta, float &dThedx, float &dThedy,
-						const vector<float> eleEpsilon, float &dAdx, float &dAdy,
-						const vector<float> eleEpsilonP, float &dAPdx, float &dAPdy);
+	// Initialize problem for Neuron Growth (NG) simulation
+	void InitializeProblemNG(
+		const int n_bz,                      // Number of Bezier elements
+		vector<Vertex3D>& cpts,              // Current control points
+		const Vertex3DCloud& cloud,          // Current spatial cloud
+		KDTree& kdTree,                      // Current KDTree for spatial search
+		const vector<Vertex3D>& prev_cpts,   // Previous control points
+		const Vertex3DCloud& cloud_prev,     // Previous spatial cloud
+		KDTree& kdTree_prev,                 // Previous KDTree for spatial search
+		vector<vector<float>>& NGvars,       // Variables for Neuron Growth
+		vector<array<float, 3>>& seed        // Seed data for initialization
+	);
+
+	// Check and save variables to file
+	void CheckVar(
+		const string& fn,                    // File name for output
+		const vector<Vertex3D>& cpts,        // Control points to save
+		const vector<float>& input           // Variable data to save
+	);
+
+	// Convert a standard vector to a PETSc vector
+	void ToPETScVec(
+		vector<float> input,                 // Input standard vector
+		Vec& petscVec                        // Output PETSc vector
+	); // Typically used for SNES Phi initial guess
+
+	// Methods for mesh reading, basis function calculations, and matrix assembly
+	void ReadBezierElementProcess(const string& fn); // Read Bezier mesh data from file
+	void GaussInfo(int ng);                          // Initialize Gaussian quadrature points and weights
+
+	// Basis function evaluation and Jacobian computation
+	void BasisFunction(
+		float u, float v, float w,                   // Parametric coordinates
+		const vector<array<float, 3>>& pt,           // Control points
+		const vector<array<float, 64>>& cmat,        // Coefficients matrix
+		vector<float>& Nx,                           // Basis function values
+		vector<array<float, 3>>& dNdx,               // Basis function derivatives
+		float dudx[3][3],                            // Jacobian matrix
+		float& detJ                                  // Determinant of Jacobian
+	);
+
+	// Apply boundary conditions
+	void ApplyBoundaryCondition(
+		float bc_value,                              // Boundary condition value
+		int pt_num,                                  // Point index
+		int variable_num,                            // Variable index
+		vector<vector<float>>& EMatrixSolve,         // Element stiffness matrix
+		vector<float>& EVectorSolve                  // Element residual vector
+	);
+
+	// Assembly functions for global stiffness matrix and residual vector
+	void MatrixAssembly(
+		vector<vector<float>>& EMatrixSolve,         // Element stiffness matrix
+		const vector<int>& IEN,                      // Global node indices
+		Mat& GK                                      // Global stiffness matrix
+	);
+	void ResidualAssembly(
+		vector<float>& EVectorSolve,                 // Element residual vector
+		const vector<int>& IEN,                      // Global node indices
+		Vec& GR                                      // Global residual vector
+	);
+
+	// Visualize control mesh and save as VTK file
+	void VisualizeVTK_ControlMesh(
+		const vector<Vertex3D>& spt,          // Control points
+		const vector<Element3D>& mesh,        // Mesh elements
+		int step,                             // Time step for output
+		string fn,                            // File name
+		vector<float> var,                    // Variable values to visualize
+		string varName                        // Variable name
+	);
+
+	// Compute concentration and coupling in Bezier elements
+	void ConcentrationCal_Coupling_Bezier(
+		float u, float v, float w,            // Parametric coordinates
+		const Element3D& bzel,                // Bezier element
+		float pt[3],                          // Physical coordinates of the point
+		float& disp,                          // Displacement value
+		float dudx[3],                        // Derivative of displacement
+		float& detJ                           // Determinant of Jacobian
+	);
+
+	// Visualize physical domain and save as VTK file
+	void VisualizeVTK_PhysicalDomain(
+		int step,                             // Time step for output
+		string var,                           // Variable name
+		string fn                             // File name
+	);
+
+	// Write VTK file with specified points, displacements, and elements
+	void WriteVTK(
+		const vector<array<float, 3>> spt,    // Spatial points
+		const vector<float> sdisp,            // Displacement values
+		const vector<array<int, 8>> sele,     // Element connectivity
+		int step,                             // Time step for output
+		string fn                             // File name
+	);
+
+	// Calculate variables for output
+	void CalculateVarsForOutput(
+		vector<array<float, 3>>& spt_all,     // All spatial points
+		vector<float>& sresult_all,           // Resultant variable values
+		vector<array<int, 8>>& sele_all       // Element connectivity for all elements
+	);
+
+	// Visualize the entire physical domain and save as VTK file
+	void VisualizeVTK_PhysicalDomain_All(
+		int step,                             // Time step for output
+		const string& fn                      // File name
+	);
+
+	// Write VTK file for all variables with points, displacements, and elements
+	void WriteVTK_ALL(
+		const vector<array<float, 3>>& spt,    // Spatial points
+		const vector<vector<float>>& sdisp,    // Displacement values for multiple variables
+		const vector<array<int, 8>>& sele,     // Element connectivity
+		int step,                             // Time step for output
+		const string& fn                      // File name
+	);
+
+	// Evaluate the value of a field at a point using basis functions
+	void PointFormValue(
+		vector<float>& Nx,                     // Basis function values at the point
+		const vector<float>& U,                // Nodal values of the field
+		float& Value                           // Resulting field value at the point
+	);
+
+	// Evaluate the gradient of a field at a point using basis function derivatives
+	void PointFormGrad(
+		vector<array<float, 3>>& dNdx,         // Derivatives of basis functions
+		const vector<float>& U,                // Nodal values of the field
+		float Value[2]                         // Gradient of the field [dUdx, dUdy]
+	);
+
+	// Evaluate the Hessian of a field at a point using second derivatives of basis functions
+	void PointFormHess(
+		vector<array<array<float, 2>, 2>>& d2Ndx2, // Second derivatives of basis functions
+		const vector<float>& U,                    // Nodal values of the field
+		float Value[2][2]                          // Hessian of the field
+	);
+
+	// Compute a field's value at an element using basis functions
+	void ElementValue(
+		const vector<float>& Nx,                // Basis function values
+		const vector<float>& value_node,        // Nodal values of the field
+		float& value                            // Computed field value at the element
+	);
+
+	// Compute multiple field values at an element
+	void ElementValueAll(
+		const vector<float>& Nx,                // Basis function values
+		const vector<float>& elePhiGuess, float& elePG,       // PhiGuess
+		const vector<float>& elePhi, float& eleP,             // Phi
+		const vector<float>& eleSyn, float& eleS,             // Syn
+		const vector<float>& eleTips, float& eleTp,           // Tips
+		const vector<float>& eleTubulin, float& eleTb,        // Tubulin
+		const vector<float>& eleEpsilon, float& eleEP,        // Epsilon
+		const vector<float>& eleEpsilonP, float& eleEEP       // Epsilon derivative
+	);
+
+	// Compute the gradient of a field at an element
+	void ElementDeriv(
+		const int nen,                        // Number of nodes in the element
+		vector<array<float, 3>>& dNdx,        // Derivatives of basis functions
+		const vector<float>& value_node,      // Nodal values of the field
+		float& dVdx, float& dVdy, float& dVdz // Gradients of the field [dVdx, dVdy, dVdz]
+	);
+
+	// Compute gradients of multiple fields at an element
+	void ElementDerivAll(
+		const int nen,                        // Number of nodes in the element
+		vector<array<float, 3>>& dNdx,        // Derivatives of basis functions
+		const vector<float>& elePhiGuess, float& dPGdx, float& dPGdy,  // PhiGuess derivatives
+		const vector<float>& eleTheta, float& dThedx, float& dThedy,   // Theta derivatives
+		const vector<float>& eleEpsilon, float& dAdx, float& dAdy,     // Epsilon derivatives
+		const vector<float>& eleEpsilonP, float& dAPdx, float& dAPdy   // EpsilonP derivatives
+	);
+
 	// void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
 	// 							const vector<float> elePhiGuess, float &elePG,
 	// 							const vector<float> elePhi, float &eleP,
@@ -231,99 +388,265 @@ public:
 	void ElementEvaluationAll_syn_tub(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
 		vector<vector<float>> &eleVal, vector<float> &vars);
 
-	// pre-calculate variables to save computational cost
-	void PrepareBasis();
-	void PreparePhaseField();
-	void PrepareTermSource();
-	void PrepareEpsilon();
+	// Pre-computation to reduce redundant calculations
+	void PrepareBasis();              // Precompute basis functions and derivatives
+	void PreparePhaseField();         // Precompute variables specific to the phase field equation
+	void PrepareTermSource();         // Precompute source term contributions
+	void PrepareEpsilon();            // Precompute epsilon and related values
 
-	// Phase field equation
-	void EvaluateEnergy(const int nen, const vector<float>& Nx, const vector<float>& eleSyn, vector<float>& E);
-	float Regular_Heiviside_fun(float x);
-	void EvaluateOrientation_prev(const uint& nen, const vector<float>& Nx, const vector<array<float, 3>>& dNdx,
-									const vector<float>& elePhi, const vector<float>& eleTheta, vector<float>& eleEpsilon, vector<float>& eleEpsilonP);
-	void EvaluateOrientation(const int nen, const vector<float>& Nx, const vector<array<float, 3>>& dNdx,
-							const vector<float>& elePhi, const vector<float>& eleTheta,
-							float& eleAniso, float& dA_dPdx, float& dA_dPdy, float& dA_dPdz);
-	void EvaluateOrientationSpherical(const int nen, const vector<float> &Nx, const vector<array<float, 3>> &dNdx, const vector<float> elePhi,
-							const vector<float> elePolar, const vector<float> eleAzimuth, float& eleEpsilon, float dEdp, float dEda);
-	void BuildLinearSystemProcessNG_phi(const vector<Vertex3D> &cpts);
+	// Phase Field Equation Evaluations
+	void EvaluateEnergy(
+		const int nen,                // Number of nodes in the element
+		const vector<float>& Nx,      // Basis function values
+		const vector<float>& eleSyn,  // Synaptic field values
+		vector<float>& E              // Output energy values
+	);
+	float Regular_Heiviside_fun(float x); // Smooth Heaviside function implementation
 
-	// Build Synaptogenesis and Tubulin together
-	void CalculateSumGradPhi0(const vector<Vertex3D> &cpts);
-	void BuildLinearSystemProcessNG_syn_tub(const vector<Vertex3D> &cpts);
+	// Orientation Evaluations
+	void EvaluateOrientation_prev(
+		const uint& nen,                  // Number of nodes in the element
+		const vector<float>& Nx,          // Basis function values
+		const vector<array<float, 3>>& dNdx, // Basis function derivatives
+		const vector<float>& elePhi,      // Phase field values
+		const vector<float>& eleTheta,    // Orientation angle
+		vector<float>& eleEpsilon,        // Output epsilon values
+		vector<float>& eleEpsilonP        // Output epsilon derivative values
+	);
 
-	// Domain expansion
-	int CheckExpansion3D(vector<float> input, const vector<Vertex3D>& cpts, int NX, int NY, int NZ, int originX, int originY, int originZ);
-	void PopulateRandom(vector<float> &input); // to populate theta with random after expansion
+	void EvaluateOrientation(
+		const int nen,                    // Number of nodes in the element
+		const vector<float>& Nx,          // Basis function values
+		const vector<array<float, 3>>& dNdx, // Basis function derivatives
+		const vector<float>& elePhi,      // Phase field values
+		const vector<float>& eleTheta,    // Orientation angle
+		float& eleAniso,                  // Anisotropy factor
+		float& dA_dPdx,                   // Derivative of anisotropy w.r.t x
+		float& dA_dPdy,                   // Derivative of anisotropy w.r.t y
+		float& dA_dPdz                    // Derivative of anisotropy w.r.t z
+	);
 
-	bool KD_SearchPair(const vector<Vertex3D>& cpts, 
-					const KDTree& kdTree, 
-					float targetX, float targetY, float targetZ, 
-					int& ind, float tolerance);
+	void EvaluateOrientationSpherical(
+		const int nen,                    // Number of nodes in the element
+		const vector<float>& Nx,          // Basis function values
+		const vector<array<float, 3>>& dNdx, // Basis function derivatives
+		const vector<float>& elePhi,      // Phase field values
+		const vector<float>& elePolar,    // Polar angle values
+		const vector<float>& eleAzimuth,  // Azimuthal angle values
+		float& eleEpsilon,                // Output epsilon value
+		float dEdp,                       // Derivative w.r.t polar angle
+		float dEda                        // Derivative w.r.t azimuthal angle
+	);
+
+	// Linear System Assembly for the Phase Field Equation
+	void BuildLinearSystemProcessNG_phi(
+		const vector<Vertex3D>& cpts      // Control points for Bezier mesh
+	);
+
+	// Synaptogenesis and Tubulin Operations
+	void CalculateSumGradPhi0(const vector<Vertex3D>& cpts); 
+		// Calculate the sum of gradient phi0 over the control points
+
+	void BuildLinearSystemProcessNG_syn_tub(const vector<Vertex3D>& cpts); 
+		// Assemble the linear system for synaptogenesis and tubulin equations
+
+	// Domain Expansion Operations
+	int CheckExpansion3D(
+		vector<float> input,               // Input variable for checking expansion
+		const vector<Vertex3D>& cpts,      // Control points for the domain
+		int NX, int NY, int NZ,            // Domain dimensions in X, Y, Z
+		int originX, int originY, int originZ // Origin coordinates for the domain
+	); 
+		// Check and handle 3D domain expansion conditions
+
+	void PopulateRandom(vector<float>& input); 
+		// Populate input vector with random values after domain expansion
+
+	// KDTree Search for Pair Matching
+	bool KD_SearchPair(
+		const vector<Vertex3D>& cpts,      // Control points for searching
+		const KDTree& kdTree,              // KDTree for spatial indexing
+		float targetX, float targetY, float targetZ, // Target coordinates to search
+		int& ind,                          // Output: index of the closest match
+		float tolerance                    // Tolerance for pair matching
+	); 
+		// Search for a pair in KDTree within a tolerance
 	
-	// Tip detection
-	float RmOutlier(vector<float> &data); // standard deviation based outlier remover
-	float CellBoundary(float phi, float threshold); // threshould based boundary determination
-	void DetectTipsMulti3D(vector<float> id, int numNeuron, vector<float> &tips, int NX, int NY, int NZ);
-	
-	// Function to check if a point is within the specified box centered at 'center'
-	bool IsInBox(const Vertex3D& point, const Vertex3D& center, float dx, float dy, float dz);
-	// Function to calculate the sum of phi within a specified box for each center point in cpts
+	// Tip Detection Functions
+	float RmOutlier(vector<float>& data); 
+		// Remove outliers from the dataset using a standard deviation-based method
 
-	void CalculatePhiSum(const vector<Vertex3D>& cpts, 
-						float dx, float dy, float dz, 
-						const KDTree& kdTree);
-	vector<float> InterpolateValues3D(const vector<Vertex3D>& cpts_initial, const vector<float>& input,
-		const vector<Vertex3D>& cpts_new);
-	vector<pair<Vertex3D, int>> FindClosestVerticesWithIndices(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k);
+	float CellBoundary(float phi, float threshold); 
+		// Determine cell boundary based on a given threshold value
+
+	void DetectTipsMulti3D(
+		vector<float> id,                // Input neuron IDs
+		int numNeuron,                   // Total number of neurons
+		vector<float>& tips,             // Output vector to store detected tips
+		int NX, int NY, int NZ           // Dimensions of the 3D domain
+	); 
+		// Detect tips in a 3D multi-neuron setup
+
+	// Spatial Operations
+	bool IsInBox(
+		const Vertex3D& point,           // Point to check
+		const Vertex3D& center,          // Center of the box
+		float dx, float dy, float dz     // Half-dimensions of the box
+	); 
+		// Check if a given point is within a specified 3D box centered at 'center'
+
+	// Sum Calculation for Phi within a Specified Box
+	void CalculatePhiSum(
+		const vector<Vertex3D>& cpts,    // Control points representing center points
+		float dx, float dy, float dz,    // Half-dimensions of the box
+		const KDTree& kdTree             // KDTree for spatial indexing
+	); 
+		// Calculate the sum of phi values within a 3D box for each center point in `cpts`
+
+	// Interpolation and Closest Vertex Search
+	vector<float> InterpolateValues3D(
+		const vector<Vertex3D>& cpts_initial,  // Initial set of control points
+		const vector<float>& input,            // Input values to interpolate
+		const vector<Vertex3D>& cpts_new       // New control points for interpolation
+	); 
+		// Interpolate values for a new set of control points in 3D space
+
+	vector<pair<Vertex3D, int>> FindClosestVerticesWithIndices(
+		const vector<Vertex3D>& vertices,     // List of vertices
+		const Vertex3D& inputVertex,          // Target vertex
+		int k                                 // Number of closest vertices to find
+	); 
+		// Find the k closest vertices to a given vertex along with their indices
+		
 	// vector<tuple<Vertex3D, int, float>> FindClosestVerticesWithIndicesAndDistances(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k);
-	vector<tuple<Vertex3D, int, float>> FindClosestVerticesWithIndicesAndDistances(const KDTree& kdTree, const Vertex3DCloud& cloud,
-																				const Vertex3D& inputVertex, int k);
+	
+	// 3D Vertex and Cluster Operations
+	vector<tuple<Vertex3D, int, float>> FindClosestVerticesWithIndicesAndDistances(
+		const KDTree& kdTree, const Vertex3DCloud& cloud, const Vertex3D& inputVertex, int k
+	);
+	// Find the k closest vertices along with indices and distances using KDTree.
 
- 	void BFS3D(const vector<float>& matrix, int depth, int rows, int cols, int dep, int row, int col,
-		vector<bool>& visited, vector<tuple<int, int, int>>& cluster);
-	vector<vector<tuple<int, int, int>>> FindClusters3D(const vector<float>& matrix, int depth, int rows, int cols);
-	vector<float> FindLocalMaximaInClusters3D(const vector<float>& matrix, int depth, int rows, int cols);
+	void BFS3D(
+		const vector<float>& matrix, int depth, int rows, int cols, 
+		int dep, int row, int col, vector<bool>& visited, 
+		vector<tuple<int, int, int>>& cluster
+	);
+	// Perform Breadth-First Search in a 3D matrix to find connected clusters.
 
-	// Neuron detection
-    vector<vector<vector<int>>> ConvertTo3DIntVector(const vector<float>& input, int NX, int NY, int NZ);
-    vector<vector<vector<float>>> ConvertTo3DFloatVector(const vector<float>& input, int NX, int NY, int NZ);
+	vector<vector<tuple<int, int, int>>> FindClusters3D(
+		const vector<float>& matrix, int depth, int rows, int cols
+	);
+	// Identify clusters of connected points in a 3D matrix.
 
-	void FloodFill3DWithKDTree(vector<vector<vector<int>>>& image,
-							int x, int y, int z, int newColor, int originalColor,
-							const KDTree& kdTree, const Vertex3DCloud& cloud);
+	vector<float> FindLocalMaximaInClusters3D(
+		const vector<float>& matrix, int depth, int rows, int cols
+	);
+	// Locate local maxima in identified 3D clusters.
 
-	void IdentifyNeurons3DWithKDTree(vector<vector<vector<int>>>& neurons, 
-									const vector<array<int, 3>>& seed,
-									int NX, int NY, int NZ, 
-									int originX, int originY, int originZ,
-									const KDTree& kdTree, const Vertex3DCloud& cloud);							 
-	bool IsValid(int x, int y, int z, int rows, int cols, int depth);
-	vector<vector<vector<int>>> CalculateGeodesicDistanceFromPoint3D(vector<vector<vector<int>>> neurons, const vector<array<int, 3>>& seed, int originX, int originY, int originZ);
-	void SaveNGvars(const vector<vector<float>> &NGvars, int NX, int NY, const string& fn);
-	void PrintOutNeurons3D(vector<vector<vector<int>>> neurons);
+	// Neuron Detection and Processing
+	vector<vector<vector<int>>> ConvertTo3DIntVector(
+		const vector<float>& input, int NX, int NY, int NZ
+	);
+	// Convert a 1D float vector to a 3D integer vector.
+
+	vector<vector<vector<float>>> ConvertTo3DFloatVector(
+		const vector<float>& input, int NX, int NY, int NZ
+	);
+	// Convert a 1D float vector to a 3D float vector.
+
+	void FloodFill3DWithKDTree(
+		vector<vector<vector<int>>>& image, int x, int y, int z, 
+		int newColor, int originalColor, const KDTree& kdTree, 
+		const Vertex3DCloud& cloud
+	);
+	// Perform 3D flood fill with KDTree for spatial connectivity.
+
+	void IdentifyNeurons3DWithKDTree(
+		vector<vector<vector<int>>>& neurons, const vector<array<int, 3>>& seed,
+		int NX, int NY, int NZ, int originX, int originY, int originZ,
+		const KDTree& kdTree, const Vertex3DCloud& cloud
+	);
+	// Identify neurons in a 3D grid using KDTree and seed points.
+
+	bool IsValid(
+		int x, int y, int z, int rows, int cols, int depth
+	);
+	// Check if a 3D point is valid within specified bounds.
+
+	vector<vector<vector<int>>> CalculateGeodesicDistanceFromPoint3D(
+		vector<vector<vector<int>>> neurons, const vector<array<int, 3>>& seed, 
+		int originX, int originY, int originZ
+	);
+	// Calculate geodesic distances from a given seed point in 3D.
+
+	// Save and Output Operations
+	void SaveNGvars(
+		const vector<vector<float>>& NGvars, int NX, int NY, const string& fn
+	);
+	// Save NGvars to a file with specified dimensions.
+
+	void PrintOutNeurons3D(
+		const vector<vector<vector<int>>>& neurons
+	);
+	// Print the neuron 3D structure.
+
+	void PrintStatus(
+		int n, int end_iter, int reason_phi, int its_phi, double t_phi,
+		int reason_syn, int its_syn, double t_syn, 
+		int reason_tub, int its_tub, double t_tub, int n_bzmesh
+	);
+	// Print the current status of the simulation with aligned output.
 };
 
-// Phase field PETSc Nonlinear SNES solver functions (placing here due to non-static member function error)
-PetscErrorCode SetupSNES(SNES &snes, const char *solverType, void *ctx,
-						PetscErrorCode (*formFunction)(SNES, Vec, Vec, void *),
-						PetscErrorCode (*formJacobian)(SNES, Vec, Mat, Mat, void *),
-						PetscReal rtol, PetscReal atol, PetscReal stol, PetscInt maxIters, PetscInt maxFails);
-PetscErrorCode SetupKSP(KSP &ksp, Mat &A, const char *kspType, const char *pcType,
-                        PetscReal rtol, PetscReal atol, PetscReal dtol, PetscInt maxIters, PetscInt restart);
-PetscErrorCode ScatterVector(Vec src, vector<float>& target, PetscInt size, bool applyBoundary, NeuronGrowth* NG);
-PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx);
-PetscErrorCode FormJacobian_phi(SNES snes, Vec x, Mat J, Mat P, void *ctx);
-PetscErrorCode MySNESMonitor(SNES snes, PetscInt its, PetscReal fnorm, PetscViewerAndFormat *vf);
-PetscErrorCode CleanUpSolvers(NeuronGrowth &NG);
+// Phase Field PETSc Nonlinear SNES Solver Functions
+PetscErrorCode SetupSNES(
+    SNES &snes, const char *solverType, void *ctx,
+    PetscErrorCode (*formFunction)(SNES, Vec, Vec, void *),
+    PetscErrorCode (*formJacobian)(SNES, Vec, Mat, Mat, void *),
+    PetscReal rtol, PetscReal atol, PetscReal stol, PetscInt maxIters, PetscInt maxFails
+);
+// Configures and initializes a PETSc SNES solver for nonlinear systems.
 
-int RunNG(int n_bzmesh, vector<vector<int>> ele_process_in,
-		vector<Vertex3D> cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
-		string path_in, string path_out,
-		int &iter, int end_iter_in,
-		vector<vector<float>> &NGvars,
-		int &NX, int &NY, int &NZ,
-		vector<array<float, 3>> &seed, int &originX, int &originY, int &originZ,
-		bool &localRefine);
+PetscErrorCode SetupKSP(
+    KSP &ksp, Mat &A, const char *kspType, const char *pcType,
+    PetscReal rtol, PetscReal atol, PetscReal dtol, PetscInt maxIters, PetscInt restart
+);
+// Configures and initializes a PETSc KSP solver for linear systems.
+
+PetscErrorCode ScatterVector(
+    Vec src, vector<float>& target, PetscInt size, bool applyBoundary, NeuronGrowth* NG
+);
+// Scatters a PETSc vector into a local float vector, optionally applying boundary conditions.
+
+PetscErrorCode FormFunction_phi(
+    SNES snes, Vec x, Vec F, void *ctx
+);
+// Defines the nonlinear residual function for the phase field equation.
+
+PetscErrorCode FormJacobian_phi(
+    SNES snes, Vec x, Mat J, Mat P, void *ctx
+);
+// Defines the Jacobian matrix for the phase field equation.
+
+PetscErrorCode MySNESMonitor(
+    SNES snes, PetscInt its, PetscReal fnorm, PetscViewerAndFormat *vf
+);
+// Custom monitor for SNES solver to track progress during iterations.
+
+PetscErrorCode CleanUpSolvers(NeuronGrowth &NG);
+// Cleans up solver-related memory allocations for NeuronGrowth object.
+
+// Main Simulation Driver
+int RunNG(
+    int n_bzmesh, vector<vector<int>> ele_process_in,
+    vector<Vertex3D> cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
+    string path_in, string path_out,
+    int &iter, int end_iter_in,
+    vector<vector<float>> &NGvars,
+    int &NX, int &NY, int &NZ,
+    vector<array<float, 3>> &seed, int &originX, int &originY, int &originZ,
+    bool &localRefine,
+	const string& phi_solver);
+// Runs the Neuron Growth simulation for the specified input parameters.
+
 #endif
