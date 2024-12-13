@@ -10,63 +10,9 @@ using namespace std;
 
 static char help[] = "Solve 3DNG\n";
 
-// Removes a list of files from the filesystem
-void removeFiles(const vector<string>& files) {
-    for (const auto& file : files) {
-        std::remove(file.c_str());
-    }
-}
-
-// Initializes MPI environment and retrieves rank and size
-PetscErrorCode initializeMPI(int& rank, int& nProcs, int argc, char** argv) {
-    PetscErrorCode ierr;
-    ierr = PetscInitialize(&argc, &argv, nullptr, help); CHKERRQ(ierr);
-    ierr = MPI_Comm_rank(PETSC_COMM_WORLD, &rank); CHKERRQ(ierr);
-    ierr = MPI_Comm_size(PETSC_COMM_WORLD, &nProcs); CHKERRQ(ierr);
-    return ierr;
-}
-
-// Sets up simulation files, generates mesh, and partitions if needed
-void setupSimulationFiles(int nProcs, const string& path_in, bool localRefine,
-                          vector<vector<float>>& vertices, vector<vector<int>>& elements,
-                          int NX, int NY, int NZ, int originX, int originY, int originZ) {
-    // Remove old files to ensure fresh outputs
-    const vector<string> filesToRemove = {
-        "../io3D/controlmesh.vtk",
-        "../io3D/controlPoints.vtk",
-        "../io3D/controlmesh_initial.vtk",
-        "../io3D/bzpt.txt",
-        "../io3D/cmat.txt",
-        "../io3D/bzmesh.vtk",
-        "../io3D/bzmeshinfo.txt",
-        "../io3D/bzmeshinfo.txt.epart." + to_string(nProcs),
-        "../io3D/bzmeshinfo.txt.npart." + to_string(nProcs)
-    };
-    removeFiles(filesToRemove);
-
-    // File paths for the meshes
-    string fn_mesh_initial = path_in + "controlmesh_initial.vtk";
-    string fn_mesh = path_in + "controlmesh.vtk";
-
-    // Generate the initial 3D mesh and write it to file
-    gen3Dmesh(originX, originY, originZ, NX, NY, NZ, vertices, elements);
-    write_hex_toVTK(fn_mesh_initial.c_str(), vertices, elements);
-
-    // Handle local refinement or default processing
-    if (!localRefine) {
-        write_hex_toVTK(fn_mesh.c_str(), vertices, elements);
-        bzmesh3D(path_in); // Generate Bezier mesh info
-    } else {
-        THS3D(path_in); // Perform local refinement
-    }
-
-    // Partition the mesh for parallel processing
-    mpmetis(nProcs, path_in);
-}
-
 int main(int argc, char** argv) {
     int rank, nProcs;
-    PetscErrorCode ierr = initializeMPI(rank, nProcs, argc, argv); 
+    PetscErrorCode ierr = initializeMPI(rank, nProcs, argc, argv, help); 
     if (ierr) return ierr;
 
     // Validate input arguments
@@ -92,6 +38,7 @@ int main(int argc, char** argv) {
     InitializeSoma(numNeuron, seed, NX, NY, NZ);
 
     // Data structures for mesh and simulation
+    int n_bzmesh;
     vector<vector<float>> vertices;
     vector<vector<int>> elements, ele_process(nProcs);
     vector<Vertex3D> cpts_initial, cpts, prev_cpts;
@@ -129,13 +76,21 @@ int main(int argc, char** argv) {
         // Read control points and assign processors
         ReadControlPoints(fn_mesh_initial, cpts_initial);
         ReadControlPoints(fn_mesh, cpts);
-        AssignProcessor(fn_bz, nProcs, ele_process);
+        AssignProcessor(fn_bz, n_bzmesh, ele_process);
 
         PetscPrintf(PETSC_COMM_WORLD, "Processor Assigned!\n");
 
         // Run neuron growth simulation for the current iteration
-        state = RunNG(nProcs, ele_process, cpts_initial, cpts, prev_cpts, path_in, path_out,
-                      iter, end_iter, NGvars, NX, NY, NZ, seed, originX, originY, originZ, localRefine, phi_solver);
+        state = RunNG(
+            n_bzmesh, ele_process, 
+            cpts_initial, cpts, prev_cpts, 
+            path_in, path_out,
+            iter, end_iter,
+            NGvars,
+            NX, NY, NZ,
+            seed, originX, originY, originZ,
+            localRefine,
+            phi_solver);
 
         // Exit if simulation diverges
         if (state == 3) {
