@@ -459,13 +459,13 @@ public:
 
 	// Domain Expansion Operations
 	int CheckExpansion3D(
-		vector<float> input,               							// Input variable for checking expansion
+		const vector<float>& input,               							// Input variable for checking expansion
 		const vector<Vertex3D>& cpts,      							// Control points for the domain
 		const int& NX, const int& NY, const int& NZ,            	// Domain dimensions in X, Y, Z
 		const int& originX, const int& originY, const int& originZ 	// Origin coordinates for the domain
 	); // Check and handle 3D domain expansion conditions
 
-	void PopulateRandom(vector<float>& input); 
+	void PopulateRandom(vector<float>& input);
 		// Populate input vector with random values after domain expansion
 
 	// Interpolate Variables Using Coarse KDTree
@@ -488,10 +488,10 @@ public:
 	); // Search for a pair in KDTree within a tolerance
 	
 	// Tip Detection Functions
-	float RmOutlier(vector<float>& data); 
+	float RmOutlier(vector<float>& data);
 		// Remove outliers from the dataset using a standard deviation-based method
 
-	float CellBoundary(float phi, float threshold); 
+	float CellBoundary(float phi, float threshold);
 		// Determine cell boundary based on a given threshold value
 
 	void DetectTipsMulti3D(

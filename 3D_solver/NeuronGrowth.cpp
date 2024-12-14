@@ -187,19 +187,21 @@ NeuronGrowth::NeuronGrowth(const string& phi_solver,
 
 		// Time-stepping
 		dt              = 0.0005;    // Time step size for no-local refinement
+		// dt				= 5e-3;
 		// dt              = 0.0001;    // Time step size for local refinement
 
 		// Phase field model parameters
-		epsilonb        = 0.01;      // Baseline epsilon for growth anisotropy
-		g               = 0.1;       // Threshold for growth regulation
+		// epsilonb        = 0.01;      // Baseline epsilon for growth anisotropy
+		epsilonb        = 0.04;      // Baseline epsilon for growth anisotropy
+		r               = 5;         // rg
+		g               = 0.1;       // sg
 		gamma           = 10;        // Growth feedback factor
 		k2              = 0;         // Secondary feedback term
-		kappa           = 2;         // Stiffness constant for bending
-		Dc              = 6;         // Diffusion coefficient for concentration
+		kappa           = 1.8;         // Stiffness constant for bending
+		Dc              = 3;         // Diffusion coefficient for concentration
 
 		// Boundary and seed-related parameters
 		kp75            = 0;         // Placeholder constant for tuning
-		r               = 5;         // Seed radius
 		s_coeff         = 0.007;     // Source coefficient for growth
 		
 		seed_radius     = 5;         // Initial seed radius
