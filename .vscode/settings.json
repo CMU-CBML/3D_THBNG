@@ -64,6 +64,9 @@
                 "valarray": "cpp",
                 "istream": "cpp",
                 "complex": "cpp",
-                "sstream": "cpp"
+                "sstream": "cpp",
+                "variant": "cpp",
+                "ostream": "cpp",
+                "print": "cpp"
         }
 }
