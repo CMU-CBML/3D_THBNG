@@ -276,8 +276,8 @@ public:
 
 	// Visualize the entire physical domain and save as VTK file
 	void VisualizeVTK_PhysicalDomain_All(
-		int step,                             // Time step for output
-		string fn                      // File name
+	int step,							// Time step for output
+	string fn  							// File name
 	);
 
 	// Write VTK file for all variables with points, displacements, and elements
@@ -319,14 +319,14 @@ public:
 
 	// Compute multiple field values at an element
 	void ElementValueAll(
-		const vector<float>& Nx,                // Basis function values
-		const vector<float>& elePhiGuess, float& elePG,       // PhiGuess
-		const vector<float>& elePhi, float& eleP,             // Phi
-		const vector<float>& eleSyn, float& eleS,             // Syn
-		const vector<float>& eleTips, float& eleTp,           // Tips
-		const vector<float>& eleTubulin, float& eleTb,        // Tubulin
-		const vector<float>& eleEpsilon, float& eleEP,        // Epsilon
-		const vector<float>& eleEpsilonP, float& eleEEP       // Epsilon derivative
+		const vector<float>& Nx,                				// Basis function values
+		const vector<float>& elePhiGuess, float& elePG,       	// PhiGuess
+		const vector<float>& elePhi, float& eleP,             	// Phi
+		const vector<float>& eleSyn, float& eleS,             	// Syn
+		const vector<float>& eleTips, float& eleTp,           	// Tips
+		const vector<float>& eleTubulin, float& eleTb,        	// Tubulin
+		const vector<float>& eleEpsilon, float& eleEP,        	// Epsilon
+		const vector<float>& eleEpsilonP, float& eleEEP       	// Epsilon derivative
 	);
 
 	// Compute the gradient of a field at an element
@@ -412,37 +412,37 @@ public:
 
 	// Orientation Evaluations
 	void EvaluateOrientation_prev(
-		const uint& nen,                  // Number of nodes in the element
-		const vector<float>& Nx,          // Basis function values
-		const vector<array<float, 3>>& dNdx, // Basis function derivatives
-		const vector<float>& elePhi,      // Phase field values
-		const vector<float>& eleTheta,    // Orientation angle
-		vector<float>& eleEpsilon,        // Output epsilon values
-		vector<float>& eleEpsilonP        // Output epsilon derivative values
+		const uint& nen,                  		// Number of nodes in the element
+		const vector<float>& Nx,          		// Basis function values
+		const vector<array<float, 3>>& dNdx, 	// Basis function derivatives
+		const vector<float>& elePhi,      		// Phase field values
+		const vector<float>& eleTheta,    		// Orientation angle
+		vector<float>& eleEpsilon,        		// Output epsilon values
+		vector<float>& eleEpsilonP        		// Output epsilon derivative values
 	);
 
 	void EvaluateOrientation(
-		const int nen,                    // Number of nodes in the element
-		const vector<float>& Nx,          // Basis function values
-		const vector<array<float, 3>>& dNdx, // Basis function derivatives
-		const vector<float>& elePhi,      // Phase field values
-		const vector<float>& eleTheta,    // Orientation angle
-		float& eleAniso,                  // Anisotropy factor
-		float& dA_dPdx,                   // Derivative of anisotropy w.r.t x
-		float& dA_dPdy,                   // Derivative of anisotropy w.r.t y
-		float& dA_dPdz                    // Derivative of anisotropy w.r.t z
+		const int nen,                    		// Number of nodes in the element
+		const vector<float>& Nx,          		// Basis function values
+		const vector<array<float, 3>>& dNdx, 	// Basis function derivatives
+		const vector<float>& elePhi,      		// Phase field values
+		const vector<float>& eleTheta,    		// Orientation angle
+		float& eleAniso,                  		// Anisotropy factor
+		float& dA_dPdx,                   		// Derivative of anisotropy w.r.t x
+		float& dA_dPdy,                   		// Derivative of anisotropy w.r.t y
+		float& dA_dPdz                   		// Derivative of anisotropy w.r.t z
 	);
 
 	void EvaluateOrientationSpherical(
-		const int nen,                    // Number of nodes in the element
-		const vector<float>& Nx,          // Basis function values
-		const vector<array<float, 3>>& dNdx, // Basis function derivatives
-		const vector<float>& elePhi,      // Phase field values
-		const vector<float>& elePolar,    // Polar angle values
-		const vector<float>& eleAzimuth,  // Azimuthal angle values
-		float& eleEpsilon,                // Output epsilon value
-		float dEdp,                       // Derivative w.r.t polar angle
-		float dEda                        // Derivative w.r.t azimuthal angle
+		const int nen,                    		// Number of nodes in the element
+		const vector<float>& Nx,          		// Basis function values
+		const vector<array<float, 3>>& dNdx, 	// Basis function derivatives
+		const vector<float>& elePhi,      		// Phase field values
+		const vector<float>& elePolar,    		// Polar angle values
+		const vector<float>& eleAzimuth,  		// Azimuthal angle values
+		float& eleEpsilon,                		// Output epsilon value
+		float dEdp,                       		// Derivative w.r.t polar angle
+		float dEda                        		// Derivative w.r.t azimuthal angle
 	);
 
 	// Linear System Assembly for the Phase Field Equation
@@ -459,36 +459,33 @@ public:
 
 	// Domain Expansion Operations
 	int CheckExpansion3D(
-		vector<float> input,               // Input variable for checking expansion
-		const vector<Vertex3D>& cpts,      // Control points for the domain
-		int NX, int NY, int NZ,            // Domain dimensions in X, Y, Z
-		int originX, int originY, int originZ // Origin coordinates for the domain
-	); 
-		// Check and handle 3D domain expansion conditions
+		vector<float> input,               							// Input variable for checking expansion
+		const vector<Vertex3D>& cpts,      							// Control points for the domain
+		const int& NX, const int& NY, const int& NZ,            	// Domain dimensions in X, Y, Z
+		const int& originX, const int& originY, const int& originZ 	// Origin coordinates for the domain
+	); // Check and handle 3D domain expansion conditions
 
 	void PopulateRandom(vector<float>& input); 
 		// Populate input vector with random values after domain expansion
 
 	// Interpolate Variables Using Coarse KDTree
 	vector<float> InterpolateVars_coarseKDtree(
-		const vector<float>& input,           // Input values from the initial control points
-		const vector<Vertex3D>& cpts_initial, // Initial control points for interpolation
-		const KDTree& kdTree_initial,              // KDTree built from the initial control points
-		const vector<Vertex3D>& cpts,         // Current control points for interpolation
-		int type,                                  // Interpolation type: 0 (max), 1 (average), 2 (zero)
-		int isTheta                                // Special flag for theta handling: 1 for special out-of-bound handling
-	);
-		// Interpolates values from the coarse KDTree to the current control points.
+		const vector<float>& input,           	// Input values from the initial control points
+		const vector<Vertex3D>& cpts_initial, 	// Initial control points for interpolation
+		const KDTree& kdTree_initial,           // KDTree built from the initial control points
+		const vector<Vertex3D>& cpts,         	// Current control points for interpolation
+		int type,                               // Interpolation type: 0 (max), 1 (average), 2 (zero)
+		int isTheta                             // Special flag for theta handling: 1 for special out-of-bound handling
+	); // Interpolates values from the coarse KDTree to the current control points.
 
 	// KDTree Search for Pair Matching
 	bool KD_SearchPair(
-		const vector<Vertex3D>& cpts,      // Control points for searching
-		const KDTree& kdTree,              // KDTree for spatial indexing
-		float targetX, float targetY, float targetZ, // Target coordinates to search
-		int& ind,                          // Output: index of the closest match
-		float tolerance = 1.0f             // Tolerance for pair matching
-	); 
-		// Search for a pair in KDTree within a tolerance
+		const vector<Vertex3D>& cpts,      				// Control points for searching
+		const KDTree& kdTree,              				// KDTree for spatial indexing
+		float targetX, float targetY, float targetZ, 	// Target coordinates to search
+		int& ind,                          				// Output: index of the closest match
+		float tolerance = 1.0f             				// Tolerance for pair matching
+	); // Search for a pair in KDTree within a tolerance
 	
 	// Tip Detection Functions
 	float RmOutlier(vector<float>& data); 
@@ -502,118 +499,101 @@ public:
 		int numNeuron,                   // Total number of neurons
 		vector<float>& tips,             // Output vector to store detected tips
 		int NX, int NY, int NZ           // Dimensions of the 3D domain
-	); 
-		// Detect tips in a 3D multi-neuron setup
+	); // Detect tips in a 3D multi-neuron setup
 
 	// Spatial Operations
 	bool IsInBox(
 		const Vertex3D& point,           // Point to check
 		const Vertex3D& center,          // Center of the box
 		float dx, float dy, float dz     // Half-dimensions of the box
-	); 
-		// Check if a given point is within a specified 3D box centered at 'center'
+	); // Check if a given point is within a specified 3D box centered at 'center'
 
 	// Sum Calculation for Phi within a Specified Box
 	void CalculatePhiSum(
 		const vector<Vertex3D>& cpts,    // Control points representing center points
 		float dx, float dy, float dz,    // Half-dimensions of the box
 		const KDTree& kdTree             // KDTree for spatial indexing
-	); 
-		// Calculate the sum of phi values within a 3D box for each center point in `cpts`
+	); // Calculate the sum of phi values within a 3D box for each center point in `cpts`
 
 	// Interpolation and Closest Vertex Search
 	vector<float> InterpolateValues3D(
 		const vector<Vertex3D>& cpts_initial,  // Initial set of control points
 		const vector<float>& input,            // Input values to interpolate
 		const vector<Vertex3D>& cpts_new       // New control points for interpolation
-	); 
-		// Interpolate values for a new set of control points in 3D space
+	); // Interpolate values for a new set of control points in 3D space
 
 	vector<pair<Vertex3D, int>> FindClosestVerticesWithIndices(
 		const vector<Vertex3D>& vertices,     // List of vertices
 		const Vertex3D& inputVertex,          // Target vertex
 		int k                                 // Number of closest vertices to find
-	); 
-		// Find the k closest vertices to a given vertex along with their indices
+	); // Find the k closest vertices to a given vertex along with their indices
 		
 	// vector<tuple<Vertex3D, int, float>> FindClosestVerticesWithIndicesAndDistances(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k);
 	
 	// 3D Vertex and Cluster Operations
 	vector<tuple<Vertex3D, int, float>> FindClosestVerticesWithIndicesAndDistances(
 		const KDTree& kdTree, const Vertex3DCloud& cloud, const Vertex3D& inputVertex, int k
-	);
-	// Find the k closest vertices along with indices and distances using KDTree.
+	); // Find the k closest vertices along with indices and distances using KDTree.
 
 	void BFS3D(
 		const vector<float>& matrix, int depth, int rows, int cols, 
 		int dep, int row, int col, vector<bool>& visited, 
 		vector<tuple<int, int, int>>& cluster
-	);
-	// Perform Breadth-First Search in a 3D matrix to find connected clusters.
+	); // Perform Breadth-First Search in a 3D matrix to find connected clusters.
 
 	vector<vector<tuple<int, int, int>>> FindClusters3D(
 		const vector<float>& matrix, int depth, int rows, int cols
-	);
-	// Identify clusters of connected points in a 3D matrix.
+	); // Identify clusters of connected points in a 3D matrix.
 
 	vector<float> FindLocalMaximaInClusters3D(
 		const vector<float>& matrix, int depth, int rows, int cols
-	);
-	// Locate local maxima in identified 3D clusters.
+	); // Locate local maxima in identified 3D clusters.
 
 	// Neuron Detection and Processing
 	vector<vector<vector<int>>> ConvertTo3DIntVector(
 		const vector<float>& input, int NX, int NY, int NZ
-	);
-	// Convert a 1D float vector to a 3D integer vector.
+	); // Convert a 1D float vector to a 3D integer vector.
 
 	vector<vector<vector<float>>> ConvertTo3DFloatVector(
 		const vector<float>& input, int NX, int NY, int NZ
-	);
-	// Convert a 1D float vector to a 3D float vector.
+	); // Convert a 1D float vector to a 3D float vector.
 
 	void FloodFill3DWithKDTree(
 		vector<vector<vector<int>>>& image, int x, int y, int z, 
 		int newColor, int originalColor, const KDTree& kdTree, 
 		const Vertex3DCloud& cloud
-	);
-	// Perform 3D flood fill with KDTree for spatial connectivity.
+	); // Perform 3D flood fill with KDTree for spatial connectivity.
 
 	void IdentifyNeurons3DWithKDTree(
 		vector<vector<vector<int>>>& neurons, const vector<array<int, 3>>& seed,
 		int NX, int NY, int NZ, int originX, int originY, int originZ,
 		const KDTree& kdTree, const Vertex3DCloud& cloud
-	);
-	// Identify neurons in a 3D grid using KDTree and seed points.
+	); // Identify neurons in a 3D grid using KDTree and seed points.
 
-	bool IsValid(
-		int x, int y, int z, int rows, int cols, int depth
-	);
-	// Check if a 3D point is valid within specified bounds.
+	bool IsValid(const int& x, const int& y, const int& z, 
+				const int& rows, const int& cols, 
+				const int& depth
+	); // Check if a 3D point is valid within specified bounds.
 
 	vector<vector<vector<int>>> CalculateGeodesicDistanceFromPoint3D(
 		vector<vector<vector<int>>> neurons, const vector<array<int, 3>>& seed, 
 		int originX, int originY, int originZ
-	);
-	// Calculate geodesic distances from a given seed point in 3D.
+	); // Calculate geodesic distances from a given seed point in 3D.
 
 	// Save and Output Operations
 	void SaveNGvars(
 		const vector<vector<float>>& NGvars, int NX, int NY, const string& fn
-	);
-	// Save NGvars to a file with specified dimensions.
+	); // Save NGvars to a file with specified dimensions.
 
 	void PrintOutNeurons3D(
 		const vector<vector<vector<int>>>& neurons
-	);
-	// Print the neuron 3D structure.
+	); // Print the neuron 3D structure.
 
 	void PrintStatus(
 		int n, int end_iter, int reason_phi, int its_phi, double t_phi,
 		int reason_syn, int its_syn, double t_syn, 
 		int reason_tub, int its_tub, double t_tub, int n_bzmesh
-	);
-	// Print the current status of the simulation with aligned output.
+	); // Print the current status of the simulation with aligned output.
 };
 
 // Phase Field PETSc Nonlinear SNES Solver Functions
@@ -622,37 +602,31 @@ PetscErrorCode SetupSNES(
     PetscErrorCode (*formFunction)(SNES, Vec, Vec, void *),
     PetscErrorCode (*formJacobian)(SNES, Vec, Mat, Mat, void *),
     PetscReal rtol, PetscReal atol, PetscReal stol, PetscInt maxIters, PetscInt maxFails
-);
-// Configures and initializes a PETSc SNES solver for nonlinear systems.
+); // Configures and initializes a PETSc SNES solver for nonlinear systems.
 
 PetscErrorCode SetupKSP(
     KSP &ksp, Mat &A, const char *kspType, const char *pcType,
     PetscReal rtol, PetscReal atol, PetscReal dtol, PetscInt maxIters, PetscInt restart
-);
-// Configures and initializes a PETSc KSP solver for linear systems.
+); // Configures and initializes a PETSc KSP solver for linear systems.
 
 PetscErrorCode ScatterVector(
     Vec src, vector<float>& target, PetscInt size, bool applyBoundary, NeuronGrowth* NG
-);
-// Scatters a PETSc vector into a local float vector, optionally applying boundary conditions.
+); // Scatters a PETSc vector into a local float vector, optionally applying boundary conditions.
 
 PetscErrorCode FormFunction_phi(
     SNES snes, Vec x, Vec F, void *ctx
-);
-// Defines the nonlinear residual function for the phase field equation.
+); // Defines the nonlinear residual function for the phase field equation.
 
 PetscErrorCode FormJacobian_phi(
     SNES snes, Vec x, Mat J, Mat P, void *ctx
-);
-// Defines the Jacobian matrix for the phase field equation.
+); // Defines the Jacobian matrix for the phase field equation.
 
 PetscErrorCode MySNESMonitor(
     SNES snes, PetscInt its, PetscReal fnorm, PetscViewerAndFormat *vf
-);
-// Custom monitor for SNES solver to track progress during iterations.
+); // Custom monitor for SNES solver to track progress during iterations.
 
 PetscErrorCode CleanUpSolvers(NeuronGrowth &NG);
-// Cleans up solver-related memory allocations for NeuronGrowth object.
+	// Cleans up solver-related memory allocations for NeuronGrowth object.
 
 // Main Simulation Driver
 int RunNG(
@@ -664,7 +638,7 @@ int RunNG(
     int &NX, int &NY, int &NZ,
     vector<array<float, 3>> &seed, int &originX, int &originY, int &originZ,
     bool &localRefine,
-	const string& phi_solver);
-// Runs the Neuron Growth simulation for the specified input parameters.
+	const string& phi_solver
+); // Runs the Neuron Growth simulation for the specified input parameters.
 
 #endif

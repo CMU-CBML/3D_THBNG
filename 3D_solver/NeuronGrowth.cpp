@@ -121,7 +121,7 @@ NeuronGrowth::NeuronGrowth(const string& phi_solver,
 
 	if (phi_solver == "ksp") {
 		// Simulation parameters
-		var_save_invl   = 10;       // Interval for saving variables
+		var_save_invl   = 100;       // Interval for saving variables
 		expandCK_invl   = 350000;     // Interval for expanding control knots
 
 		// Neuron-specific parameters
@@ -164,7 +164,7 @@ NeuronGrowth::NeuronGrowth(const string& phi_solver,
 
 	} else if (phi_solver == "snes") {
 		// Simulation parameters
-		var_save_invl   = 10;       // Interval for saving variables
+		var_save_invl   = 100;       // Interval for saving variables
 		expandCK_invl   = 350000;     // Interval for expanding control knots
 
 		// Neuron-specific parameters
@@ -2646,37 +2646,36 @@ void NeuronGrowth::BuildLinearSystemProcessNG_syn_tub(const vector<Vertex3D> &cp
     MatAssemblyBegin(GK_tub, MAT_FINAL_ASSEMBLY);
 }
 
-int NeuronGrowth::CheckExpansion3D(vector<float> input, const vector<Vertex3D>& cpts, int NX, int NY, int NZ, int originX, int originY, int originZ) 
+int NeuronGrowth::CheckExpansion3D(const vector<float>& input, const vector<Vertex3D>& cpts, 
+                                   const int& NX, const int& NY, const int& NZ,
+								   const int& originX, const int& originY, const int& originZ) 
 {
-	float bc_clearance = 5;
-	for (int i = 0; i < cpts.size(); i++) {
-		if (CellBoundary(input[i],0) > 0) {
-			float currX = cpts[i].coor[0] - originX;
-			float currY = cpts[i].coor[1] - originY;
-			float currZ = cpts[i].coor[2] - originZ;
+    // Define clearance for boundary checks
+    constexpr float bc_clearance = 5.0f;
 
-			// 0 - left | 1 - top | 2 - right | 3 - bottom | 4 - front | 5 - back | 6 - no action
-			if (currX >= (max_x - bc_clearance)) {
-				return 3;
-			} else if (currX <= (bc_clearance - originX)) {
-				return 1;
-			}
+    // Iterate over all control points
+    for (size_t i = 0; i < cpts.size(); ++i) {
+        // Check if the current point is at the boundary
+        if (CellBoundary(input[i], 0) > 0) {
+            // Calculate current relative coordinates
+            float currX = cpts[i].coor[0] - originX;
+            float currY = cpts[i].coor[1] - originY;
+            float currZ = cpts[i].coor[2] - originZ;
 
-			if (currY >= (max_y - bc_clearance)) {
-				return 0;
-			} else if (currY <= (bc_clearance - originY)) {
-				return 2;
-			}
+            // Boundary checks for each face
+            if (currX >= (max_x - bc_clearance)) return 3; // Right boundary
+            if (currX <= (bc_clearance - originX)) return 1; // Left boundary
 
-			if (currZ >= (max_z - bc_clearance)) {
-				return 4;
-			} else if (currZ <= (bc_clearance - originZ)) {
-				return 5;
-			}
-		}
-	}
+            if (currY >= (max_y - bc_clearance)) return 0; // Top boundary
+            if (currY <= (bc_clearance - originY)) return 2; // Bottom boundary
 
-	return 6;
+            if (currZ >= (max_z - bc_clearance)) return 4; // Front boundary
+            if (currZ <= (bc_clearance - originZ)) return 5; // Back boundary
+        }
+    }
+
+    // If no boundary condition is met, return no action
+    return 6;
 }
 
 // void NeuronGrowth::ExpandDomain(vector<float> input, vector<float> &expd_var, int edge) 
@@ -3092,7 +3091,7 @@ vector<tuple<Vertex3D, int, float>> NeuronGrowth::FindClosestVerticesWithIndices
     const KDTree& kdTree, const Vertex3DCloud& cloud, const Vertex3D& inputVertex, int k) 
 {
     // Ensure k does not exceed the number of points in the KDTree
-    k = std::min(k, static_cast<int>(cloud.pts.size()));
+    k = min(k, static_cast<int>(cloud.pts.size()));
 
     vector<size_t> closestIndices(k);
     vector<float> squaredDistances(k);
@@ -3111,7 +3110,7 @@ vector<tuple<Vertex3D, int, float>> NeuronGrowth::FindClosestVerticesWithIndices
     vector<tuple<Vertex3D, int, float>> closestVertices;
     for (size_t i = 0; i < k; ++i) {
         const Vertex3D& vertex = cloud.pts[closestIndices[i]];
-        float distance = std::sqrt(squaredDistances[i]); // Convert squared distance to actual distance
+        float distance = sqrt(squaredDistances[i]); // Convert squared distance to actual distance
         closestVertices.emplace_back(vertex, static_cast<int>(closestIndices[i]), distance);
     }
 
@@ -3332,7 +3331,9 @@ void NeuronGrowth::IdentifyNeurons3DWithKDTree(vector<vector<vector<int>>>& neur
     }
 }
 
-bool NeuronGrowth::IsValid(int x, int y, int z, int rows, int cols, int depth) 
+bool NeuronGrowth::IsValid(const int& x, const int& y, const int& z, 
+						const int& rows, const int& cols, 
+						const int& depth) 
 {
     return x >= 0 && x < rows && y >= 0 && y < cols && z >= 0 && z < depth;
 }
@@ -3501,7 +3502,7 @@ PetscErrorCode SetupKSP(KSP &ksp, Mat &A, const char *kspType, const char *pcTyp
     // Example: CHKERRQ(PCSetType(pc, PCFIELDSPLIT)); or CHKERRQ(PCSetType(pc, PCGAMG));
 
     // Set GMRES-specific options
-    if (std::string(kspType) == "KSPGMRES") {
+    if (string(kspType) == "KSPGMRES") {
         CHKERRQ(KSPGMRESSetRestart(ksp, restart));
     }
 
@@ -3514,7 +3515,7 @@ PetscErrorCode SetupKSP(KSP &ksp, Mat &A, const char *kspType, const char *pcTyp
     return PETSC_SUCCESS; // Explicitly return success
 }
 
-PetscErrorCode ScatterVector(Vec src, std::vector<float>& target, PetscInt size, 
+PetscErrorCode ScatterVector(Vec src, vector<float>& target, PetscInt size, 
 							bool applyBoundary = false, NeuronGrowth* NG = nullptr) {
 							PetscErrorCode ierr;
 							Vec temp_seq;             // Sequential vector for scattered data
@@ -3537,7 +3538,7 @@ PetscErrorCode ScatterVector(Vec src, std::vector<float>& target, PetscInt size,
         if (applyBoundary && NG) {
             // Apply boundary function and clamp values as needed
             target[i] = PetscMax(PetscRealPart(array[i]), 0.0f) * NG->CellBoundary(NG->phi[i], 0.5);
-            target[i] = std::isnan(target[i]) || target[i] > 1 ? 0 : target[i];
+            target[i] = isnan(target[i]) || target[i] > 1 ? 0 : target[i];
         } else {
             target[i] = PetscRealPart(array[i]);
         }

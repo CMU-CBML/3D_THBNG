@@ -8,7 +8,7 @@
 // Removes a list of files from the filesystem
 void removeFiles(const vector<string>& files) {
     for (const auto& file : files) {
-        std::remove(file.c_str());
+        remove(file.c_str());
     }
 }
 
@@ -167,7 +167,7 @@ void gen3Dmesh(int originX, int originY, int originZ, int Nx, int Ny, int Nz,
 
 // generating 3D bezier mesh using spline_src
 void bzmesh3D(string path_in){
-	std::cout << "******************************************************************************" << std::endl;
+	cout << "******************************************************************************" << endl;
 	string spline_cmd_tmd("../spline3D_src/spline " + path_in);
 	const char* spline_cmd = spline_cmd_tmd.c_str();
 	system(spline_cmd);
@@ -248,52 +248,52 @@ void write_hex_toVTK(const char* qs, vector<vector<float>>& vertices, vector<vec
     fclose(fp);
 }
 
-void PrintVec2TXT(const std::vector<float>& v, const std::string& fn, bool visualization)
+void PrintVec2TXT(const vector<float>& v, const string& fn, bool visualization)
 {
-    std::ofstream fout(fn);
+    ofstream fout(fn);
     if (!fout.is_open()) {
-        std::cerr << "Failed to open file: " << fn << std::endl;
+        cerr << "Failed to open file: " << fn << endl;
         return; // Exit if file cannot be opened
     }
 
-    fout << std::setprecision(2) << std::fixed;
+    fout << setprecision(2) << fixed;
 
     if (!visualization) {
         // Print each element on a new line for non-visualization mode
         for (size_t i = 0; i < v.size(); i++) {
-            fout << v[i] << std::endl;
+            fout << v[i] << endl;
         }
     } else {
         // Visualization mode assumes a square layout
-        int sq_sz = static_cast<int>(std::sqrt(v.size()));
+        int sq_sz = static_cast<int>(sqrt(v.size()));
         for (int i = 0; i < sq_sz; i++) {
             for (int j = 0; j < sq_sz; j++) {
                 // Print with alignment, ensure spacing for zero and non-zero values
-                fout << std::setw(5);
+                fout << setw(5);
                 if (v[i * sq_sz + j] == 0) {
                     fout << " "; // Use a single space for zero values for better visibility
                 } else {
                     fout << v[i * sq_sz + j];
                 }
             }
-            fout << std::endl;
+            fout << endl;
         }
     }
 
     fout.close();
 }
 
-void writeVectorToFile(const std::vector<float>& data, const std::string& filename, bool binary) {
-	std::ofstream outfile;
+void writeVectorToFile(const vector<float>& data, const string& filename, bool binary) {
+	ofstream outfile;
 
 	if (binary) {
-		outfile.open(filename, std::ios::out | std::ios::binary);
+		outfile.open(filename, ios::out | ios::binary);
 	} else {
 		outfile.open(filename);
 	}
 
 	if (!outfile) {
-		std::cerr << "Error opening file: " << filename << std::endl;
+		cerr << "Error opening file: " << filename << endl;
 		return;
 	}
 
@@ -305,30 +305,30 @@ void writeVectorToFile(const std::vector<float>& data, const std::string& filena
 		}
 	}
 
-	std::cout << "Vector successfully written to " << filename << std::endl;
+	cout << "Vector successfully written to " << filename << endl;
 	outfile.close();
 }
 
-std::vector<float> readVectorFromFile(const std::string& filename, bool binary) {
-	std::ifstream infile;
+vector<float> readVectorFromFile(const string& filename, bool binary) {
+	ifstream infile;
 
 	if (binary) {
-		infile.open(filename, std::ios::in | std::ios::binary);
+		infile.open(filename, ios::in | ios::binary);
 	} else {
 		infile.open(filename);
 	}
 
 	if (!infile) {
-		std::cerr << "Error opening file: " << filename << std::endl;
+		cerr << "Error opening file: " << filename << endl;
 		return {};
 	}
 
-	std::vector<float> data;
+	vector<float> data;
 
 	if (binary) {
-		infile.seekg(0, std::ios::end);
+		infile.seekg(0, ios::end);
 		size_t fileSize = infile.tellg();
-		infile.seekg(0, std::ios::beg);
+		infile.seekg(0, ios::beg);
 
 		data.resize(fileSize / sizeof(float));
 		infile.read(reinterpret_cast<char*>(data.data()), fileSize);
@@ -340,7 +340,7 @@ std::vector<float> readVectorFromFile(const std::string& filename, bool binary) 
 		}
 	}
 
-	std::cout << "Vector successfully read from " << filename << std::endl;
+	cout << "Vector successfully read from " << filename << endl;
 	infile.close();
 
 	return data;
@@ -577,7 +577,7 @@ vector<float> InterpolateValues3D(const vector<Vertex3D>& cpts_initial, const ve
 	output.resize(cpts_new.size());
 
 	for (int i = 0; i < cpts_new.size(); i++) {
-		// std::cout << i << std::endl;
+		// cout << i << endl;
 		float x = cpts_new[i].coor[0];
 		float y = cpts_new[i].coor[1];
 		float z = cpts_new[i].coor[2];
@@ -586,7 +586,7 @@ vector<float> InterpolateValues3D(const vector<Vertex3D>& cpts_initial, const ve
 		if (SearchVertex(cpts_initial, x, y, z, ind)) {
 			// Exact match found, no need for interpolation
 			output[i] = input[ind];
-			// std::cout << ind << " ";
+			// cout << ind << " ";
 		} 
 		else {
 			// Linear interpolation for the new coordinates
@@ -618,7 +618,7 @@ vector<float> InterpolateValues3D(const vector<Vertex3D>& cpts_initial, const ve
 			// Interpolate along the z dimension
 			output[i] = Lerp(interpY1, interpY2, (z - z1));
 
-			// std::cout << ind << " ";
+			// cout << ind << " ";
 		}
 	}
 	return output;
@@ -723,13 +723,13 @@ float Lerp(float a, float b, float t) {
 }
 
 // Function to compute the average of surrounding points
-std::vector<float> ComputeRefine(const std::vector<float>& phi, int NX, int NY, int NZ) 
+vector<float> ComputeRefine(const vector<float>& phi, int NX, int NY, int NZ) 
 {
     // Initialize the refined elements vector
-    std::vector<float> ele_refine(NX * NY * NZ, 0.0);
+    vector<float> ele_refine(NX * NY * NZ, 0.0);
 
     // Compute the maximum value of phi for thresholding
-    float maxPhi = *std::max_element(phi.begin(), phi.end());
+    float maxPhi = *max_element(phi.begin(), phi.end());
 
     // Loop through the 3D grid to compute the refinement flags
     for (int i = 1; i < NX - 1; ++i) {       // Avoid boundaries
@@ -758,22 +758,22 @@ std::vector<float> ComputeRefine(const std::vector<float>& phi, int NX, int NY, 
     return ele_refine;
 }
 
-void THS3D(const std::string &path_in) {
-    std::cout << "******************************************************************************" << std::endl;
-    std::cout << "Local refinement based on Xiaodong's THS3D code ..." << std::endl;
-    std::cout << "******************************************************************************" << std::endl;
+void THS3D(const string &path_in) {
+    cout << "******************************************************************************" << endl;
+    cout << "Local refinement based on Xiaodong's THS3D code ..." << endl;
+    cout << "******************************************************************************" << endl;
 
     // Construct the command
-    std::string ths3d_cmd = "../THS3D/THS3D " + path_in;
+    string ths3d_cmd = "../THS3D/THS3D " + path_in;
 
     // Log the command for debugging
-    std::cout << "Executing THS3D command: " << ths3d_cmd << std::endl;
+    cout << "Executing THS3D command: " << ths3d_cmd << endl;
 
     // Execute the command
-    int ret_code = std::system(ths3d_cmd.c_str());
+    int ret_code = system(ths3d_cmd.c_str());
     if (ret_code != 0) {
-        std::cerr << "Error: THS3D command failed with return code " << ret_code << std::endl;
+        cerr << "Error: THS3D command failed with return code " << ret_code << endl;
     } else {
-        std::cout << "THS3D completed successfully." << std::endl;
+        cout << "THS3D completed successfully." << endl;
     }
 }

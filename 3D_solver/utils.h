@@ -30,9 +30,9 @@ void mpmetis(int n_process, string path_in);
 void write_hex_toVTK(const char* qs, vector<vector<float>>& vertices, vector<vector<int>>& elements);
 
 // Printing and File Operations
-void PrintVec2TXT(const std::vector<float>& v, const std::string& fn, bool visualization);
-void writeVectorToFile(const std::vector<float>& data, const std::string& filename, bool binary);
-std::vector<float> readVectorFromFile(const std::string& filename, bool binary);
+void PrintVec2TXT(const vector<float>& v, const string& fn, bool visualization);
+void writeVectorToFile(const vector<float>& data, const string& filename, bool binary);
+vector<float> readVectorFromFile(const string& filename, bool binary);
 
 // Soma Initialization
 void InitializeSoma(int numNeuron, vector<array<float, 3>>& seed, int& NX, int& NY, int& NZ);
@@ -58,9 +58,9 @@ float round5(float value);
 float Lerp(float a, float b, float t);
 
 // Refinement and Clustering
-std::vector<float> ComputeRefine(const std::vector<float>& phi, int NX, int NY, int NZ);
+vector<float> ComputeRefine(const vector<float>& phi, int NX, int NY, int NZ);
 
 // THS3D Integration
-void THS3D(const std::string& path_in);
+void THS3D(const string& path_in);
 
 #endif // UTILS_H
