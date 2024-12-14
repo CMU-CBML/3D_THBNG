@@ -3,9 +3,15 @@
 # Hey!, I am comment number 2. I want to say that CFLAGS will be the
 # options I'll pass to the compiler.
 
+###################################################################################################	
 UNAME_S := $(shell uname -s)
+HOSTNAME := $(shell hostname)
 ifeq ($(UNAME_S),Linux)
-	Compiler=/ocean/projects/eng170006p/ussqww/petsc/arch-linux-c-opt/bin/mpic++
+	ifeq ($(HOSTNAME),Kuanren-G14) # WSL
+		Compiler = /home/kuanrenqian/Research/petsc/arch-linux-c-opt/bin/mpic++
+	else
+		Compiler = /ocean/projects/eng170006p/ussqww/petsc/arch-linux-c-opt/bin/mpic++
+	endif
 endif
 ifeq ($(UNAME_S),Darwin)
 	Compiler=/opt/homebrew/Cellar/gcc/14.2.0_1/bin/aarch64-apple-darwin24-g++-14

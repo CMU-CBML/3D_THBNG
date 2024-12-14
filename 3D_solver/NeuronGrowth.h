@@ -156,8 +156,12 @@ public:
     float Diff;                 // Diffusion
     float source_coeff;         // Source coefficient
 
+	string phi_solver;
 	// Class Methods for NeuronGrowth
-	NeuronGrowth(const string& phi_solver); // Constructor
+	NeuronGrowth(const string& phi_solver_in,
+				const int iter_in,
+				const int numNeuron_in,
+				const int end_iter_in); // Constructor
 
 	// Assign elements to different processors
 	void AssignProcessor(vector<vector<int>> &ele_proc); 
@@ -273,16 +277,16 @@ public:
 	// Visualize the entire physical domain and save as VTK file
 	void VisualizeVTK_PhysicalDomain_All(
 		int step,                             // Time step for output
-		const string& fn                      // File name
+		string fn                      // File name
 	);
 
 	// Write VTK file for all variables with points, displacements, and elements
 	void WriteVTK_ALL(
-		const vector<array<float, 3>>& spt,    // Spatial points
-		const vector<vector<float>>& sdisp,    // Displacement values for multiple variables
-		const vector<array<int, 8>>& sele,     // Element connectivity
+		const vector<array<float, 3>> spt,    // Spatial points
+		const vector<vector<float>> sdisp,    // Displacement values for multiple variables
+		const vector<array<int, 8>> sele,     // Element connectivity
 		int step,                             // Time step for output
-		const string& fn                      // File name
+		string fn                      // File name
 	);
 
 	// Evaluate the value of a field at a point using basis functions
@@ -363,20 +367,23 @@ public:
 	// 							float &dAPdx, float &dAPdy);
 	inline void ElementEvaluationAll_phi(
 		int nen,
-		const std::vector<float> &Nx,
-		const std::vector<std::array<float, 3>> &dNdx,
-		const std::vector<std::vector<float>> &eleVal,
-		std::vector<float> &vars);
+		const vector<float> &Nx,
+		const vector<array<float, 3>> &dNdx,
+		const vector<vector<float>> &eleVal,
+		vector<float> &vars);
+
 	void ElementEvaluationAll_phi_test(const uint &nen, 
-								const std::vector<float> &Nx, 
-								const std::vector<std::array<float, 3>> &dNdx, 
-								const std::vector<float> &elePhiGuess, 
-								std::vector<float> &vars);
+								const vector<float> &Nx, 
+								const vector<array<float, 3>> &dNdx, 
+								const vector<float> &elePhiGuess, 
+								vector<float> &vars);
+
 	void ElementEvaluationAll_phi_opt(const uint &nen, 
-								const std::vector<float> &Nx, 
-								const std::vector<std::array<float, 3>> &dNdx, 
-								const std::vector<float> &elePhiGuess, 
-								std::vector<float> &vars);
+								const vector<float> &Nx, 
+								const vector<array<float, 3>> &dNdx, 
+								const vector<float> &elePhiGuess, 
+								vector<float> &vars);
+
 	// void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
 	// 	vector<vector<float>> &eleVal, vector<float> &vars);
 	void ElementEvaluationAll_syn_tub(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
@@ -462,13 +469,24 @@ public:
 	void PopulateRandom(vector<float>& input); 
 		// Populate input vector with random values after domain expansion
 
+	// Interpolate Variables Using Coarse KDTree
+	vector<float> InterpolateVars_coarseKDtree(
+		const vector<float>& input,           // Input values from the initial control points
+		const vector<Vertex3D>& cpts_initial, // Initial control points for interpolation
+		const KDTree& kdTree_initial,              // KDTree built from the initial control points
+		const vector<Vertex3D>& cpts,         // Current control points for interpolation
+		int type,                                  // Interpolation type: 0 (max), 1 (average), 2 (zero)
+		int isTheta                                // Special flag for theta handling: 1 for special out-of-bound handling
+	);
+		// Interpolates values from the coarse KDTree to the current control points.
+
 	// KDTree Search for Pair Matching
 	bool KD_SearchPair(
 		const vector<Vertex3D>& cpts,      // Control points for searching
 		const KDTree& kdTree,              // KDTree for spatial indexing
 		float targetX, float targetY, float targetZ, // Target coordinates to search
 		int& ind,                          // Output: index of the closest match
-		float tolerance                    // Tolerance for pair matching
+		float tolerance = 1.0f             // Tolerance for pair matching
 	); 
 		// Search for a pair in KDTree within a tolerance
 	
@@ -638,7 +656,7 @@ PetscErrorCode CleanUpSolvers(NeuronGrowth &NG);
 
 // Main Simulation Driver
 int RunNG(
-    int n_bzmesh, vector<vector<int>> ele_process_in,
+    const int n_bzmesh, vector<vector<int>> ele_process_in,
     vector<Vertex3D> cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
     string path_in, string path_out,
     int &iter, int end_iter_in,

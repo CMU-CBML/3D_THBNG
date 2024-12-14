@@ -1,8 +1,14 @@
 ###################################################################################################	
 UNAME_S := $(shell uname -s)
+HOSTNAME := $(shell hostname)
 ifeq ($(UNAME_S),Linux)
-	PETSC_DIR = /ocean/projects/eng170006p/ussqww/petsc
-	Compiler = /ocean/projects/eng170006p/ussqww/petsc/arch-linux-c-opt/bin/mpic++
+	ifeq ($(HOSTNAME),Kuanren-G14) # WSL
+		PETSC_DIR = /home/kuanrenqian/Research/petsc
+		Compiler = /home/kuanrenqian/Research/petsc/arch-linux-c-opt/bin/mpic++
+	else
+		PETSC_DIR = /ocean/projects/eng170006p/ussqww/petsc
+		Compiler = /ocean/projects/eng170006p/ussqww/petsc/arch-linux-c-opt/bin/mpic++
+	endif
 endif
 ifeq ($(UNAME_S),Darwin)
 	PETSC_DIR = /Users/kuanrenqian/petsc
