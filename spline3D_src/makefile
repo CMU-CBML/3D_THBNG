@@ -19,7 +19,7 @@ endif
 
 EIGEN_DIR = ../eigen-3.4.0
 
-CFLAGS= --fast-math -O3 -c -std=c++11 -I ${EIGEN_DIR} -Wall 
+CFLAGS= -Ofast -ffast-math -flto -c -std=c++17 -I ${EIGEN_DIR} -Wall 
 #-DMKL_ILP64
 FLAGS_LINK = -fopenmp -lpthread -lm -ldl
 

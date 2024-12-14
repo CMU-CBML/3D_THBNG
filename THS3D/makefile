@@ -16,7 +16,7 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 EIGEN_DIR = ../eigen-3.4.0
-CFLAGS= ${PETSC_CC_INCLUDES} ${CXX_FLAGS} ${CXXFLAGS} ${CPPFLAGS}  ${PSOURCECXX} --fast-math -O3 -std=c++11 -fopenmp -Wall -I ${EIGEN_DIR}
+CFLAGS= ${PETSC_CC_INCLUDES} ${CXX_FLAGS} ${CXXFLAGS} ${CPPFLAGS}  ${PSOURCECXX} -Ofast -ffast-math -flto -std=c++11 -fopenmp -Wall -I ${EIGEN_DIR}
 
 all: THS3D
 
