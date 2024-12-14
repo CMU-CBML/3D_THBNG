@@ -67,6 +67,7 @@
                 "sstream": "cpp",
                 "variant": "cpp",
                 "ostream": "cpp",
-                "print": "cpp"
+                "print": "cpp",
+                "iostream": "cpp"
         }
 }

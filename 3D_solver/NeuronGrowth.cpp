@@ -163,80 +163,63 @@ NeuronGrowth::NeuronGrowth(const string& phi_solver,
 		source_coeff    = 15;        // Source term coefficient
 
 	} else if (phi_solver == "snes") {
-		// Simulation parameters
+		// 	// // integer variable setup
+		// expandCK_invl		= 10000; 		// var_save_invl
+		// // integer variable setup
+		// var_save_invl		= 50; 		// var_save_invl
+		// numNeuron 		= 1;	     	// numNeuron
+		// // M_axon			= 100;		// M_axon
+		// // M_neurites 		= 60;  		// M_neurites
+		// aniso 			= 6;   		// aniso
+		// gamma 			= 10;  		// gamma
+		// seed_radius 		= 4;		// seed radius
+
+		// // variable setup
+		// kappa			= 1.8;		// kappa;
+		// dt			= 1e-2;		// time step
+		// Dc			= 3;		// syn D
+		// alpha			= 0.9;		// alpha
+		// alphaOverPi		= alpha / PI; 	// alphOverPix
+		// M_phi			= 10;		// M_phi
+		// s_coeff			= 0.007;	// s_coeff
+		// delta			= 0.50;		// delta
+		// epsilonb		= 0.01;		// epsilonb
+		// r			= 5;		// r
+		// g			= 0.1;		// g
+		// alphaT 			= 0.001;	// alpha_t
+		// betaT			= 0.001;	// beta_t
+		// Diff			= 4;		// Diff
+		// source_coeff		= 15;		// source_coeff
+		// Simulation parameters setup
+
+		// Simulation settings
+		expandCK_invl   = 10000;    // Interval for expanding control knots
 		var_save_invl   = 100;       // Interval for saving variables
-		expandCK_invl   = 350000;     // Interval for expanding control knots
+		numNeuron       = 1;        // Number of neurons
+		seed_radius     = 4;        // Initial seed radius for neuron growth
+		dt              = 1e-2;     // Time step size
 
-		// Neuron-specific parameters
-		aniso           = 6;         // Anisotropy constant
-		numNeuron       = 1;         // Number of neurons
-		gc_sz           = 2;         // Growth cone size
+		// Phase field growth-related parameters
+		aniso           = 6;        // Anisotropy constant
+		gamma           = 10;       // Growth feedback factor
+		kappa           = 1.8;      // Stiffness constant for bending
+		Dc              = 3;        // Diffusion coefficient for synaptic concentration
+		alpha           = 0.9;      // Growth rate scaling factor
+		alphaOverPi     = alpha / PI; // Alpha normalized over π
+		M_phi           = 10;       // Mobility for phase field
+		s_coeff         = 0.007;    // Source coefficient for growth
+		delta           = 0.50;     // Growth anisotropy coefficient
+		epsilonb        = 0.01;     // Baseline epsilon for anisotropy
 
-		// Diffusion and mobility
-		Diff            = 4;         // Diffusion coefficient
-		M_axon          = 100;       // Mobility for axon
-		M_neurite       = 50;        // Mobility for neurite
-		M_phi           = 10;        // Mobility for phase field
-
-		// Growth-related parameters
-		alpha           = 0.9;       // Growth rate scaling factor
-		alphaT          = 0.001;     // Tubulin production scaling factor
-		betaT           = 0.001;     // Tubulin degradation scaling factor
-		c_opt           = 1;         // Optimization constant for growth
-		delta           = 0.50;      // Growth anisotropy coefficient
-
-		// Time-stepping
-		dt              = 0.0005;    // Time step size for no-local refinement
-		// dt				= 5e-3;
-		// dt              = 0.0001;    // Time step size for local refinement
-
-		// Phase field model parameters
-		// epsilonb        = 0.01;      // Baseline epsilon for growth anisotropy
-		epsilonb        = 0.04;      // Baseline epsilon for growth anisotropy
-		r               = 5;         // rg
-		g               = 0.1;       // sg
-		gamma           = 10;        // Growth feedback factor
-		k2              = 0;         // Secondary feedback term
-		kappa           = 1.8;         // Stiffness constant for bending
-		Dc              = 3;         // Diffusion coefficient for concentration
-
-		// Boundary and seed-related parameters
-		kp75            = 0;         // Placeholder constant for tuning
-		s_coeff         = 0.007;     // Source coefficient for growth
-		
-		seed_radius     = 5;         // Initial seed radius
-		source_coeff    = 15;        // Source term coefficient
+		// Tubulin & synaptogensis parameters
+		r               = 5;        // Radial growth parameter
+		g               = 0.1;      // Growth sensitivity factor
+		alphaT          = 0.001;    // Tubulin production scaling factor
+		betaT           = 0.001;    // Tubulin degradation scaling factor
+		Diff            = 4;        // Diffusion coefficient
+		source_coeff    = 15;       // Source term coefficient
 
 	}
-	
-		// // Integer variable setup
-		// expandCK_invl = 100000;    // Interval for expanding computation kernels
-		// var_save_invl = 10;     // Interval for saving variables
-
-		// numNeuron = 1;          // Number of neurons
-		// aniso = 6;              // Anisotropy factor
-		// gamma = 10;             // Gamma parameter for equations
-
-		// // Variable setup
-		// kappa = 1.8;            // Kappa parameter
-
-		// dt = 5e-3;              // Time step size for local refinement
-		// // dt = 1e-2;              // Time step size for no-local refinement
-
-		// Dc = 3;                 // Diffusion coefficient for synapse
-		// alpha = 0.9;            // Alpha parameter
-		// alphaOverPi = alpha / PI; // Alpha divided by PI
-		// M_phi = 10;             // Mobility for phase field
-		// s_coeff = 0.007;        // Source coefficient
-		// delta = 0.50;           // Delta parameter
-		// epsilonb = 0.01;        // Regularization parameter for boundary
-		// r = 5;                  // Radius for initialization
-		// g = 0.1;                // Growth factor
-		// alphaT = 0.001;         // Temperature-related parameter alphaT
-		// betaT = 0.001;          // Temperature-related parameter betaT
-		// Diff = 4;               // Diffusion coefficient
-		// seed_radius = 4;        // Seed radius
-		// source_coeff = 15;      // Source coefficient for boundary conditions
 }
 
 // Assign processor-specific elements to the local process
@@ -2266,7 +2249,7 @@ void NeuronGrowth::EvaluateOrientation(
 
         // Compute eleAniso contribution
         float tmp = epsilonb * (1 - 3 * delta) + epsilonb * 4 * delta * dP4 / (md4 + stable);
-        if (isnan(tmp) || abs(tmp) > 10) {
+        if (isnan(tmp) || abs(tmp) > 10) { // does not work if Ofast and ffast-math are enabled in makefile
             cout << "nan eleAniso: " << tmp << endl;
             tmp = 0.0f;
         }
@@ -2279,7 +2262,7 @@ void NeuronGrowth::EvaluateOrientation(
             (4 * dPdx3) / ((C2x + dPdx2) * (C2x + dPdx2) + stable) -
             (4 * dPdx1 * (C1x + dPdx4)) / ((C2x + dPdx2) * (C2x + dPdx2) * (C2x + dPdx2) + stable)
         );
-        if (isnan(tmp) || abs(tmp) > 10) {
+        if (isnan(tmp) || abs(tmp) > 10) { // does not work if Ofast and ffast-math are enabled in makefile
             cout << "nan dA_dPdx: " << tmp << endl;
             tmp = 0.0f;
         }
@@ -2292,7 +2275,7 @@ void NeuronGrowth::EvaluateOrientation(
             (4 * dPdy3) / ((C2y + dPdy2) * (C2y + dPdy2) + stable) -
             (4 * dPdy1 * (C1y + dPdy4)) / ((C2y + dPdy2) * (C2y + dPdy2) * (C2y + dPdy2) + stable)
         );
-        if (isnan(tmp) || abs(tmp) > 10) {
+        if (isnan(tmp) || abs(tmp) > 10) { // does not work if Ofast and ffast-math are enabled in makefile
             cout << "nan dA_dPdy: " << tmp << endl;
             tmp = 0.0f;
         }
@@ -2305,7 +2288,7 @@ void NeuronGrowth::EvaluateOrientation(
             (4 * dPdz3) / ((C2z + dPdz2) * (C2z + dPdz2) + stable) -
             (4 * dPdz1 * (C1z + dPdz4)) / ((C2z + dPdz2) * (C2z + dPdz2) * (C2z + dPdz2) + stable)
         );
-        if (isnan(tmp) || abs(tmp) > 10) {
+        if (isnan(tmp) || abs(tmp) > 10) { // does not work if Ofast and ffast-math are enabled in makefile
             cout << "nan dA_dPdz: " << tmp << endl;
             tmp = 0.0f;
         }
@@ -2313,70 +2296,6 @@ void NeuronGrowth::EvaluateOrientation(
     }
 }
 
-// void NeuronGrowth::EvaluateOrientation(const int nen, const vector<float> &Nx, const vector<array<float, 3>> &dNdx, const vector<float> elePhi, const vector<float> eleTheta,  float& eleAniso, float& dA_dPdx, float& dA_dPdy, float& dA_dPdz)
-// {
-// 	dA_dPdx = 0; dA_dPdy = 0; dA_dPdz = 0;
-// 	for (int i = 0; i < nen; i++) {
-// 		// if ((elePhi[i] > 0.05) && (elePhi[i] < 0.95)) {	
-// 			float dPdx4 = pow(elePhi[i] * dNdx[i][0], 4);
-// 			float dPdy4 = pow(elePhi[i] * dNdx[i][1], 4);
-// 			float dPdz4 = pow(elePhi[i] * dNdx[i][2], 4);
-// 			float dPdx3 = pow(elePhi[i] * dNdx[i][0], 3);
-// 			float dPdy3 = pow(elePhi[i] * dNdx[i][1], 3);
-// 			float dPdz3 = pow(elePhi[i] * dNdx[i][2], 3);
-// 			float dPdx2 = pow(elePhi[i] * dNdx[i][0], 2);
-// 			float dPdy2 = pow(elePhi[i] * dNdx[i][1], 2);
-// 			float dPdz2 = pow(elePhi[i] * dNdx[i][2], 2);
-// 			float dPdx1 = elePhi[i] * dNdx[i][0];
-// 			float dPdy1 = elePhi[i] * dNdx[i][1];
-// 			float dPdz1 = elePhi[i] * dNdx[i][2];
-
-// 			float dP4 = dPdx4 + dPdy4 + dPdz4;
-// 			float md4 = pow((dPdx2 + dPdy2 + dPdz2), 2);
-
-// 			float stable(1e-2);
-
-// 			float tmp(0);
-// 			tmp = epsilonb * (1 - 3 * delta) + epsilonb * 4 * delta * dP4 / (md4 + stable);
-
-// 			if ((isnan(tmp) == 1) || (abs(tmp) > 10)) {
-// 				cout << "nan 1: " << tmp << endl;
-// 				tmp = 0;
-// 			}
-// 			eleAniso += tmp;
-
-// 			float C1x = dPdy4 + dPdz4;
-// 			float C2x = dPdy2 + dPdz2;
-// 			tmp = epsilonb * 4 * delta * ( (4 * dPdx3) / (pow(C2x + dPdx2, 2) + stable)
-// 				- (4 * dPdx1 * (C1x + dPdx4)) / (pow((C2x + dPdx2), 3) + stable) );
-// 			if ((isnan(tmp) == 1) || (abs(tmp) > 10)) {
-// 				cout << "nan 2: " << tmp << endl;
-// 				tmp = 0;
-// 			}
-// 			dA_dPdx += tmp;
-
-// 			float C1y = dPdx4 + dPdz4;
-// 			float C2y = dPdx2 + dPdz2;
-// 			tmp =  epsilonb * 4 * delta * ( (4 * dPdy3) / (pow(C2y + dPdy2, 2) + stable)
-// 				- (4 * dPdy1 * (C1y + dPdy4)) / (pow((C2y + dPdy2), 3) + stable) );
-// 			if ((isnan(tmp) == 1) || (abs(tmp) > 10)) {
-// 				cout << "nan 3: " << tmp << endl;
-// 				tmp = 0;
-// 			}
-// 			dA_dPdy += tmp;
-		
-// 			float C1z = dPdx4 + dPdy4;
-// 			float C2z = dPdx2 + dPdy2;
-// 			tmp =  epsilonb * 4 * delta * ( (4 * dPdz3) / (pow(C2z + dPdz2, 2) + stable)
-// 				- (4 * dPdz1 * (C1z + dPdz4)) / (pow((C2z + dPdz2), 3) + stable) );
-// 			if ((isnan(tmp) == 1) || (abs(tmp) > 10)) {
-// 				cout << "nan 4: " << tmp << endl;
-// 				tmp = 0;
-// 			}
-// 			dA_dPdz += tmp;
-// 		// }
-// 	}
-// }
 void NeuronGrowth::EvaluateOrientationSpherical(
 		const int nen,                    // Number of nodes in the element
 		const vector<float>& Nx,          // Basis function values
@@ -3754,83 +3673,53 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
         for (i = 0; i < gptSize; i++) {
             for (j = 0; j < gptSize; j++) {
                 for (k = 0; k < gptSize; k++) {
-                    float eleAniso=0.f, dA_dPdx=0.f, dA_dPdy=0.f, dA_dPdz=0.f;
-                    if (user->n > 0)
-                        user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[4], eleAniso, dA_dPdx, dA_dPdy, dA_dPdz);
+					// user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[4], user->eleVal[6], user->eleVal[7]);
+					float eleAniso(0), dA_dPdx(0), dA_dPdy(0), dA_dPdz(0);
+					if (user->n > 0)
+						user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[4], eleAniso, dA_dPdx, dA_dPdy, dA_dPdz);
+					user->ElementEvaluationAll_phi(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal, user->vars);
 
-                    user->ElementEvaluationAll_phi(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal, user->vars);
+					float eleMp;
+					eleMp = 1;
 
-                    float eleMp = 1.0f;
+					// adjust rg (assembly rate) and sg (disassembly rate) based on detected tips
+					if (user->n < 0) {
+						user->vars[8] = user->alphaOverPi*atan(user->gamma * (1 - user->vars[6]));
+					} else {
+						if (user->vars[9] > 0) {
+							user->vars[8] = user->alphaOverPi*atan(user->gamma * 1 * (1 - user->vars[6]));
+						} else {
+							user->vars[8] = user->alphaOverPi*atan(user->gamma * 0 * (1 - user->vars[6]));
+						}
+					}
 
-                    // Adjust rates
-                    float &rg = user->vars[8];
-                    float gamma = user->gamma;
-                    float alphaOverPi = user->alphaOverPi;
-                    float vars6 = user->vars[6];
-                    float vars7 = user->vars[7];
-                    float vars9 = user->vars[9];
+					// calculate C1 variable for phase field energy term
+					user->vars[0] = user->vars[8] - user->pre_C0[ind];
 
-                    if (user->n < 0) {
-                        rg = alphaOverPi * atan(gamma * (1 - vars6));
-                    } else {
-                        if (vars9 > 0) {
-                            rg = alphaOverPi * atan(gamma * (1 - vars6));
-                        } else {
-                            rg = alphaOverPi * atan(gamma * 0 * (1 - vars6));
-                        }
-                    }
+					// loop through control points
+					for (int m = 0; m < nen; m++) {
+						EVectorSolve[m] += (user->vars[2] * user->pre_Nx[ind][m] - user->dt * eleMp * (
+							(- eleAniso * eleAniso * (user->vars[3] * user->pre_dNdx[ind][m][0] + user->vars[4] * user->pre_dNdx[ind][m][1] + user->vars[18] * user->pre_dNdx[ind][m][2]))
+							+ (- user->pre_dNdx[ind][m][0] * eleAniso * dA_dPdx * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
+							+ (- user->pre_dNdx[ind][m][1] * eleAniso * dA_dPdy * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
+							+ (- user->pre_dNdx[ind][m][2] * eleAniso * dA_dPdz * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
+							+ (- user->vars[2] * user->vars[2] * user->vars[2] + (1 - user->vars[0]) * user->vars[2] * user->vars[2] + user->vars[0] * user->vars[2]) * user->pre_Nx[ind][m]
+							) - user->vars[5] * user->pre_Nx[ind][m]
+							) * user->pre_detJ[ind];
 
-                    user->vars[0] = rg - user->pre_C0[ind]; // C1 variable
+						// loop through 16 control points
+						for (int n = 0; n < nen; n++) {
+							EMatrixSolve[m][n] += (user->pre_Nx[ind][m] * user->pre_Nx[ind][n] - user->dt * eleMp * (
+								(- eleAniso * eleAniso * (user->pre_dNdx[ind][m][0] * user->pre_dNdx[ind][n][0] + user->pre_dNdx[ind][m][1] * user->pre_dNdx[ind][n][1] + user->pre_dNdx[ind][m][2] * user->pre_dNdx[ind][n][2])) // terma2
+								+ (- user->pre_dNdx[ind][m][0] * eleAniso * dA_dPdx * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
+								+ (- user->pre_dNdx[ind][m][1] * eleAniso * dA_dPdy * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
+								+ (- user->pre_dNdx[ind][m][2] * eleAniso * dA_dPdz * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
+								+ (- 3 * user->vars[2] * user->vars[2] + 2 * (1 - user->vars[0]) * user->vars[2] + user->vars[0] * user->pre_Nx[ind][m]) * user->pre_Nx[ind][n] // termdbl
+								)) * user->pre_detJ[ind];
 
-                    // Precompute repeated terms for speed
-                    float dPGx = user->vars[3], dPGy = user->vars[4], dPGz = user->vars[18];
-                    float dPGx2 = dPGx*dPGx, dPGy2 = dPGy*dPGy, dPGz2 = dPGz*dPGz;
-                    float grad2 = dPGx2 + dPGy2 + dPGz2;
-                    float twoGradSum = 2*(dPGx + dPGy + dPGz); // if needed
-                    float detJ = user->pre_detJ[ind];
-                    float dt = user->dt;
-                    float var2 = user->vars[2], var0 = user->vars[0], var5 = user->vars[5];
-
-                    float minusEleAnisoSq = - (eleAniso * eleAniso);
-                    float cubicTerm = (- var2*var2*var2 + (1 - var0)*var2*var2 + var0*var2);
-
-                    // Assemble Residual & Jacobian
-                    // Avoid pow in inner loop
-                    for (int m = 0; m < nen; m++) {
-                        float Nm = user->pre_Nx[ind][m];
-                        float dm0 = user->pre_dNdx[ind][m][0];
-                        float dm1 = user->pre_dNdx[ind][m][1];
-                        float dm2 = user->pre_dNdx[ind][m][2];
-
-                        float residualTerm = (var2 * Nm - dt*eleMp * (
-                            (minusEleAnisoSq*(dPGx*dm0 + dPGy*dm1 + dPGz*dm2))
-                            + (- dm0 * eleAniso * dA_dPdx * grad2)
-                            + (- dm1 * eleAniso * dA_dPdy * grad2)
-                            + (- dm2 * eleAniso * dA_dPdz * grad2)
-                            + cubicTerm * Nm)
-                            - var5*Nm)*detJ;
-
-                        EVectorSolve[m] += residualTerm;
-
-                        for (int n = 0; n < nen; n++) {
-                            float Nn = user->pre_Nx[ind][n];
-                            float dn0 = user->pre_dNdx[ind][n][0];
-                            float dn1 = user->pre_dNdx[ind][n][1];
-                            float dn2 = user->pre_dNdx[ind][n][2];
-
-                            float jacTerm = (Nm*Nn - dt*eleMp*(
-                                (minusEleAnisoSq*(dm0*dn0 + dm1*dn1 + dm2*dn2))
-                                + (- dm0 * eleAniso * dA_dPdx * (2*dPGx + 2*dPGy + 2*dPGz))
-                                + (- dm1 * eleAniso * dA_dPdy * (2*dPGx + 2*dPGy + 2*dPGz))
-                                + (- dm2 * eleAniso * dA_dPdz * (2*dPGx + 2*dPGy + 2*dPGz))
-                                + (-3*var2*var2 + 2*(1 - var0)*var2 + var0*Nm)*Nn
-                                ))*detJ;
-
-                            EMatrixSolve[m][n] += jacTerm;
-                        }
-                    }
-
-                    ind++;
+						}
+					}
+					ind += 1; // incrementing index for extracting pre-calculated variables
                 }
             }
         }
