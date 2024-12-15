@@ -426,8 +426,15 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 		distI.assign(cpt_sz, 0.0f);
 
 		for (size_t i = 0; i < cpt_sz; ++i) {
-			const auto& cpt = cpts[i];
+			// Extract coordinates for readability
+			const auto& [x, y, z] = cpts[i].coor;
 
+			// Assign boundary labels based on spatial bounds
+			cpts[i].label = (x == min_x || x == max_x || 
+						y == min_y || y == max_y || 
+						z == min_z || z == max_z) ? 1 : 0;
+						
+			const auto& cpt = cpts[i];
 			// Check if the point is within bounds
 			if (cpt.coor[0] > min_x_prev && cpt.coor[0] < max_x_prev &&
 				cpt.coor[1] > min_y_prev && cpt.coor[1] < max_y_prev &&
@@ -673,81 +680,6 @@ void NeuronGrowth::ReadBezierElementProcess(const string& fn)
 	}
 }
 
-// void NeuronGrowth::ReadBezierElementProcess(string fn)
-// {
-// 	string stmp;
-// 	int npts, neles, nfunctions, itmp, itmp1;
-// 	int add(0);
-
-// 	string fname_cmat = fn + "cmat.txt";
-// 	ifstream fin_cmat;
-// 	fin_cmat.open(fname_cmat);
-
-// 	int numPTs(0); 
-
-// 	if (fin_cmat.is_open()) {
-// 		fin_cmat >> neles;
-// 		bzmesh_process.resize(ele_process.size());
-// 		for (int i = 0; i<neles; i++) {
-// 			if (i == ele_process[add]) {
-// 				fin_cmat >> itmp >> nfunctions >> bzmesh_process[add].type;
-// 				bzmesh_process[add].cmat.resize(nfunctions);
-// 				bzmesh_process[add].IEN.resize(nfunctions);
-// 				for (int j = 0; j < nfunctions; j++) {
-// 					fin_cmat >> bzmesh_process[add].IEN[j];
-// 				}
-
-// 				for (int j = 0; j < nfunctions; j++) {
-// 					for (int k = 0; k < 64; k++) {
-// 						fin_cmat >> bzmesh_process[add].cmat[j][k];
-// 					}
-// 				}
-// 				add++;
-// 			}
-// 			else {
-// 				fin_cmat >> stmp >> nfunctions >> itmp;
-// 				for (int j = 0; j < nfunctions; j++)
-// 					fin_cmat >> stmp;
-// 				for (int j = 0; j < nfunctions; j++)
-// 					for (int k = 0; k < 64; k++)
-// 						fin_cmat >> stmp;
-// 			}
-// 		}
-// 		fin_cmat.close();
-// 		PetscPrintf(PETSC_COMM_WORLD, "Bezier Matrices Loaded!\n");
-// 	}
-// 	else {
-// 		PetscPrintf(PETSC_COMM_WORLD, "Cannot open %s!\n", fname_cmat.c_str());
-// 	}
-
-// 	string fname_bzpt = fn + "bzpt.txt";
-// 	ifstream fin_bzpt;
-// 	fin_bzpt.open(fname_bzpt);
-// 	add = 0;
-// 	if (fin_bzpt.is_open()) {
-// 		fin_bzpt >> npts;
-// 		getline(fin_bzpt, stmp);
-// 		for (int e = 0; e < neles; e++) {
-// 			if (e == ele_process[add]) {
-// 				bzmesh_process[add].pts.resize(bzpt_num);
-// 				for (int i = 0; i < bzpt_num; i++) {
-// 					fin_bzpt >> bzmesh_process[add].pts[i][0] >> bzmesh_process[add].pts[i][1] >> bzmesh_process[add].pts[i][2];
-// 				}
-// 				add++;
-// 			}
-// 			else {
-// 				for (int i = 0; i < bzpt_num; i++)
-// 					fin_bzpt >> stmp >> stmp >> stmp;
-// 			}
-// 		}
-// 		fin_bzpt.close();
-// 		PetscPrintf(PETSC_COMM_WORLD, "Bezier Points Loaded!\n");
-// 	}
-// 	else {
-// 		PetscPrintf(PETSC_COMM_WORLD, "Cannot open %s!\n", fname_bzpt.c_str());
-// 	}
-// }
-
 void NeuronGrowth::GaussInfo(int ng) {
     // Clear existing data
     Gpt.clear();
@@ -914,126 +846,6 @@ void NeuronGrowth::ResidualAssembly(vector<float> &EVectorSolve, const vector<in
 	delete nodeList;
 	delete tmpGR;
 }
-
-// void NeuronGrowth::MatrixAssembly(
-// 	vector<vector<float>> &EMatrixSolve, const vector<int> &IEN, Mat &GK) 
-// {
-//     int nen = IEN.size();
-
-//     // Pre-allocate for typical case when nen <= 64
-//     PetscInt nodeListStatic[64];
-//     PetscScalar tmpGKStatic[64 * 64];
-
-//     PetscInt *nodeList = (nen <= 64) ? nodeListStatic : new PetscInt[nen];
-//     PetscScalar *tmpGK = (nen <= 64) ? tmpGKStatic : new PetscScalar[nen * nen];
-
-//     int add = 0;
-//     for (int m = 0; m < nen; ++m) {
-//         nodeList[m] = IEN[m];
-//         for (int n = 0; n < nen; ++n) {
-//             tmpGK[add++] = EMatrixSolve[m][n];
-//         }
-//     }
-
-//     // Insert values into the PETSc matrix
-//     MatSetValues(GK, nen, nodeList, nen, nodeList, tmpGK, ADD_VALUES);
-
-//     // Free dynamically allocated memory if used
-//     if (nen > 64) {
-//         delete[] nodeList;
-//         delete[] tmpGK;
-//     }
-// }
-
-// void NeuronGrowth::ResidualAssembly(
-//     vector<float> &EVectorSolve, const vector<int> &IEN, Vec &GR)
-// {
-//     int nen = IEN.size();
-
-//     // Use stack-allocated arrays to reduce heap allocations
-//     PetscInt nodeList[64];  // Assuming nen <= 64
-//     PetscScalar tmpGR[64];
-
-//     // Populate node list and local residual vector
-//     for (int i = 0; i < nen; ++i) {
-//         nodeList[i] = IEN[i];
-//         tmpGR[i] = EVectorSolve[i];
-//     }
-
-//     // Add values to the global residual vector
-//     VecSetValues(GR, nen, nodeList, tmpGR, ADD_VALUES);
-// }
-
-// void NeuronGrowth::ApplyBoundaryCondition(
-//     const float bc_value, int pt_num, int variable_num,
-//     vector<vector<float>> &EMatrixSolve, vector<float> &EVectorSolve)
-// {
-//     int nen = EVectorSolve.size();
-    
-//     // Update the RHS vector with the boundary condition value
-//     for (int j = 0; j < nen; j++) {
-//         EVectorSolve[j] -= bc_value * EMatrixSolve[j][pt_num + variable_num * nen];
-//     }
-
-//     // Zero out rows and columns corresponding to the boundary node
-//     for (int j = 0; j < nen; j++) {
-//         EMatrixSolve[j][pt_num + variable_num * nen] = 0.0f;
-//         EMatrixSolve[pt_num + variable_num * nen][j] = 0.0f;
-//     }
-
-//     // Set diagonal value and update the RHS
-//     EMatrixSolve[pt_num + variable_num * nen][pt_num + variable_num * nen] = 1.0f;
-//     EVectorSolve[pt_num + variable_num * nen] = bc_value;
-// }
-
-// void NeuronGrowth::MatrixAssembly(
-//     vector<vector<float>> &EMatrixSolve, const vector<int> &IEN, Mat &GK)
-// {
-//     int nen = IEN.size();
-//     int add = 0;
-
-//     // Allocate arrays for PETSc matrix assembly
-//     PetscInt *nodeList = new PetscInt[nen];
-//     PetscReal *tmpGK = new PetscReal[nen * nen];
-
-//     // Populate node list and local stiffness matrix
-//     for (int m = 0; m < nen; m++) {
-//         nodeList[m] = IEN[m];
-//         for (int n = 0; n < nen; n++) {
-//             tmpGK[add++] = EMatrixSolve[m][n];
-//         }
-//     }
-
-//     // Add values to the global stiffness matrix
-//     MatSetValues(GK, nen, nodeList, nen, nodeList, tmpGK, ADD_VALUES);
-
-//     // Clean up allocated memory
-//     delete[] nodeList;
-//     delete[] tmpGK;
-// }
-
-// void NeuronGrowth::ResidualAssembly(
-//     vector<float> &EVectorSolve, const vector<int> &IEN, Vec &GR)
-// {
-//     int nen = IEN.size();
-
-//     // Allocate arrays for PETSc vector assembly
-//     PetscInt *nodeList = new PetscInt[nen];
-//     PetscReal *tmpGR = new PetscReal[nen];
-
-//     // Populate node list and local residual vector
-//     for (int i = 0; i < nen; i++) {
-//         nodeList[i] = IEN[i];
-//         tmpGR[i] = EVectorSolve[i];
-//     }
-
-//     // Add values to the global residual vector
-//     VecSetValues(GR, nen, nodeList, tmpGR, ADD_VALUES);
-
-//     // Clean up allocated memory
-//     delete[] nodeList;
-//     delete[] tmpGR;
-// }
 
 void NeuronGrowth::VisualizeVTK_ControlMesh(const vector<Vertex3D> &spt, const vector<Element3D> &mesh, int step, string fn, vector<float> var, string varName)
 {
@@ -1425,12 +1237,6 @@ void NeuronGrowth::CalculateVarsForOutput(vector<array<float, 3>> &spt_all, vect
 	}
 }
 
-/**
- * Visualizes the physical domain of neuron growth for all variables using VTK.
- *
- * @param step The current simulation step (used for time-stepping control).
- * @param fn The filename prefix for the output VTK files.
- */
 void NeuronGrowth::VisualizeVTK_PhysicalDomain_All(int step, string fn) {
 	// Initialize containers for sample points, simulation results, and element connectivity for all variables
 	vector<vector<array<float, 3>>> spt_all_4var(4); // Sample points for all 4 variables
@@ -1459,15 +1265,6 @@ void NeuronGrowth::VisualizeVTK_PhysicalDomain_All(int step, string fn) {
 	}
 }
 
-/**
- * Writes the simulation data to a VTK file for visualization.
- *
- * @param spt Sample points' coordinates.
- * @param sdisp Scalar displacements for each variable at the sample points.
- * @param sele Connectivity information for the cells (elements).
- * @param step The current simulation step, used for generating the filename.
- * @param fn The base filename to which the step number and extension are appended.
- */
 void NeuronGrowth::WriteVTK_ALL(const vector<array<float, 3>> spt, const vector<vector<float>> sdisp, const vector<array<int, 8>> sele, int step, string fn) {
 	stringstream ss;
 	ss << step;
@@ -1512,77 +1309,6 @@ void NeuronGrowth::WriteVTK_ALL(const vector<array<float, 3>> spt, const vector<
 		cout << "Cannot open " << fname << "!\n";
 	}
 }
-
-// void NeuronGrowth::VisualizeVTK_PhysicalDomain_All(int step, const string& fn) {
-//     // Containers for all variables (phi, syn, tub, tips)
-//     vector<vector<array<float, 3>>> spt_all_4var(4);    // Sample points for each variable
-//     vector<vector<float>> sresult_all_4var(4);          // Simulation results for each variable
-//     vector<vector<array<int, 8>>> sele_all_4var(4);     // Element connectivity for each variable
-
-//     // Array of pointers to variables for streamlined processing
-//     vector<vector<float>*> variables = {&phi, &syn, &tub, &tips};
-
-//     // Calculate output variables for each simulation variable
-//     for (size_t varIdx = 0; varIdx < variables.size(); ++varIdx) {
-//         N_0 = *variables[varIdx]; // Set current variable (phi, syn, tub, tips)
-//         CalculateVarsForOutput(spt_all_4var[varIdx], sresult_all_4var[varIdx], sele_all_4var[varIdx]);
-//     }
-
-//     // Master process writes the VTK file for visualization
-//     if (comRank == 0) {
-//         WriteVTK_ALL(spt_all_4var[0], sresult_all_4var, sele_all_4var[0], step, fn);
-//     }
-// }
-
-// void NeuronGrowth::WriteVTK_ALL(const vector<array<float, 3>>& spt, 
-// 							const vector<vector<float>>& sdisp, 
-// 							const vector<array<int, 8>>& sele, 
-// 							int step, 
-// 							const string& fn) 
-// {
-// 	stringstream ss;
-// 	ss << step;
-// 	string fname = fn + "/physics_allparticle_" + ss.str() + ".vtk";
-// 	ofstream fout(fname.c_str());
-
-// 	if (fout.is_open()) {
-// 		// Write the VTK file header
-// 		fout << "# vtk DataFile Version 2.0\nHex test\nASCII\nDATASET UNSTRUCTURED_GRID\n";
-
-// 		// Write the points
-// 		fout << "POINTS " << spt.size() << " float\n";
-// 		for (unsigned int i = 0; i < spt.size(); i++) {
-// 			fout << spt[i][0] << " " << spt[i][1] << " " << spt[i][2] << "\n";
-// 		}
-
-// 		// Write the cells
-// 		fout << "\nCELLS " << sele.size() << " " << 9 * sele.size() << '\n';
-// 		for (unsigned int i = 0; i < sele.size(); i++) {
-// 			fout << "8 " << sele[i][0] << " " << sele[i][1] << " " << sele[i][2] << " " << sele[i][3]
-// 				<< " " << sele[i][4] << " " << sele[i][5] << " " << sele[i][6] << " " << sele[i][7] << '\n';
-// 		}
-
-// 		// Write the cell types
-// 		fout << "\nCELL_TYPES " << sele.size() << '\n';
-// 		for (unsigned int i = 0; i < sele.size(); i++) {
-// 			fout << "12\n"; // 12 corresponds to VTK_HEXAHEDRON
-// 		}
-
-// 		// Write scalar fields
-// 		fout << "POINT_DATA " << sdisp[0].size() << "\n";
-// 		const char* scalarNames[] = {"phi", "synaptogenesis", "tubulin", "tips"};
-// 		for (size_t varIndex = 0; varIndex < sdisp.size(); ++varIndex) {
-// 			fout << "\nSCALARS " << scalarNames[varIndex] << " float 1\nLOOKUP_TABLE default\n";
-// 			for (size_t i = 0; i < sdisp[varIndex].size(); i++) {
-// 				fout << sdisp[varIndex][i] << "\n";
-// 			}
-// 		}
-
-// 		fout.close();
-// 	} else {
-// 		cout << "Cannot open " << fname << "!\n";
-// 	}
-// }
 
 void NeuronGrowth::PointFormValue(vector<float>& Nx,
 								const vector<float>& U,
@@ -3061,7 +2787,7 @@ vector<float> NeuronGrowth::ComputeRefine(
                 queryPoint.coor[2] = k*2; // Structured grid z-coordinate
 
                 // Find the k closest vertices and their distances
-                int numNeighbors = 6; // Number of neighbors to consider
+                int numNeighbors = 1; // Number of neighbors to consider
                 vector<tuple<Vertex3D, int, float>> closestVertices = 
                     FindClosestVerticesWithIndicesAndDistances(kdTree, cloud, queryPoint, numNeighbors);
 
@@ -4481,70 +4207,11 @@ int RunNG(
 			// cout <<"!!!!!!!" << endl;
 
 			return 2;
-		}
+		}			
 		
-		// /*========================================================*/
-		// // Neuron identification and tip detection
-		// if ((NG.n % 1 == 0) && (NG.n != 0)) {	
-		// 	// PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");	
-		// 	// PetscPrintf(PETSC_COMM_WORLD, "Identifying neurons, calculating geodesic distances, and detecting tips\n");
-		// 	// cout << "ck0" << endl;
-		// 	// NG.IdentifyNeurons3D(neurons, seed, NX, NY, NZ, originX, originY, originZ);
-
-		// 	// cout << "ck1" << endl;
-		// 	// vector<float> id = Convert3DIntTo1DFloatVector(neurons);
-		// 	// cout << NX << " " <<  NY << " " << NZ << " " << id.size() << " " << cpts_initial.size() << endl;
-		// 	// NG.CheckVar("../io3D/id", cpts_initial, id);
-		// 	// cout << "ck2" << endl;
-		// 	// NG.DetectTipsMulti3D(id, NG.numNeuron, NG.tips, NX, NY, NZ);
-		// 	NG.tips = NG.CalculatePhiSum(cpts, 4, 4, 4);
-		// 	// cout << "ck3" << endl;
-
-		// 	// // vector<float> localMaximaMatrix = NG.FindLocalMaximaInClusters(tips, NX+1, NY+1);
-		// 	// // NG.tips = InterpolateVars(localMaximaMatrix, cpts_initial, cpts, 0);
-		// 	// distances = NG.CalculateGeodesicDistanceFromPoint3D(neurons, seed, originX, originY, originZ);
-		// 	// vector<float> geodist = Convert3DIntTo1DFloatVector(distances);
-
-		// 	// NG.CheckVar("../io3D/tips", cpts, NG.tips);
-		// 	// NG.CheckVar("../io3D/geodist", cpts, geodist);
-
-		// 	vector<float> Mphi; Mphi.clear(); Mphi.resize(NG.tips.size());
-		// 	// int maxGeoInd(0);
-		// 	for (int i = 0; i < NG.tips.size(); i++) {
-		// 		// if ((geodist[i] != INF) && (geodist[i] > maxGeoInd)) {
-		// 		// 	maxGeoInd = i;
-		// 		// }
-		// 		if (localRefine == true)
-		// 			if (NG.tips[i] == 0) {
-		// 				Mphi[i] = 0;
-		// 			} else {
-		// 				Mphi[i] = 1;
-		// 			}
-		// 		else {
-		// 			Mphi[i] = 1;
-		// 		}
-
-		// 		// Mphi[i] = 10;
-
-		// 	}
-		// 	// for (int i = -1; i < 1; i++) { // increase Mphi at longest tip 
-		// 	// 	for (int j = -1; j < 1; j++) {
-		// 	// 		Mphi[maxGeoInd+j*(NY+1)-i] = 15;
-		// 	// 	}
-		// 	// }
-		// 	// NG.Mphi = InterpolateVars(Mphi, cpts_initial, cpts, 0);
-		// 	// NG.Mphi = InterpolateValues3D(cpts_initial, Mphi, cpts);	
-		// 	NG.Mphi = Mphi;
-
-		// 	toc(t_collect);
-		// 	tic();
-		// 	t_write += t_collect;
-		// 	t_total += t_collect;
-		// }
-			
-		/*========================================================*/
-		// Domain expansion and variable passing - back to main.cpp
 		if (NG.n % NG.expandCK_invl == 0 && NG.n != 0) {
+			/*========================================================*/
+			// Domain expansion and variable passing - back to main.cpp
 			localRefine = true;
 
 			// Determine expansion direction locally
@@ -4644,7 +4311,7 @@ int RunNG(
 		// 	return 2;
 		// }
 
-		iter += 1;		 
+		// iter += 1;		 
 	}
 
 	/*========================================================*/
