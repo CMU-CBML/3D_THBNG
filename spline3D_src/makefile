@@ -42,5 +42,5 @@ main.o: main.cpp
 	$(Compiler)	$(CFLAGS) main.cpp $(FLAGS_LINK)
 
 clean:
-	rm *o
+	rm *o *Zone.Identifier
 

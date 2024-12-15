@@ -57,5 +57,5 @@ TTSP_3D.o: TTSP_3D.cpp
 	$(Compiler)	-c TTSP_3D.cpp $(CFLAGS)
 
 clean:
-	rm *o THS3D
+	rm *o THS3D *Zone.Identifier
 

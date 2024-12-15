@@ -40,5 +40,5 @@ main.o: main.cpp
 	$(Compiler)	-c main.cpp $(CFLAGS)
 
 clean:
-	rm *o 3DNG
+	rm *o 3DNG *Zone.Identifier
 
