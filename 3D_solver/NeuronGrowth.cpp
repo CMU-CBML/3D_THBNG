@@ -163,35 +163,6 @@ NeuronGrowth::NeuronGrowth(const string& phi_solver,
 		source_coeff    = 15;        // Source term coefficient
 
 	} else if (phi_solver == "snes") {
-		// 	// // integer variable setup
-		// expandCK_invl		= 10000; 		// var_save_invl
-		// // integer variable setup
-		// var_save_invl		= 50; 		// var_save_invl
-		// numNeuron 		= 1;	     	// numNeuron
-		// // M_axon			= 100;		// M_axon
-		// // M_neurites 		= 60;  		// M_neurites
-		// aniso 			= 6;   		// aniso
-		// gamma 			= 10;  		// gamma
-		// seed_radius 		= 4;		// seed radius
-
-		// // variable setup
-		// kappa			= 1.8;		// kappa;
-		// dt			= 1e-2;		// time step
-		// Dc			= 3;		// syn D
-		// alpha			= 0.9;		// alpha
-		// alphaOverPi		= alpha / PI; 	// alphOverPix
-		// M_phi			= 10;		// M_phi
-		// s_coeff			= 0.007;	// s_coeff
-		// delta			= 0.50;		// delta
-		// epsilonb		= 0.01;		// epsilonb
-		// r			= 5;		// r
-		// g			= 0.1;		// g
-		// alphaT 			= 0.001;	// alpha_t
-		// betaT			= 0.001;	// beta_t
-		// Diff			= 4;		// Diff
-		// source_coeff		= 15;		// source_coeff
-		// Simulation parameters setup
-
 		// Simulation settings
 		expandCK_invl   = 10;    // Interval for expanding control knots
 		var_save_invl   = 10;       // Interval for saving variables
@@ -218,7 +189,6 @@ NeuronGrowth::NeuronGrowth(const string& phi_solver,
 		betaT           = 0.001;    // Tubulin degradation scaling factor
 		Diff            = 4;        // Diffusion coefficient
 		source_coeff    = 15;       // Source term coefficient
-
 	}
 }
 
@@ -402,13 +372,6 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 			}
 
 			maxDistI = max(distI[i], maxDistI);
-			// // Calculate distances to closest vertices
-			// vector<tuple<Vertex3D, int, float>> closestVertices = FindClosestVerticesWithIndicesAndDistances(cpts, cpts[i], 6);
-			// for (const auto& item : closestVertices) {
-			// 	distI[i] += get<2>(item);  // Accumulate distances
-			// }
-
-			// maxDistI = max(distI[i], maxDistI);  // Update maximum distance
 		}
 
 		// Save initial phi and tub states
@@ -3163,6 +3126,52 @@ PetscErrorCode SetupSNES(SNES &snes, const char *solverType, void *ctx,
     return PETSC_SUCCESS; // Explicitly return PETSC_SUCCESS on success
 }
 
+// PetscErrorCode SetupSNES(
+//     SNES &snes, 
+//     const char *solverType, 
+//     void *ctx,
+//     PetscErrorCode (*formFunction)(SNES, Vec, Vec, void *),
+//     PetscErrorCode (*formJacobian)(SNES, Vec, Mat, Mat, void *),
+//     PetscReal rtol,
+//     PetscReal atol,
+//     PetscReal dtol,
+//     PetscInt maxIters,
+//     PetscInt maxFails,
+//     PetscReal lineSearchDamping,
+//     SNESLineSearchType lineSearchType
+// ) {
+//     PetscFunctionBegin;
+
+//     // Create SNES solver and set the type
+//     CHKERRQ(SNESCreate(PETSC_COMM_WORLD, &snes));
+//     CHKERRQ(SNESSetType(snes, solverType));
+
+//     // Set solver tolerances
+//     CHKERRQ(SNESSetTolerances(snes, rtol, atol, dtol, maxIters, maxFails));
+
+//     // Get and configure the line search
+//     SNESLineSearch linesearch;
+//     CHKERRQ(SNESGetLineSearch(snes, &linesearch));
+//     CHKERRQ(SNESLineSearchSetType(linesearch, lineSearchType));
+//     CHKERRQ(SNESLineSearchSetDamping(linesearch, lineSearchDamping));
+
+//     // Ensure valid function and Jacobian pointers
+//     PetscCheck(formFunction, PETSC_COMM_SELF, PETSC_ERR_ARG_NULL, "Null function pointer passed for SNESSetFunction");
+//     PetscCheck(formJacobian, PETSC_COMM_SELF, PETSC_ERR_ARG_NULL, "Null function pointer passed for SNESSetJacobian");
+
+//     // Set the function and Jacobian
+//     CHKERRQ(SNESSetFunction(snes, NULL, formFunction, ctx));
+//     CHKERRQ(SNESSetJacobian(snes, NULL, NULL, formJacobian, ctx));
+
+//     // Optional: Print solver configuration for debugging
+//     PetscBool printSolverConfig = PETSC_FALSE; // Change to PETSC_TRUE for debugging
+//     if (printSolverConfig) {
+//         CHKERRQ(SNESView(snes, PETSC_VIEWER_STDOUT_WORLD));
+//     }
+
+//     PetscFunctionReturn(PETSC_SUCCESS);
+// }
+
 PetscErrorCode SetupKSP(KSP &ksp, Mat &A, const char *kspType, const char *pcType,
                         PetscReal rtol = 1.e-8, PetscReal atol = PETSC_DEFAULT,
                         PetscReal dtol = PETSC_DEFAULT, PetscInt maxIters = 100000, PetscInt restart = 100) {
@@ -4041,6 +4050,17 @@ int RunNG(
 			// Phase Field Equation Solver (SNES)
 			if (NG.judge_phi == 0) {
 				SetupSNES(NG.snes_phi, SNESNEWTONLS, &NG, FormFunction_phi, FormJacobian_phi);
+				// SetupSNES(NG.snes_phi, SNESNEWTONLS, &NG, 
+				// 		FormFunction_phi, 
+				// 		FormJacobian_phi, 
+				// 		1e-5,   // Relative tolerance
+				// 		1e-7,   // Absolute tolerance
+				// 		1e-9,   // Step tolerance
+				// 		200,    // Max iterations
+				// 		1000,   // Max function evaluations
+				// 		0.9,    // Line search damping
+				// 		SNESLINESEARCHCP // Backtracking line search
+				// );
 
 				if (NG.n == 0) {
 					CHKERRQ(SNESView(NG.snes_phi, PETSC_VIEWER_STDOUT_WORLD));
@@ -4165,20 +4185,11 @@ int RunNG(
 		/*========================================================*/
 		/*Iteration summary printout*/	
 		auto reason_phi = (NG.phi_solver == "snes") ? snes_reason_phi : ksp_reason_phi;
-		// int reason_phi = (nonlinear != nullptr) ? snes_reason_phi : ksp_reason_phi;
 		NG.PrintStatus(NG.n, NG.end_iter, 
             reason_phi, its_phi, t_phi, 
             reason_syn, its_syn, t_syn, 
             reason_tub, its_tub, t_tub, 
             n_bzmesh);
-
-		// PetscPrintf(PETSC_COMM_WORLD, 
-		// 	"Step: %d/%d | Phi: %d[%d] %.2fs | Syn: %d[%d] %.2fs | Tub: %d[%d] %.2fs | Mesh: %d\n",
-		// 	NG.n, NG.end_iter, 
-		// 	reason_phi, its_phi, t_phi, 
-		// 	reason_syn, its_syn, t_syn, 
-		// 	reason_tub, its_tub, t_tub, 
-		// 	n_bzmesh);
 
 		/*========================================================*/
 		// Obtain initial local refinement information, the very first 25 iterations are purely used 
@@ -4198,20 +4209,18 @@ int RunNG(
 			localRefine = true;
 
 			if (NG.comRank == 0) {
-				// vector<float> ele_refine = ComputeRefine(NG.phi, NX, NY, NZ);
 				vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, kdTree, cloud);
 				writeVectorToFile(ele_refine, path_in + "phi.txt", false);
 				NG.CheckVar("../io3D/phi", cpts, NG.phi);
 			}	
 			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
-			// cout <<"!!!!!!!" << endl;
 
 			return 2;
-		}			
+		}		
 		
-		if (NG.n % NG.expandCK_invl == 0 && NG.n != 0) {
-			/*========================================================*/
-			// Domain expansion and variable passing - back to main.cpp
+		/*========================================================*/
+		// Domain expansion and variable passing - back to main.cpp
+		if (NG.n % NG.expandCK_invl == 0 && NG.n >= 10) {
 			localRefine = true;
 
 			// Determine expansion direction locally
@@ -4224,7 +4233,7 @@ int RunNG(
 			int expd_dir = expd_dir_global / NG.comSize; // Approximate consensus across threads
 
 			// Apply domain expansion based on computed direction
-			switch (expd_dir) {
+			switch (expd_dir) { // expand by 3, origin needs to be offset by half of 3, multiply by size of each element (2)
 				case 0: NX += 3; originX -= 1.5 * 2; break; // Expand left
 				case 1: NY += 3; break;                  	// Expand top
 				case 2: NX += 3; break;                  	// Expand right

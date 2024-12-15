@@ -608,6 +608,20 @@ PetscErrorCode SetupSNES(
     PetscErrorCode (*formJacobian)(SNES, Vec, Mat, Mat, void *),
     PetscReal rtol, PetscReal atol, PetscReal stol, PetscInt maxIters, PetscInt maxFails
 ); // Configures and initializes a PETSc SNES solver for nonlinear systems.
+// PetscErrorCode SetupSNES(
+//     SNES &snes, 
+//     const char *solverType, 
+//     void *ctx,
+//     PetscErrorCode (*formFunction)(SNES, Vec, Vec, void *),
+//     PetscErrorCode (*formJacobian)(SNES, Vec, Mat, Mat, void *),
+//     PetscReal rtol = 1e-5, 
+//     PetscReal atol = 1e-7, 
+//     PetscReal dtol = 1e-9,
+//     PetscInt maxIters = 100, 
+//     PetscInt maxFails = 1000, 
+//     PetscReal lineSearchDamping = 0.8, 
+//     SNESLineSearchType lineSearchType = SNESLINESEARCHCP
+// );
 
 PetscErrorCode SetupKSP(
     KSP &ksp, Mat &A, const char *kspType, const char *pcType,
