@@ -14,7 +14,7 @@ endif
 
 ifeq ($(UNAME_S),Darwin)
     PETSC_DIR = /Users/kuanrenqian/petsc
-    Compiler=/opt/homebrew/Cellar/gcc/14.2.0_1/bin/aarch64-apple-darwin24-g++-14
+    Compiler= /opt/homebrew/Cellar/gcc/14.2.0_1/bin/aarch64-apple-darwin24-g++-14
 endif
 
 EIGEN_DIR = ../eigen-3.4.0

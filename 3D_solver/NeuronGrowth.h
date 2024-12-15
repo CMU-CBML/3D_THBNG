@@ -515,13 +515,6 @@ public:
 		const KDTree& kdTree             // KDTree for spatial indexing
 	); // Calculate the sum of phi values within a 3D box for each center point in `cpts`
 
-	// Interpolation and Closest Vertex Search
-	vector<float> InterpolateValues3D(
-		const vector<Vertex3D>& cpts_initial,  // Initial set of control points
-		const vector<float>& input,            // Input values to interpolate
-		const vector<Vertex3D>& cpts_new       // New control points for interpolation
-	); // Interpolate values for a new set of control points in 3D space
-
 	vector<pair<Vertex3D, int>> FindClosestVerticesWithIndices(
 		const vector<Vertex3D>& vertices,     // List of vertices
 		const Vertex3D& inputVertex,          // Target vertex
@@ -650,7 +643,7 @@ PetscErrorCode CleanUpSolvers(NeuronGrowth &NG);
 // Main Simulation Driver
 int RunNG(
     const int n_bzmesh, vector<vector<int>> ele_process_in,
-    vector<Vertex3D> cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
+    vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
     string path_in, string path_out,
     int &iter, int end_iter_in,
     vector<vector<float>> &NGvars,

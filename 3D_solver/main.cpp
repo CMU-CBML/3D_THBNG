@@ -12,12 +12,11 @@ static char help[] = "Solve 3DNG\n";
 
 int main(int argc, char** argv) {
     int rank, nProcs;
-    PetscErrorCode ierr = initializeMPI(rank, nProcs, argc, argv, help); 
-    if (ierr) return ierr;
+    CHKERRQ(initializeMPI(rank, nProcs, argc, argv, help));
 
     // Validate input arguments
     if (argc < 4) {
-        cerr << "Usage: <numNeuron> <end_iter> <path_in>" << endl;
+        cerr << "Usage: <numNeuron> <end_iter> <solver> <path_in>" << endl;
         return 1;
     }
 
@@ -41,8 +40,7 @@ int main(int argc, char** argv) {
     int n_bzmesh;
     vector<vector<float>> vertices;
     vector<vector<int>> elements, ele_process(nProcs);
-    vector<Vertex3D> cpts_initial, cpts, prev_cpts;
-    vector<Element3D> tmesh_initial, tmesh;
+    vector<Vertex3D> cpts, prev_cpts;
     vector<vector<float>> NGvars(6); // Stores neuron growth variables
 
     bool localRefine = false; // Flag for local refinement
@@ -52,29 +50,25 @@ int main(int argc, char** argv) {
 
     // Main simulation loop
     while (iter <= end_iter) {
-        // Reset previous simulation state
-        prev_cpts = cpts;
-        cpts_initial.clear();
-        tmesh_initial.clear();
+        // Reset simulation state
+        prev_cpts = move(cpts); // Efficiently transfer ownership instead of copying
         cpts.clear();
-        tmesh.clear();
-        ele_process.clear();
-        ele_process.resize(nProcs);
+        // Clear and resize `ele_process` for parallel processing
+        ele_process.assign(nProcs, {}); // Clear and resize in one step
 
         if (rank == 0) {
             // Setup simulation files, generate mesh, and partition if needed
             setupSimulationFiles(nProcs, path_in, localRefine, vertices, elements, NX, NY, NZ, originX, originY, originZ);
         }
 
-        ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRQ(ierr); // Synchronize processes
+        CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD)); // Synchronize processes
 
         // File paths for reading control points
-        string fn_mesh_initial = path_in + "controlmesh_initial.vtk";
         string fn_mesh = localRefine ? path_in + "controlPoints.vtk" : path_in + "controlmesh.vtk";
         string fn_bz = path_in + "bzmeshinfo.txt.epart." + to_string(nProcs);
 
         // Read control points and assign processors
-        ReadControlPoints(fn_mesh_initial, cpts_initial);
+        // ReadControlPoints(fn_mesh_initial, cpts_initial);
         ReadControlPoints(fn_mesh, cpts);
         AssignProcessor(fn_bz, n_bzmesh, ele_process);
 
@@ -83,7 +77,7 @@ int main(int argc, char** argv) {
         // Run neuron growth simulation for the current iteration
         state = RunNG(
             n_bzmesh, ele_process, 
-            cpts_initial, cpts, prev_cpts, 
+            cpts, prev_cpts, 
             path_in, path_out,
             iter, end_iter,
             NGvars,
@@ -102,6 +96,6 @@ int main(int argc, char** argv) {
 
     // Finalize simulation
     PetscPrintf(PETSC_COMM_WORLD, "Simulation Complete!\n");
-    ierr = PetscFinalize(); CHKERRQ(ierr);
+    CHKERRQ(PetscFinalize());
     return 0;
 }

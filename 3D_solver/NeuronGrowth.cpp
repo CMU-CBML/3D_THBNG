@@ -2609,69 +2609,6 @@ void NeuronGrowth::CalculatePhiSum(const vector<Vertex3D>& cpts,
     // CheckVar("../io3D/outputs/PHI_", cpts, phi);
 }
 
-// Function to interpolate values for a new mesh based on coordinates
-vector<float> NeuronGrowth::InterpolateValues3D(const vector<Vertex3D>& cpts_initial, const vector<float>& input,
-                                      const vector<Vertex3D>& cpts_new) {
-	vector<float> output;
-	output.resize(cpts_new.size());
-
-	for (int i = 0; i < cpts_new.size(); i++) {
-		// cout << i << endl;
-		float x = cpts_new[i].coor[0];
-		float y = cpts_new[i].coor[1];
-		float z = cpts_new[i].coor[2];
-
-		int ind;
-		if (SearchVertex(cpts_initial, x, y, z, ind)) {
-			// Exact match found, no need for interpolation
-			output[i] = input[ind];
-			// cout << ind << " ";
-		} 
-		else {
-			// int numNeighbor = 0;
-			// while (numNeighbor < 6) {
-			// 	for (int j = 0; j < cpts.size(); ++i) {
-			// 		if (IsInBox(cpts[j], center, dx, dy, dz)) {
-			// 			numNeighbor += 1;
-			// 		}
-			// 	}
-			// }
-
-			// Linear interpolation for the new coordinates
-			// Find the vertices around the target coordinates
-			float x1 = floor(x), x2 = ceil(x);
-			float y1 = floor(y), y2 = ceil(y);
-			float z1 = floor(z), z2 = ceil(z);
-
-			// Find the corresponding indices in the initial mesh
-			int ind111, ind112, ind121, ind122, ind211, ind212, ind221, ind222;
-			SearchVertex(cpts_initial, x1, y1, z1, ind111);
-			SearchVertex(cpts_initial, x1, y1, z2, ind112);
-			SearchVertex(cpts_initial, x1, y2, z1, ind121);
-			SearchVertex(cpts_initial, x1, y2, z2, ind122);
-			SearchVertex(cpts_initial, x2, y1, z1, ind211);
-			SearchVertex(cpts_initial, x2, y1, z2, ind212);
-			SearchVertex(cpts_initial, x2, y2, z1, ind221);
-			SearchVertex(cpts_initial, x2, y2, z2, ind222);
-
-			// Interpolate along each dimension separately
-			float interpX1 = Lerp(input[ind111], input[ind112], (x - x1));
-			float interpX2 = Lerp(input[ind121], input[ind122], (x - x1));
-			float interpY1 = Lerp(interpX1, interpX2, (y - y1));
-
-			float interpX3 = Lerp(input[ind211], input[ind212], (x - x2));
-			float interpX4 = Lerp(input[ind221], input[ind222], (x - x2));
-			float interpY2 = Lerp(interpX3, interpX4, (y - y1));
-
-			// Interpolate along the z dimension
-			output[i] = Lerp(interpY1, interpY2, (z - z1));
-
-			// cout << ind << " ";
-		}
-	}
-	return output;
-}
-
 vector<pair<Vertex3D, int>> NeuronGrowth::FindClosestVerticesWithIndices(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k) {
 	// Custom comparator that prioritizes larger squared distances and considers the vertex index
 	auto comp = [&inputVertex](const pair<Vertex3D, int>& a, const pair<Vertex3D, int>& b) {
@@ -3799,7 +3736,7 @@ PetscErrorCode CleanUpSolvers(NeuronGrowth &NG) {
 
 int RunNG(
     const int n_bzmesh, vector<vector<int>> ele_process_in,
-    vector<Vertex3D> cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
+    vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
     string path_in, string path_out,
     int &iter, int end_iter_in,
     vector<vector<float>> &NGvars,
@@ -3815,18 +3752,15 @@ int RunNG(
 	// // NG.SetVariables("simulation_parameters.txt");
 
 	if (NG.comRank == 0) {
-		cout << cpts_initial.size() << " " << cpts.size() << " " << prev_cpts.size() << endl;
+		cout << cpts.size() << " " << prev_cpts.size() << endl;
 	}
 	// Initialize vertex clouds for the current, fine, and previous configurations
-	Vertex3DCloud cloud_initial(cpts_initial);        		// Cloud for current points
-	Vertex3DCloud cloud(cpts); 		// Cloud for finer resolution points
+	Vertex3DCloud cloud(cpts); 					// Cloud for current points
 	Vertex3DCloud cloud_prev(prev_cpts);  		// Cloud for previous points
 	// Initialize KD-Trees for the current, fine, and previous vertex clouds
-	KDTree kdTree_initial(2 /* dim */, cloud_initial, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
 	KDTree kdTree(2 /* dim */, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
 	KDTree kdTree_prev(2 /* dim */, cloud_prev, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
 	// Build indexes for KD-Trees to optimize search operations
-	kdTree_initial.buildIndex();
 	kdTree.buildIndex();
 	kdTree_prev.buildIndex();
 
