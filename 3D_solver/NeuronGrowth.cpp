@@ -193,8 +193,8 @@ NeuronGrowth::NeuronGrowth(const string& phi_solver,
 		// Simulation parameters setup
 
 		// Simulation settings
-		expandCK_invl   = 10000;    // Interval for expanding control knots
-		var_save_invl   = 100;       // Interval for saving variables
+		expandCK_invl   = 10;    // Interval for expanding control knots
+		var_save_invl   = 10;       // Interval for saving variables
 		numNeuron       = 1;        // Number of neurons
 		seed_radius     = 4;        // Initial seed radius for neuron growth
 		dt              = 1e-2;     // Time step size
@@ -3037,29 +3037,64 @@ vector<tuple<Vertex3D, int, float>> NeuronGrowth::FindClosestVerticesWithIndices
 
     return closestVertices;
 }
-// vector<tuple<Vertex3D, int, float>> NeuronGrowth::FindClosestVerticesWithIndicesAndDistances(
-//     const KDTree& kdTree, const Vertex3DCloud& cloud, const Vertex3D& inputVertex, int k) 
-// {
-//     vector<size_t> closestIndices(k);
-//     vector<float> squaredDistances(k);
 
-//     // Query point
-//     float queryPoint[3] = {inputVertex.coor[0], inputVertex.coor[1], inputVertex.coor[2]};
+vector<float> NeuronGrowth::ComputeRefine(
+    const vector<float>& phi_in, 
+	int NX, int NY, int NZ,
+    const KDTree& kdTree, const Vertex3DCloud& cloud) 
+{
+    // Initialize the refined elements vector
+    vector<float> ele_refine(NX * NY * NZ, 0.0);
 
-//     // Find the k nearest neighbors
-//     nanoflann::KNNResultSet<float> resultSet(k);
-//     resultSet.init(closestIndices.data(), squaredDistances.data());
-//     kdTree.findNeighbors(resultSet, queryPoint, nanoflann::SearchParameters());
+    // Compute the maximum value of phi for thresholding
+    float maxPhi = *max_element(phi_in.begin(), phi_in.end());
 
-//     // Collect the closest vertices
-//     vector<tuple<Vertex3D, int, float>> closestVertices;
-//     for (size_t i = 0; i < k; ++i) {
-//         const Vertex3D& vertex = cloud.pts[closestIndices[i]];
-//         closestVertices.emplace_back(vertex, closestIndices[i], squaredDistances[i]);
-//     }
+    // Loop through the 3D grid to compute the refinement flags
+    for (int i = 1; i < NX - 1; ++i) {       // Avoid boundaries in x
+        for (int j = 1; j < NY - 1; ++j) {   // Avoid boundaries in y
+            for (int k = 1; k < NZ - 1; ++k) { // Avoid boundaries in z
 
-//     return closestVertices;
-// }
+                // Define the current query point
+                Vertex3D queryPoint;
+                queryPoint.coor[0] = i*2; // Structured grid x-coordinate
+                queryPoint.coor[1] = j*2; // Structured grid y-coordinate
+                queryPoint.coor[2] = k*2; // Structured grid z-coordinate
+
+                // Find the k closest vertices and their distances
+                int numNeighbors = 6; // Number of neighbors to consider
+                vector<tuple<Vertex3D, int, float>> closestVertices = 
+                    FindClosestVerticesWithIndicesAndDistances(kdTree, cloud, queryPoint, numNeighbors);
+
+                // Compute weighted average for phi
+                float weightedSum = 0.0;
+                float weightTotal = 0.0;
+                const float epsilon = 1e-6f; // Avoid division by zero
+
+                for (const auto& neighbor : closestVertices) {
+                    int idx = get<1>(neighbor);     // Index of the neighbor
+                    float distance = get<2>(neighbor); // Distance to the neighbor
+                    float weight = 1.0f / (distance + epsilon); // Weight based on distance
+                    weightedSum += phi_in[idx] * weight;
+                    weightTotal += weight;
+                }
+
+                float phi_average = weightedSum / weightTotal; // Compute weighted average
+
+                // Compute indices for output grid (ele_refine)
+                int index_out = (i - 1) * NY * NZ + (j - 1) * NZ + (k - 1);
+
+                // Apply refinement criteria based on phi thresholds
+                if (phi_average < (0.5f * maxPhi) && phi_average > (0.001f * maxPhi)) {
+                    ele_refine[index_out] = 1.0f; // Mark for refinement
+                } else {
+                    ele_refine[index_out] = 0.0f; // No refinement
+                }
+            }
+        }
+    }
+
+    return ele_refine;
+}
 
 // Function to perform Breadth-First Search (BFS) for clustering in 3D
 void NeuronGrowth::BFS3D(const vector<float>& matrix, int depth, int rows, int cols, int dep, int row, int col,
@@ -4034,7 +4069,8 @@ int RunNG(
     int &iter, int end_iter_in,
     vector<vector<float>> &NGvars,
     int &NX, int &NY, int &NZ,
-    vector<array<float, 3>> &seed, int &originX, int &originY, int &originZ,
+    vector<array<float, 3>> &seed,
+	int &originX, int &originY, int &originZ,
     bool &localRefine,
 	const string& phi_solver) 
 {
@@ -4436,7 +4472,8 @@ int RunNG(
 			localRefine = true;
 
 			if (NG.comRank == 0) {
-				vector<float> ele_refine = ComputeRefine(NG.phi, NX, NY, NZ);
+				// vector<float> ele_refine = ComputeRefine(NG.phi, NX, NY, NZ);
+				vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, kdTree, cloud);
 				writeVectorToFile(ele_refine, path_in + "phi.txt", false);
 				NG.CheckVar("../io3D/phi", cpts, NG.phi);
 			}	
@@ -4504,58 +4541,108 @@ int RunNG(
 		// 	t_write += t_collect;
 		// 	t_total += t_collect;
 		// }
-
+			
 		/*========================================================*/
 		// Domain expansion and variable passing - back to main.cpp
-		if ((NG.n % NG.expandCK_invl == 0) && (NG.n != 0)) {
-
+		if (NG.n % NG.expandCK_invl == 0 && NG.n != 0) {
 			localRefine = true;
-			// // NG.PrintOutNeurons(neurons); 
-			// // neurons = ConvertTo3DIntVector(NG.phi, NX, NY, NZ);
-			// int expd_dir_local = NG.CheckExpansion3D(NG.phi, cpts, NX, NY, NZ, originX, originY, originZ);
-			// // 0 - left | 1 - top | 2 - right | 3 - bottom | 4 - front | 5 - back | 6 - no action
-			// CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
-			// int expd_dir_global = 6; // 6 - No expansion
-			// CHKERRQ(MPI_Allreduce(&expd_dir_local, &expd_dir_global, 1, MPI_INT, MPI_SUM, PETSC_COMM_WORLD));
-			// int expd_dir = expd_dir_global/NG.comSize; // approximate choice, different thread could have different choice 
 
-			// if (expd_dir <= 3) {
-			// 	switch (expd_dir) {
-			// 		case 0: // left
-			// 			NX += 3;	originX -= 1.5/4;	break;
-			// 		case 1: // top
-			// 			NY += 3;				break;
-			// 		case 2: // right
-			// 			NX += 3;				break;
-			// 		case 3: // bottom
-			// 			NY += 3;	originY -= 1.5/4;	break;
-			// 		case 4: // back
-			// 			NZ += 3;				break;
-			// 		case 5: // front
-			// 			NZ += 3;	originZ -= 1.5/4;	break;
-			// 	}
-			// }
+			// Determine expansion direction locally
+			int expd_dir_local = NG.CheckExpansion3D(NG.phi, cpts, NX, NY, NZ, originX, originY, originZ);
 
-			// Clear and resize NGvars to store current variables
+			// Synchronize and compute global expansion direction
+			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+			int expd_dir_global = 6; // Default: No expansion
+			CHKERRQ(MPI_Allreduce(&expd_dir_local, &expd_dir_global, 1, MPI_INT, MPI_SUM, PETSC_COMM_WORLD));
+			int expd_dir = expd_dir_global / NG.comSize; // Approximate consensus across threads
+
+			// Apply domain expansion based on computed direction
+			switch (expd_dir) {
+				case 0: NX += 3; originX -= 1.5 * 2; break; // Expand left
+				case 1: NY += 3; break;                  	// Expand top
+				case 2: NX += 3; break;                  	// Expand right
+				case 3: NY += 3; originY -= 1.5 * 2; break; // Expand bottom
+				case 4: NZ += 3; break;                  	// Expand back
+				case 5: NZ += 3; originZ -= 1.5 * 2; break; // Expand front
+			}
+
+			// Update variables for current state
 			NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
 
 			if (NG.comRank == 0) {
-				// Compute refinement values based on phi and write to file
-				auto ele_refine = ComputeRefine(NGvars[0], NX, NY, NZ);
+				// Compute refinement values and save to file
+				auto ele_refine = NG.ComputeRefine(NGvars[0], NX, NY, NZ, kdTree, cloud);
 				writeVectorToFile(ele_refine, path_in + "phi.txt", false);
 
-				// Check and verify variables
+				// Validate updated variables
 				NG.CheckVar("../io3D/phi", cpts, NG.phi);
 			}
 
-			// Clean up solvers and perform synchronization
+			// Clean up solvers and synchronize processes
 			CHKERRQ(CleanUpSolvers(NG));
-			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD); CHKERRQ(NG.ierr));
+			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+			CHKERRQ(NG.ierr);
 
-			// Increment the iteration counter and return
+			// Increment iteration counter and return
 			iter++;
 			return 2;
 		}
+
+		// Increment iteration counter if no expansion
+		iter++;
+
+		// /*========================================================*/
+		// // Domain expansion and variable passing - back to main.cpp
+		// if ((NG.n % NG.expandCK_invl == 0) && (NG.n != 0)) {
+
+		// 	localRefine = true;
+		// 	// NG.PrintOutNeurons(neurons); 
+		// 	// neurons = ConvertTo3DIntVector(NG.phi, NX, NY, NZ);
+		// 	int expd_dir_local = NG.CheckExpansion3D(NG.phi, cpts, NX, NY, NZ, originX, originY, originZ);
+		// 	// 0 - left | 1 - top | 2 - right | 3 - bottom | 4 - front | 5 - back | 6 - no action
+		// 	CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+		// 	int expd_dir_global = 6; // 6 - No expansion
+		// 	CHKERRQ(MPI_Allreduce(&expd_dir_local, &expd_dir_global, 1, MPI_INT, MPI_SUM, PETSC_COMM_WORLD));
+		// 	int expd_dir = expd_dir_global/NG.comSize; // approximate choice, different thread could have different choice 
+
+		// 	if (expd_dir <= 3) {
+		// 		switch (expd_dir) {
+		// 			case 0: // left
+		// 				NX += 3;	originX -= 1.5*2;	break;
+		// 			case 1: // top
+		// 				NY += 3;						break;
+		// 			case 2: // right
+		// 				NX += 3;						break;
+		// 			case 3: // bottom
+		// 				NY += 3;	originY -= 1.5*2;	break;
+		// 			case 4: // back
+		// 				NZ += 3;						break;
+		// 			case 5: // front
+		// 				NZ += 3;	originZ -= 1.5*2;	break;
+		// 		}
+		// 	}
+
+		// 	// Clear and resize NGvars to store current variables
+		// 	NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
+
+		// 	if (NG.comRank == 0) {
+		// 		// Compute refinement values based on phi and write to file
+		// 		// vector<float> ele_refine = ComputeRefine(NGvars[0], NX, NY, NZ);
+		// 		vector<float> ele_refine = NG.ComputeRefine(NGvars[0], NX, NY, NZ, kdTree, cloud);
+		// 		writeVectorToFile(ele_refine, path_in + "phi.txt", false);
+
+		// 		// Check and verify variables
+		// 		NG.CheckVar("../io3D/phi", cpts, NG.phi);
+		// 	}
+
+		// 	// Clean up solvers and perform synchronization
+		// 	CHKERRQ(CleanUpSolvers(NG));
+		// 	CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD); CHKERRQ(NG.ierr));
+
+		// 	// Increment the iteration counter and return
+		// 	iter++;
+		// 	return 2;
+		// }
 
 		iter += 1;		 
 	}

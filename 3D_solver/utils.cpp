@@ -4,7 +4,6 @@
 #include "BasicDataStructure.h"
 #include <cmath>
 
-
 // Removes a list of files from the filesystem
 void removeFiles(const vector<string>& files) {
     for (const auto& file : files) {
@@ -62,51 +61,6 @@ void setupSimulationFiles(const int nProcs, const string& path_in, bool localRef
     // Partition the mesh for parallel processing
     mpmetis(nProcs, path_in);
 }
-
-// void gen3Dmesh(int originX, int originY, int originZ, int Nx, int Ny, int Nz, vector<vector<float>>& vertices, vector<vector<int>>& elements)
-// {
-//     cout << "******************************************************************************" << endl;
-//     cout << "Generating 3D structured initial mesh" << endl;
-//     cout << "-----------------------------------------------------------------------------" << endl;
-//     cout << "Nx by Ny by Nz: " << Nx << " x " << Ny << " x " << Nz << " | origin: " << originX << "," << originY << "," << originZ << endl;
-//     vertices.clear(); elements.clear();
-//     vector<float> tmp_vtx;
-//     vector<int> tmp_ele;
-    
-//     for (int k = originZ; k <= (originZ + Nz); k++) {
-//         for (int j = originY; j <= (originY + Ny); j++) {
-//             for (int i = originX; i <= (originX + Nx); i++) {
-//                 tmp_vtx.clear();
-// 		// tmp_vtx.push_back((float)i/4);
-//                 // tmp_vtx.push_back((float)j/4);
-//                 // tmp_vtx.push_back((float)k/4);
-// 		tmp_vtx.push_back((float)i);
-//                 tmp_vtx.push_back((float)j);
-//                 tmp_vtx.push_back((float)k);
-//                 vertices.push_back(tmp_vtx);
-//             }
-//         }
-//     }
-
-//     int tl_pt;
-//     for (int k = 0; k < Nz; k++) {
-//         for (int j = 0; j < Ny; j++) {
-//             for (int i = 0; i < Nx; i++) {
-//                 tl_pt = (k * (Ny + 1) + j) * (Nx + 1) + i;
-//                 tmp_ele.clear();
-//                 tmp_ele.push_back(tl_pt);
-//                 tmp_ele.push_back(tl_pt + 1);
-//                 tmp_ele.push_back(tl_pt + Nx + 2);
-//                 tmp_ele.push_back(tl_pt + Nx + 1);
-//                 tmp_ele.push_back(tl_pt + (Nx + 1) * (Ny + 1));
-//                 tmp_ele.push_back(tl_pt + (Nx + 1) * (Ny + 1) + 1);
-//                 tmp_ele.push_back(tl_pt + (Nx + 1) * (Ny + 1) + Nx + 2);
-//                 tmp_ele.push_back(tl_pt + (Nx + 1) * (Ny + 1) + Nx + 1);
-//                 elements.push_back(tmp_ele);
-//             }
-//         }
-//     }
-// }
 
 void gen3Dmesh(int originX, int originY, int originZ, int Nx, int Ny, int Nz, 
                float dx, float dy, float dz, 
@@ -720,42 +674,6 @@ float round5(float value) {
 // Function to perform linear interpolation between two values
 float Lerp(float a, float b, float t) {
 	return a + t * (b - a);
-}
-
-// Function to compute the average of surrounding points
-vector<float> ComputeRefine(const vector<float>& phi, int NX, int NY, int NZ) 
-{
-    // Initialize the refined elements vector
-    vector<float> ele_refine(NX * NY * NZ, 0.0);
-
-    // Compute the maximum value of phi for thresholding
-    float maxPhi = *max_element(phi.begin(), phi.end());
-
-    // Loop through the 3D grid to compute the refinement flags
-    for (int i = 1; i < NX - 1; ++i) {       // Avoid boundaries
-        for (int j = 1; j < NY - 1; ++j) {   // Avoid boundaries
-            for (int k = 1; k < NZ - 1; ++k) { // Avoid boundaries
-
-                // Compute indices for input and output grids
-                int index_in = i * (NY + 1) * (NZ + 1) + j * (NZ + 1) + k;
-                int index_out = i * NY * NZ + j * NZ + k;
-
-                // Compute the average of the surrounding points
-                float phi_average = (phi[index_in - 1] + phi[index_in + 1] +
-                                     phi[index_in - (NZ + 1)] + phi[index_in + (NZ + 1)] +
-                                     phi[index_in - (NY + 1) * (NZ + 1)] + phi[index_in + (NY + 1) * (NZ + 1)]) / 6.0;
-
-                // Apply refinement criteria based on phi thresholds
-                if (phi_average < (0.5f * maxPhi) && phi_average > (0.001f * maxPhi)) {
-                    ele_refine[index_out] = 1.0f; // Mark for refinement
-                } else {
-                    ele_refine[index_out] = 0.0f; // No refinement
-                }
-            }
-        }
-    }
-
-    return ele_refine;
 }
 
 void THS3D(const string &path_in) {

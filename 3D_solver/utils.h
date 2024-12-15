@@ -57,9 +57,6 @@ int SearchNeighbor(const vector<Vertex3D>& cpts, float targetX, float targetY, f
 float round5(float value);
 float Lerp(float a, float b, float t);
 
-// Refinement and Clustering
-vector<float> ComputeRefine(const vector<float>& phi, int NX, int NY, int NZ);
-
 // THS3D Integration
 void THS3D(const string& path_in);
 

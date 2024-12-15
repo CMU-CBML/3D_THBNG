@@ -88,7 +88,8 @@ int main(int argc, char** argv) {
             iter, end_iter,
             NGvars,
             NX, NY, NZ,
-            seed, originX, originY, originZ,
+            seed,
+            originX, originY, originZ,
             localRefine,
             phi_solver);
 

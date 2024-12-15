@@ -535,6 +535,11 @@ public:
 		const KDTree& kdTree, const Vertex3DCloud& cloud, const Vertex3D& inputVertex, int k
 	); // Find the k closest vertices along with indices and distances using KDTree.
 
+	// Refinement and Clustering
+	vector<float> ComputeRefine(const vector<float>& phi_in,
+		int NX, int NY, int NZ,
+		const KDTree& kdTree, const Vertex3DCloud& cloud);
+
 	void BFS3D(
 		const vector<float>& matrix, int depth, int rows, int cols, 
 		int dep, int row, int col, vector<bool>& visited, 
@@ -636,7 +641,8 @@ int RunNG(
     int &iter, int end_iter_in,
     vector<vector<float>> &NGvars,
     int &NX, int &NY, int &NZ,
-    vector<array<float, 3>> &seed, int &originX, int &originY, int &originZ,
+    vector<array<float, 3>> &seed,
+	int &originX, int &originY, int &originZ,
     bool &localRefine,
 	const string& phi_solver
 ); // Runs the Neuron Growth simulation for the specified input parameters.
