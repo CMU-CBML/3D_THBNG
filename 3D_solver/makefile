@@ -20,8 +20,8 @@ endif
 EIGEN_DIR = ../eigen-3.4.0
 
 include ${PETSC_DIR}/lib/petsc/conf/variables
-CFLAGS= ${PETSC_CC_INCLUDES} ${CXX_FLAGS} ${CXXFLAGS} ${CPPFLAGS} ${PSOURCECXX} -Ofast -ffast-math -march=native -std=c++17 -fopenmp -I ${EIGEN_DIR}
-# -flto
+CFLAGS= ${PETSC_CC_INCLUDES} ${CXX_FLAGS} ${CXXFLAGS} ${CPPFLAGS} ${PSOURCECXX} -O3 -march=native -std=c++17 -fopenmp -I ${EIGEN_DIR}
+# -flto -ffast-math
 all: 3DNG
 
 3DNG: BasicDataStructure.o NeuronGrowth.o utils.o main.o 

@@ -164,11 +164,11 @@ NeuronGrowth::NeuronGrowth(const string& phi_solver,
 
 	} else if (phi_solver == "snes") {
 		// Simulation settings
-		expandCK_invl   = 10;    // Interval for expanding control knots
+		expandCK_invl   = 50000;    // Interval for expanding control knots
 		var_save_invl   = 10;       // Interval for saving variables
 		numNeuron       = 1;        // Number of neurons
 		seed_radius     = 4;        // Initial seed radius for neuron growth
-		dt              = 1e-2;     // Time step size
+		dt              = 5e-3;     // Time step size
 
 		// Phase field growth-related parameters
 		aniso           = 6;        // Anisotropy constant
@@ -364,7 +364,7 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 				}
 			}
 
-			vector<tuple<Vertex3D, int, float>> closestVertices = FindClosestVerticesWithIndicesAndDistances(kdTree, cloud, cpts[i], 6);
+			vector<tuple<Vertex3D, int, float>> closestVertices = FindClosestVerticesWithIndicesAndDistances(kdTree, cloud, cpts[i], 4);
 
 			distI[i] = 0.0f;
 			for (const auto& [vertex, index, distance] : closestVertices) {
@@ -405,7 +405,7 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 				
 				int index;
 				vector<tuple<Vertex3D, int, float>> closestVertices = 
-					FindClosestVerticesWithIndicesAndDistances(kdTree_prev, cloud_prev, cpt, 6);
+					FindClosestVerticesWithIndicesAndDistances(kdTree_prev, cloud_prev, cpt, 4);
 
 				if (KD_SearchPair(prev_cpts, kdTree_prev, cpt.coor[0], cpt.coor[1], cpt.coor[2], index)) {
 					// Exact match
@@ -447,7 +447,7 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 				theta[i] = static_cast<float>(rand() % 100) / 100.0f;
 
 				vector<tuple<Vertex3D, int, float>> closestVertices = 
-					FindClosestVerticesWithIndicesAndDistances(kdTree, cloud, cpt, 6);
+					FindClosestVerticesWithIndicesAndDistances(kdTree, cloud, cpt, 4);
 
 				for (const auto& item : closestVertices) {
 					distI[i] += get<2>(item);  // Accumulate distances
@@ -2266,7 +2266,7 @@ int NeuronGrowth::CheckExpansion3D(const vector<float>& input, const vector<Vert
     // Iterate over all control points
     for (size_t i = 0; i < cpts.size(); ++i) {
         // Check if the current point is at the boundary
-        if (CellBoundary(input[i], 0) > 0) {
+        if (CellBoundary(input[i], 0.1) > 0) {
             // Calculate current relative coordinates
             float currX = cpts[i].coor[0] - originX;
             float currY = cpts[i].coor[1] - originY;
@@ -2687,7 +2687,7 @@ vector<float> NeuronGrowth::ComputeRefine(
                 queryPoint.coor[2] = k*2; // Structured grid z-coordinate
 
                 // Find the k closest vertices and their distances
-                int numNeighbors = 1; // Number of neighbors to consider
+                int numNeighbors = 6; // Number of neighbors to consider
                 vector<tuple<Vertex3D, int, float>> closestVertices = 
                     FindClosestVerticesWithIndicesAndDistances(kdTree, cloud, queryPoint, numNeighbors);
 
@@ -2710,7 +2710,8 @@ vector<float> NeuronGrowth::ComputeRefine(
                 int index_out = (i - 1) * NY * NZ + (j - 1) * NZ + (k - 1);
 
                 // Apply refinement criteria based on phi thresholds
-                if (phi_average < (0.5f * maxPhi) && phi_average > (0.001f * maxPhi)) {
+                // if ((phi_average < 0.5f * maxPhi) && (phi_average > 0.001f * maxPhi)) {
+                if ((phi_average < 0.5f) && (phi_average > 0.001f)) {
                     ele_refine[index_out] = 1.0f; // Mark for refinement
                 } else {
                     ele_refine[index_out] = 0.0f; // No refinement
@@ -4126,31 +4127,77 @@ int RunNG(
             n_bzmesh);
 
 		/*========================================================*/
-		// Obtain initial local refinement information, the very first 25 iterations are purely used 
-		// for getting diffused interface for applying local refinements (phi initialization is binary) 
-		if ((NG.n == 10) && (localRefine == false)) {
-			NGvars.clear(); NGvars.resize(6);
-			NGvars[0] = NG.phi;	
-			NGvars[1] = NG.syn;
-			NGvars[2] = NG.tub;
-			NGvars[3] = NG.theta;
-			NGvars[4] = NG.phi_0;
-			NGvars[5] = NG.tub_0;
+		// Obtain initial local refinement information
+		if ((NG.n == 10 && !localRefine) || (NG.n % 50 == 0 && NG.n != 0)) {
+			// Store NG variables
+			NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
 
-			CleanUpSolvers(NG); // Destroy solvers
+			// Clean up solvers and synchronize across processes
+			CleanUpSolvers(NG);
 			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
-			iter = 0; // reset to 0 (beginning of the simulation)
-			localRefine = true;
 
+			// Perform local refinement if applicable
 			if (NG.comRank == 0) {
 				vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, kdTree, cloud);
 				writeVectorToFile(ele_refine, path_in + "phi.txt", false);
 				NG.CheckVar("../io3D/phi", cpts, NG.phi);
-			}	
+			}
 			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
 
-			return 2;
-		}		
+			// Special case for simulation reset
+			if (NG.n == 10 && !localRefine) {
+				iter = 0;           // Reset iteration counter
+				localRefine = true; // Enable local refinement
+			} else {
+				iter++;
+			}
+
+			return 1;
+		}
+
+		// if ((NG.n == 10) && (localRefine == false)) {
+		// 	NGvars.clear(); NGvars.resize(6);
+		// 	NGvars[0] = NG.phi;	
+		// 	NGvars[1] = NG.syn;
+		// 	NGvars[2] = NG.tub;
+		// 	NGvars[3] = NG.theta;
+		// 	NGvars[4] = NG.phi_0;
+		// 	NGvars[5] = NG.tub_0;
+
+		// 	CleanUpSolvers(NG); // Destroy solvers
+		// 	CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+		// 	iter = 0; // reset to 0 (beginning of the simulation)
+		// 	localRefine = true;
+
+		// 	if (NG.comRank == 0) {
+		// 		vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, kdTree, cloud);
+		// 		writeVectorToFile(ele_refine, path_in + "phi.txt", false);
+		// 		NG.CheckVar("../io3D/phi", cpts, NG.phi);
+		// 	}	
+		// 	CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+
+		// 	return 1;
+		// } else if (NG.n % 50 == 0 && NG.n != 0) {
+		// 	NGvars.clear(); NGvars.resize(6);
+		// 	NGvars[0] = NG.phi;	
+		// 	NGvars[1] = NG.syn;
+		// 	NGvars[2] = NG.tub;
+		// 	NGvars[3] = NG.theta;
+		// 	NGvars[4] = NG.phi_0;
+		// 	NGvars[5] = NG.tub_0;
+
+		// 	CleanUpSolvers(NG); // Destroy solvers
+		// 	CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+
+		// 	if (NG.comRank == 0) {
+		// 		vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, kdTree, cloud);
+		// 		writeVectorToFile(ele_refine, path_in + "phi.txt", false);
+		// 		NG.CheckVar("../io3D/phi", cpts, NG.phi);
+		// 	}	
+		// 	CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+
+		// 	return 1;
+		// }	
 		
 		/*========================================================*/
 		// Domain expansion and variable passing - back to main.cpp
