@@ -42,5 +42,7 @@ main.o: main.cpp
 	$(Compiler)	$(CFLAGS) main.cpp $(FLAGS_LINK)
 
 clean:
-	rm *o *Zone.Identifier
+	rm -f *o *Zone.Identifier
+
+rebuild: clean all
 

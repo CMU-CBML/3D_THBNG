@@ -40,5 +40,7 @@ main.o: main.cpp
 	$(Compiler)	-c main.cpp $(CFLAGS)
 
 clean:
-	rm *o 3DNG *Zone.Identifier
+	rm -rf *o 3DNG *Zone.Identifier ../io3D/* ../io3D/outputs/*
+    # -r for io3D is optional, just for fast testing
 
+rebuild: clean all

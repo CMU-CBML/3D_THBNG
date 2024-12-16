@@ -122,7 +122,7 @@ NeuronGrowth::NeuronGrowth(const string& phi_solver,
 	if (phi_solver == "ksp") {
 		// Simulation parameters
 		var_save_invl   = 100;       // Interval for saving variables
-		expandCK_invl   = 350000;     // Interval for expanding control knots
+		expandCK_invl   = 5000;     // Interval for expanding control knots
 
 		// Neuron-specific parameters
 		aniso           = 6;         // Anisotropy constant
@@ -164,8 +164,8 @@ NeuronGrowth::NeuronGrowth(const string& phi_solver,
 
 	} else if (phi_solver == "snes") {
 		// Simulation settings
-		expandCK_invl   = 50000;    // Interval for expanding control knots
-		var_save_invl   = 10;       // Interval for saving variables
+		expandCK_invl   = 5000;    // Interval for expanding control knots
+		var_save_invl   = 100;       // Interval for saving variables
 		numNeuron       = 1;        // Number of neurons
 		seed_radius     = 4;        // Initial seed radius for neuron growth
 		dt              = 5e-3;     // Time step size
@@ -3739,7 +3739,7 @@ int RunNG(
     const int n_bzmesh, vector<vector<int>> ele_process_in,
     vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
     string path_in, string path_out,
-    int &iter, int end_iter_in,
+    int &iter, int end_iter,
     vector<vector<float>> &NGvars,
     int &NX, int &NY, int &NZ,
     vector<array<float, 3>> &seed,
@@ -3749,8 +3749,8 @@ int RunNG(
 {
 	/*========================================================*/
 	// Initializations
-	NeuronGrowth NG(phi_solver, iter, seed.size(), end_iter_in);
-	// // NG.SetVariables("simulation_parameters.txt");
+	NeuronGrowth NG(phi_solver, iter, seed.size(), end_iter);
+	NG.SetVariables("simulation_parameters.txt"); // optional variable loading, for quick/batch simulation testing
 
 	if (NG.comRank == 0) {
 		cout << cpts.size() << " " << prev_cpts.size() << endl;
@@ -3839,10 +3839,12 @@ int RunNG(
 			tic();  // Restart timer for subsequent operations
 
 			// Write physical domain results to file
+			// if (NG.n % NG.var_save_invl == 0) {
 			NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
 			PetscPrintf(PETSC_COMM_WORLD, 
 						"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
 						NG.n, NG.end_iter, t_write / NG.var_save_invl, t_total);
+			// }
 
 			// Separator for clarity in logs
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
@@ -3894,8 +3896,6 @@ int RunNG(
 				// === Step 2: Initialize KSP Solver (if not done) ===
 				if (NG.judge_phi == 0) {
 					CHKERRQ(SetupKSP(NG.ksp_phi, NG.GK_phi, KSPGMRES, PCBJACOBI, 1.e-6));
-					// CHKERRQ(SetupKSP(NG.ksp_phi, NG.GK_phi, KSPGMRES, PCASM, 1.e-6));
-					// CHKERRQ(SetupKSP(NG.ksp_phi, NG.GK_phi, KSPGMRES, PCHYPRE, 1.e-6));
 					if (NG.n == 0) {
 						CHKERRQ(KSPView(NG.ksp_phi, PETSC_VIEWER_STDOUT_WORLD));
 					}
@@ -4149,7 +4149,7 @@ int RunNG(
 				iter = 0;           // Reset iteration counter
 				localRefine = true; // Enable local refinement
 			} else {
-				iter++;
+				// iter++;
 			}
 
 			return 1;

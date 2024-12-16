@@ -38,7 +38,7 @@ void setupSimulationFiles(const int nProcs, const string& path_in, bool localRef
         path_in + "bzmeshinfo.txt.npart." + to_string(nProcs),
         path_in + "phi_10.txt." + to_string(nProcs),
         path_in + "phi_refine.txt." + to_string(nProcs),
-        path_in + "phi.txt." + to_string(nProcs)
+        // path_in + "phi.txt." + to_string(nProcs)
     };
     removeFiles(filesToRemove);
 
