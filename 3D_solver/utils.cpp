@@ -21,7 +21,7 @@ PetscErrorCode initializeMPI(int& rank, int& nProcs, int argc, char** argv, cons
 }
 
 // Sets up simulation files, generates mesh, and partitions if needed
-void setupSimulationFiles(const int nProcs, const string& path_in, bool localRefine,
+void SetupSimulationFiles(const int nProcs, const string& path_in, bool localRefine,
                           vector<vector<float>>& vertices, vector<vector<int>>& elements,
                           int NX, int NY, int NZ, int originX, int originY, int originZ) {
 
@@ -66,8 +66,8 @@ void gen3Dmesh(int originX, int originY, int originZ, int Nx, int Ny, int Nz,
                float dx, float dy, float dz, 
                vector<vector<float>>& vertices, vector<vector<int>>& elements) {
 	cout << "******************************************************************************\n";
-    cout << "*                       Generating 3D Structured Initial Mesh                *\n";
-    cout << "******************************************************************************\n";
+    cout << "                        Generating 3D Structured Initial Mesh                 \n";
+	cout << "------------------------------------------------------------------------------\n";
     cout << "Mesh Configuration:\n";
     cout << "  Dimensions (Nx x Ny x Nz):   " << Nx << " x " << Ny << " x " << Nz << "\n";
     cout << "  Origin:                      (" << originX << ", " << originY << ", " << originZ << ")\n";
@@ -116,12 +116,12 @@ void gen3Dmesh(int originX, int originY, int originZ, int Nx, int Ny, int Nz,
 
     cout << "Mesh generation complete. Total vertices: " << vertices.size() 
          << ", Total elements: " << elements.size() << "\n";
-    cout << "******************************************************************************\n";
+	cout << "------------------------------------------------------------------------------\n";
 }
 
 // generating 3D bezier mesh using spline_src
 void bzmesh3D(string path_in){
-	cout << "******************************************************************************" << endl;
+	cout << "******************************************************************************\n";
 	string spline_cmd_tmd("../spline3D_src/spline " + path_in);
 	const char* spline_cmd = spline_cmd_tmd.c_str();
 	system(spline_cmd);
@@ -679,7 +679,7 @@ float Lerp(float a, float b, float t) {
 void THS3D(const string &path_in) {
     cout << "******************************************************************************" << endl;
     cout << "Local refinement based on Xiaodong's THS3D code ..." << endl;
-    cout << "******************************************************************************" << endl;
+    cout << "------------------------------------------------------------------------------" << endl;
 
     // Construct the command
     string ths3d_cmd = "../THS3D/THS3D " + path_in;

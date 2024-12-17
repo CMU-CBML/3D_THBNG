@@ -132,6 +132,7 @@ public:
     // Parameters for Neuron Growth Model
     int var_save_invl;          // Interval for saving variables
     int expandCK_invl;          // Interval for checking expansion
+	int refine_invl;			// Interval for local refinement
     int numNeuron;              // Number of neurons
     int gc_sz;                  // Grid cell size
     int end_iter;               // Total number of iterations
@@ -180,6 +181,17 @@ public:
 		KDTree& kdTree_prev,                 // Previous KDTree for spatial search
 		vector<vector<float>>& NGvars,       // Variables for Neuron Growth
 		vector<array<float, 3>>& seed        // Seed data for initialization
+	);
+
+	void InterpolateOrFindExact(
+		const Vertex3D& cpt, 
+		const KDTree& kdTree_prev, 
+		const Vertex3DCloud& cloud_prev, 
+		const vector<vector<float>>& NGvars, 
+		const vector<Vertex3D>& prev_cpts, 
+		float& phi, float& syn, float& tub, float& theta, float& phi_0, float& tub_0, 
+		float& dist, float& maxDist, 
+		bool withinBounds
 	);
 
 	// Check and save variables to file
@@ -531,6 +543,7 @@ public:
 	// Refinement and Clustering
 	vector<float> ComputeRefine(const vector<float>& phi_in,
 		int NX, int NY, int NZ,
+		int &originX, int &originY, int &originZ,
 		const KDTree& kdTree, const Vertex3DCloud& cloud);
 
 	void BFS3D(
@@ -643,7 +656,7 @@ PetscErrorCode CleanUpSolvers(NeuronGrowth &NG);
 // Main Simulation Driver
 int RunNG(
     const int n_bzmesh, vector<vector<int>> ele_process_in,
-    vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
+    vector<Vertex3D> &cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
     string path_in, string path_out,
     int &iter, int end_iter_in,
     vector<vector<float>> &NGvars,

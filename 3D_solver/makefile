@@ -21,7 +21,7 @@ EIGEN_DIR = ../eigen-3.4.0
 
 include ${PETSC_DIR}/lib/petsc/conf/variables
 CFLAGS= ${PETSC_CC_INCLUDES} ${CXX_FLAGS} ${CXXFLAGS} ${CPPFLAGS} ${PSOURCECXX} -O3 -march=native -std=c++17 -fopenmp -I ${EIGEN_DIR}
-# -flto -ffast-math
+# -flto
 all: 3DNG
 
 3DNG: BasicDataStructure.o NeuronGrowth.o utils.o main.o 
@@ -40,7 +40,7 @@ main.o: main.cpp
 	$(Compiler)	-c main.cpp $(CFLAGS)
 
 clean:
-	rm -rf *o 3DNG *Zone.Identifier ../io3D/* ../io3D/outputs/*
-    # -r for io3D is optional, just for fast testing
+	rm -f *.o 3DNG *Zone.Identifier ../io3D/*.txt ../io3D/*.vtk ../io3D/bzmeshinfo.txt.*
+	rm -f ../io3D/outputs/*         
 
 rebuild: clean all

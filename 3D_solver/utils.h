@@ -15,7 +15,7 @@ void removeFiles(const vector<string>& files);
 PetscErrorCode initializeMPI(int& rank, int& nProcs, int argc, char** argv, const char help[]);
 
 // Simulation Setup
-void setupSimulationFiles(const int nProcs, const string& path_in, bool localRefine,
+void SetupSimulationFiles(const int nProcs, const string& path_in, bool localRefine,
                           vector<vector<float>>& vertices, vector<vector<int>>& elements,
                           int NX, int NY, int NZ, int originX, int originY, int originZ);
 
@@ -56,6 +56,9 @@ int SearchNeighbor(const vector<Vertex3D>& cpts, float targetX, float targetY, f
 // Mathematical Utilities
 float round5(float value);
 float Lerp(float a, float b, float t);
+
+// // Refinement and Clustering
+// vector<float> ComputeRefine(const vector<float>& phi, int NX, int NY, int NZ);
 
 // THS3D Integration
 void THS3D(const string& path_in);

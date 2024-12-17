@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
     int n_bzmesh;
     vector<vector<float>> vertices;
     vector<vector<int>> elements, ele_process(nProcs);
-    vector<Vertex3D> cpts, prev_cpts;
+    vector<Vertex3D> cpts_initial, cpts, prev_cpts;
     vector<vector<float>> NGvars(6); // Stores neuron growth variables
 
     bool localRefine = false; // Flag for local refinement
@@ -53,22 +53,25 @@ int main(int argc, char** argv) {
         // Reset simulation state
         prev_cpts = move(cpts); // Efficiently transfer ownership instead of copying
         cpts.clear();
+        cpts_initial.clear();
+
         // Clear and resize `ele_process` for parallel processing
         ele_process.assign(nProcs, {}); // Clear and resize in one step
 
         if (rank == 0) {
             // Setup simulation files, generate mesh, and partition if needed
-            setupSimulationFiles(nProcs, path_in, localRefine, vertices, elements, NX, NY, NZ, originX, originY, originZ);
+            SetupSimulationFiles(nProcs, path_in, localRefine, vertices, elements, NX, NY, NZ, originX, originY, originZ);
         }
 
         CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD)); // Synchronize processes
 
         // File paths for reading control points
+        string fn_mesh_initial = path_in + "controlmesh_initial.vtk";
         string fn_mesh = localRefine ? path_in + "controlPoints.vtk" : path_in + "controlmesh.vtk";
         string fn_bz = path_in + "bzmeshinfo.txt.epart." + to_string(nProcs);
 
         // Read control points and assign processors
-        // ReadControlPoints(fn_mesh_initial, cpts_initial);
+        ReadControlPoints(fn_mesh_initial, cpts_initial);
         ReadControlPoints(fn_mesh, cpts);
         AssignProcessor(fn_bz, n_bzmesh, ele_process);
 
@@ -77,7 +80,7 @@ int main(int argc, char** argv) {
         // Run neuron growth simulation for the current iteration
         state = RunNG(
             n_bzmesh, ele_process, 
-            cpts, prev_cpts, 
+            cpts_initial, cpts, prev_cpts, 
             path_in, path_out,
             iter, end_iter,
             NGvars,

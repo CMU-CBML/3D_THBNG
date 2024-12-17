@@ -1,5 +1,6 @@
 var_save_invl = 10
-expandCK_invl = 50000
+expandCK_invl = 10000
+refine_invl = 20
 numNeuron = 1
 seed_radius = 4
 dt = 0.005
