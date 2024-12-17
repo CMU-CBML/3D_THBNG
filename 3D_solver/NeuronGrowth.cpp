@@ -2886,8 +2886,8 @@ vector<float> NeuronGrowth::ComputeRefine(
                 int index_out = (i - 1) * NY * NZ + (j - 1) * NZ + (k - 1);
 
                 // Apply refinement criteria based on phi thresholds
-                if ((phi_average < 0.5f) && (phi_average > 0.0001f)) {
-                // if (phi_average > 0.0001f) {
+                if ((phi_average < 0.5f) && (phi_average > 0.0005f)) {
+                // if (phi_average > 0.001f) {
                     ele_refine[index_out] = 1.0f; // Mark for refinement
                 } else {
                     ele_refine[index_out] = 0.0f; // No refinement
