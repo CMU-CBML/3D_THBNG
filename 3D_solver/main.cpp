@@ -47,6 +47,7 @@ int main(int argc, char** argv) {
     int iter = 0, state = 1;  // Simulation state: 0-end, 1-running, 2-expanding, 3-diverging
 
     PetscPrintf(PETSC_COMM_WORLD, "Starting Simulation\n");
+    double t_global = 0;
 
     // Main simulation loop
     while (iter <= end_iter) {
@@ -88,7 +89,8 @@ int main(int argc, char** argv) {
             seed,
             originX, originY, originZ,
             localRefine,
-            phi_solver);
+            phi_solver,
+            t_global);
 
         // Exit if simulation diverges
         if (state == 3) {

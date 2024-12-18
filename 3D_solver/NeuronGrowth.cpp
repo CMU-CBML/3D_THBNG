@@ -27,7 +27,7 @@ constexpr float PI = 3.1415926f;        // Pi constant
 constexpr int INF = 1e9;               // Infinity constant for large integers
 
 stack<double> tictoc_stack; // Use double for higher precision
-double t_phi(0), t_syn(0), t_tub(0), t_collect(0), t_write(0), t_total(0);
+double t_phi(0), t_syn(0), t_tub(0), t_collect(0), t_write(0);
 
 // Start timing
 void tic() {
@@ -46,6 +46,13 @@ void toc(double &elapsed_time) {
     } else {
         elapsed_time = 0.0; // Handle case where tic was not called
     }
+}
+
+void UpdateSimulationTimers(double& t_check, double& t_write, double& t_global) {
+    toc(t_check);       // Measure total time for the current solver/process
+    tic();            	// Start timing for the next process
+    t_write += t_check; // Accumulate write time
+    t_global += t_check; // Accumulate total simulation time
 }
 
 float MatrixDet(float dxdt[3][3])
@@ -732,7 +739,35 @@ void NeuronGrowth::CheckVar(const string& fn, const vector<Vertex3D>& cpts, cons
     }
 }
 
-void NeuronGrowth::ToPETScVec(vector<float> input, Vec& petscVec)
+// void NeuronGrowth::ToPETScVec(const vector<float>& input, Vec& petscVec)
+// {
+//     PetscInt localStart, localEnd;
+
+//     // Get the ownership range for the PETSc vector
+//     CHKERRQ(VecGetOwnershipRange(petscVec, &localStart, &localEnd));
+
+//     // Ensure input size matches the global size of the PETSc vector
+//     PetscInt globalSize;
+//     CHKERRQ(VecGetSize(petscVec, &globalSize));
+//     if (input.size() != static_cast<size_t>(globalSize)) {
+//         SETERRQ(PETSC_COMM_SELF, PETSC_ERR_ARG_SIZ, "Input vector size does not match PETSc vector size.");
+//     }
+
+//     // Insert values in bulk
+//     vector<PetscScalar> localValues(localEnd - localStart);
+//     for (PetscInt i = localStart; i < localEnd; ++i) {
+//         localValues[i - localStart] = input[i];
+//     }
+
+//     // Set values for the local portion of the PETSc vector
+//     CHKERRQ(VecSetValues(petscVec, localEnd - localStart, &localStart, localValues.data(), INSERT_VALUES));
+
+//     // Assemble the PETSc vector
+//     CHKERRQ(VecAssemblyBegin(petscVec));
+//     CHKERRQ(VecAssemblyEnd(petscVec));
+// }
+
+void NeuronGrowth::ToPETScVec(const vector<float>& input, Vec& petscVec)
 {
 	PetscInt localStart, localEnd;
 	VecGetOwnershipRange(petscVec, &localStart, &localEnd);
@@ -2434,23 +2469,21 @@ void NeuronGrowth::BuildLinearSystemProcessNG_syn_tub(const vector<Vertex3D> &cp
     MatAssemblyBegin(GK_tub, MAT_FINAL_ASSEMBLY);
 }
 
-int NeuronGrowth::CheckExpansion3D(const vector<float>& input, const vector<Vertex3D>& cpts, 
-                                   const int& NX, const int& NY, const int& NZ,
-								   const int& originX, const int& originY, const int& originZ) 
+int NeuronGrowth::CheckExpansion3D(const vector<float>& input,
+								const vector<Vertex3D>& cpts, 
+								const int& originX, const int& originY, const int& originZ) 
 {
-    // Define clearance for boundary checks
     constexpr float bc_clearance = 5.0f;
 
-    // Iterate over all control points
+    // Iterate over all control points to detect boundary conditions
     for (size_t i = 0; i < cpts.size(); ++i) {
-        // Check if the current point is at the boundary
-        if (CellBoundary(input[i], 0.05) > 0) {
-            // Calculate current relative coordinates
+        // Only consider points at the boundary based on phi
+        if (CellBoundary(input[i], 0.05f) > 0) {
             float currX = cpts[i].coor[0] - originX;
             float currY = cpts[i].coor[1] - originY;
             float currZ = cpts[i].coor[2] - originZ;
 
-            // Boundary checks for each face
+            // Check each boundary direction
             if (currX >= (max_x - bc_clearance)) return 3; // Right boundary
             if (currX <= (bc_clearance - originX)) return 1; // Left boundary
 
@@ -2462,7 +2495,7 @@ int NeuronGrowth::CheckExpansion3D(const vector<float>& input, const vector<Vert
         }
     }
 
-    // If no boundary condition is met, return no action
+    // No boundary condition met
     return 6;
 }
 
@@ -2656,9 +2689,9 @@ void NeuronGrowth::CalculatePhiSum(const vector<Vertex3D>& cpts,
 
 
     // // Debugging and visualization
-    CheckVar("../io3D/outputs/TIP_", cpts, tips);
-    CheckVar("../io3D/outputs/DIST_", cpts, distI);
-    CheckVar("../io3D/outputs/PHI_", cpts, phi);
+    // CheckVar("../io3D/outputs/TIP_", cpts, tips);
+    // CheckVar("../io3D/outputs/DIST_", cpts, distI);
+    // CheckVar("../io3D/outputs/PHI_", cpts, phi);
 
     // Thresholding and normalization
     for (size_t i = 0; i < tips.size(); ++i) {
@@ -3804,18 +3837,16 @@ int RunNG(
     vector<array<float, 3>> &seed,
 	int &originX, int &originY, int &originZ,
     bool &localRefine,
-	const string& phi_solver) 
+	const string& phi_solver,
+	double& t_global)
 {
 	/*========================================================*/
 	// Initializations
 	NeuronGrowth NG(phi_solver, iter, seed.size(), end_iter);
 	NG.SetVariables("simulation_parameters.txt"); // optional variable loading, for quick/batch simulation testing
 
-	if (NG.comRank == 0) {
-		cout << cpts.size() << " " << prev_cpts.size() << endl;
-	}
 	// Initialize vertex clouds for the current, fine, and previous configurations
-	Vertex3DCloud cloud_initial(cpts_initial); 	// Cloud for current points
+	Vertex3DCloud cloud_initial(cpts_initial); 	// Cloud for initial points
 	Vertex3DCloud cloud(cpts); 					// Cloud for current points
 	Vertex3DCloud cloud_prev(prev_cpts);  		// Cloud for previous points
 	// Initialize KD-Trees for the current, fine, and previous vertex clouds
@@ -3829,7 +3860,7 @@ int RunNG(
 
 	// Call InitializeProblemNG with proper arguments
 	NG.InitializeProblemNG(n_bzmesh, cpts, cloud, kdTree, prev_cpts, cloud_prev, kdTree_prev, NGvars, seed);
-	NG.ToPETScVec(NG.phi, NG.temp_phi); // initial guess for SNES (optional)
+	// NG.ToPETScVec(NG.phi, NG.temp_phi); // initial guess for SNES (optional)
 	PetscPrintf(PETSC_COMM_WORLD, "Set initial guess!-----------------------------------------------------------\n");	
 
 	NG.AssignProcessor(ele_process_in);
@@ -3846,21 +3877,6 @@ int RunNG(
 	// Read bezier mesh and prepare SNES initial guess
 	NG.ReadBezierElementProcess(path_in);
 	PetscPrintf(PETSC_COMM_WORLD, "Read bzmesh!-----------------------------------------------------------------\n");	
-	// NG.VisualizeVTK_PhysicalDomain_All(0, path_out+"_test_local");
-
-	/*========================================================*/
-	// Initial neuron identifications and geodesic distance calculation
-	vector<vector<vector<int>>> neurons, distances;
-	vector<float> id, tips;
-	// NG.IdentifyNeurons3D(neurons, seed, NX, NY, NZ, originX, originY, originZ);
-	// distances = NG.CalculateGeodesicDistanceFromPoint3D(neurons, seed, originX, originY, originZ);
-	// PetscPrintf(PETSC_COMM_WORLD, "Calculated geodesic distances!-----------------------------------------------\n");
-	// id = Convert3DIntTo1DFloatVector(neurons);
-	// NG.DetectTipsMulti3D(id, NG.numNeuron, tips, NX, NY, NZ);
-	// // NG.tips = InterpolateVars3D(tips, cpts_initial, cpts, 0);	
-	// NG.tips = InterpolateValues3D(cpts_initial, tips, cpts);	
-	
-	// PetscPrintf(PETSC_COMM_WORLD, "Detected initial tips!-------------------------------------------------------\n");
 
 	/*========================================================*/
 	// Write initial variables
@@ -3881,6 +3897,7 @@ int RunNG(
 
 	PetscPrintf(PETSC_COMM_WORLD, "*****************************************************************************************\n");
 	PetscPrintf(PETSC_COMM_WORLD, "Running simmulations ... \n");	
+	tic();
 	while (iter <= NG.end_iter) {
 		NG.n = iter;
 
@@ -3894,27 +3911,17 @@ int RunNG(
 
 			// Detect tips and save intermediate results
 			NG.CalculatePhiSum(cpts, 8, 8, 8, kdTree);
-			// NG.CheckVar(path_out + "/tips_", cpts, NG.tips);
-
-			// Measure time for collection and add to total/write time
-			toc(t_collect);  // End timer for collecting
-			t_write += t_collect;
-			t_total += t_collect;
-			tic();  // Restart timer for subsequent operations
 
 			// Write physical domain results to file
 			if (NG.n % NG.var_save_invl == 0) {
 				NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
 				PetscPrintf(PETSC_COMM_WORLD, 
 							"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
-							NG.n, NG.end_iter, t_write / NG.var_save_invl, t_total);
+							NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
 			}
 
 			// Separator for clarity in logs
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-
-			// Reset write time accumulator
-			t_write = 0;
 		}
 
 		/*========================================================*/
@@ -3952,29 +3959,28 @@ int RunNG(
 		if (NG.n % NG.expandCK_invl == 0 && NG.n >= 10) {
 			localRefine = true;
 
-			// Determine expansion direction locally
-			int expd_dir_local = NG.CheckExpansion3D(NG.phi, cpts, NX, NY, NZ, originX, originY, originZ);
-
-			// Synchronize and compute global expansion direction
-			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
 			int expd_dir_global = 6; // Default: No expansion
-			CHKERRQ(MPI_Allreduce(&expd_dir_local, &expd_dir_global, 1, MPI_INT, MPI_SUM, PETSC_COMM_WORLD));
-			int expd_dir = expd_dir_global / NG.comSize; // Approximate consensus across threads
-
-			// Apply domain expansion based on computed direction
-			switch (expd_dir) { // expand by 3, origin needs to be offset by half of 3, multiply by size of each element (2)
-				case 0: NX += 3; originX -= 1.5 * 2; break; // Expand left
-				case 1: NY += 3; break;                  	// Expand top
-				case 2: NX += 3; break;                  	// Expand right
-				case 3: NY += 3; originY -= 1.5 * 2; break; // Expand bottom
-				case 4: NZ += 3; break;                  	// Expand back
-				case 5: NZ += 3; originZ -= 1.5 * 2; break; // Expand front
+			if (NG.comRank == 0) {
+				// Determine expansion direction on rank 0
+				expd_dir_global = NG.CheckExpansion3D(NG.phi, cpts, originX, originY, originZ);
 			}
 
-			// NX += 3; originX -= 1.5 * 2;
-			// NY += 3; originY -= 1.5 * 2;
-			// NZ += 3; originZ -= 1.5 * 2;
-			
+			// Broadcast expansion direction to all ranks
+			CHKERRQ(MPI_Bcast(&expd_dir_global, 1, MPI_INT, 0, PETSC_COMM_WORLD));
+
+			constexpr double offset = 1.5 * 2.0; // Half of expansion * delta element
+			if (expd_dir_global != 6) {
+				switch (expd_dir_global) {
+					case 0: NY += 3;                   	break; // Top boundary
+					case 1: NX += 3; originX -= offset; break; // Left boundary
+					case 2: NY += 3; originY -= offset; break; // Bottom boundary
+					case 3: NX += 3;                   	break; // Right boundary
+					case 4: NZ += 3; originZ -= offset; break; // Front boundary
+					case 5: NZ += 3;                   	break; // Back boundary
+					default: break; // No expansion
+				}
+			}
+
 			// Update variables for current state
 			NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
 
@@ -3982,22 +3988,19 @@ int RunNG(
 				// Compute refinement values and save to file
 				auto ele_refine = NG.ComputeRefine(NGvars[0], NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
 				writeVectorToFile(ele_refine, path_in + "phi.txt", false);
-
-				// Validate updated variables
-				NG.CheckVar("../io3D/phi", cpts, NG.phi);
+				// NG.CheckVar("../io3D/phi", cpts, NG.phi);
 			}
 
 			// Clean up solvers and synchronize processes
 			CHKERRQ(CleanUpSolvers(NG));
 			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
-			CHKERRQ(NG.ierr);
 
-			// Increment iteration counter and return
 			iter++;
 			return 2;
 		}
 
-		tic(); // start timer for this iteration
+		// tic(); // start timer for this iteration
+		UpdateSimulationTimers(t_collect, t_write, t_global);
 
 		/*==============================================================================*/
 		/* Implicit Nonlinear Solver for Phase Field Equation */
@@ -4160,11 +4163,8 @@ int RunNG(
 			CHKERRQ(ScatterVector(NG.temp_phi, NG.phi, NG.phi.size()));
 		}
 		
-		// === Final Timing and Cleanup ===
-		toc(t_phi);   // Measure total time for NR solver
-		tic();        // Start timing for next process
-		t_write += t_phi; // Accumulate write time
-		t_total += t_phi; // Accumulate total simulation time
+		// Timing updates for Phi
+		UpdateSimulationTimers(t_phi, t_write, t_global);
 		
 		/*========================================================*/
 		/* Synaptogenesis and Tubulin Equations Solver */
@@ -4219,10 +4219,7 @@ int RunNG(
 		}
 
 		// Timing updates for Synaptogenesis
-		toc(t_syn);
-		tic();
-		t_write += t_syn;
-		t_total += t_syn;
+		UpdateSimulationTimers(t_syn, t_write, t_global);
 
 		/*========================================================*/
 		/* Tubulin Solver (KSP) */
@@ -4250,10 +4247,7 @@ int RunNG(
 		}
 
 		// Timing updates for Tubulin
-		toc(t_tub);
-		tic();
-		t_write += t_tub;
-		t_total += t_tub;
+		UpdateSimulationTimers(t_tub, t_write, t_global);
 
 		/*Collecting scattered Synaptogenesis and Tubulin variables from all processors*/
 		// Scatter synaptogenesis variable
@@ -4272,61 +4266,6 @@ int RunNG(
 
 		// Increment iteration counter if no expansion
 		iter++;
-
-		// /*========================================================*/
-		// // Domain expansion and variable passing - back to main.cpp
-		// if ((NG.n % NG.expandCK_invl == 0) && (NG.n != 0)) {
-
-		// 	localRefine = true;
-		// 	// NG.PrintOutNeurons(neurons); 
-		// 	// neurons = ConvertTo3DIntVector(NG.phi, NX, NY, NZ);
-		// 	int expd_dir_local = NG.CheckExpansion3D(NG.phi, cpts, NX, NY, NZ, originX, originY, originZ);
-		// 	// 0 - left | 1 - top | 2 - right | 3 - bottom | 4 - front | 5 - back | 6 - no action
-		// 	CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
-		// 	int expd_dir_global = 6; // 6 - No expansion
-		// 	CHKERRQ(MPI_Allreduce(&expd_dir_local, &expd_dir_global, 1, MPI_INT, MPI_SUM, PETSC_COMM_WORLD));
-		// 	int expd_dir = expd_dir_global/NG.comSize; // approximate choice, different thread could have different choice 
-
-		// 	if (expd_dir <= 3) {
-		// 		switch (expd_dir) {
-		// 			case 0: // left
-		// 				NX += 3;	originX -= 1.5*2;	break;
-		// 			case 1: // top
-		// 				NY += 3;						break;
-		// 			case 2: // right
-		// 				NX += 3;						break;
-		// 			case 3: // bottom
-		// 				NY += 3;	originY -= 1.5*2;	break;
-		// 			case 4: // back
-		// 				NZ += 3;						break;
-		// 			case 5: // front
-		// 				NZ += 3;	originZ -= 1.5*2;	break;
-		// 		}
-		// 	}
-
-		// 	// Clear and resize NGvars to store current variables
-		// 	NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
-
-		// 	if (NG.comRank == 0) {
-		// 		// Compute refinement values based on phi and write to file
-		// 		// vector<float> ele_refine = ComputeRefine(NGvars[0], NX, NY, NZ);
-		// 		vector<float> ele_refine = NG.ComputeRefine(NGvars[0], NX, NY, NZ, kdTree, cloud);
-		// 		writeVectorToFile(ele_refine, path_in + "phi.txt", false);
-
-		// 		// Check and verify variables
-		// 		NG.CheckVar("../io3D/phi", cpts, NG.phi);
-		// 	}
-
-		// 	// Clean up solvers and perform synchronization
-		// 	CHKERRQ(CleanUpSolvers(NG));
-		// 	CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD); CHKERRQ(NG.ierr));
-
-		// 	// Increment the iteration counter and return
-		// 	iter++;
-		// 	return 2;
-		// }
-
-		// iter += 1;		 
 	}
 
 	/*========================================================*/

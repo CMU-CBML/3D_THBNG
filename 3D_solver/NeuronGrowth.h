@@ -16,6 +16,8 @@ using namespace std;
 // **Utility Functions**: Timing and Matrix Operations
 void tic();                              // Start timing
 void toc(float &t);                      // End timing and update time
+void UpdateSimulationTimers(double& t_phi, double& t_write, double& t_global);
+	// Function to finalize timing and cleanup operations
 
 float MatrixDet(float dxdt[2][2]);       // 2x2 matrix determinant
 void Matrix2DInverse(float dxdt[2][2], float dtdx[2][2]); // Inverse of a 2x2 matrix
@@ -203,7 +205,7 @@ public:
 
 	// Convert a standard vector to a PETSc vector
 	void ToPETScVec(
-		vector<float> input,                 // Input standard vector
+		const vector<float>& input,                 // Input standard vector
 		Vec& petscVec                        // Output PETSc vector
 	); // Typically used for SNES Phi initial guess
 
@@ -473,7 +475,6 @@ public:
 	int CheckExpansion3D(
 		const vector<float>& input,               							// Input variable for checking expansion
 		const vector<Vertex3D>& cpts,      							// Control points for the domain
-		const int& NX, const int& NY, const int& NZ,            	// Domain dimensions in X, Y, Z
 		const int& originX, const int& originY, const int& originZ 	// Origin coordinates for the domain
 	); // Check and handle 3D domain expansion conditions
 
@@ -664,7 +665,8 @@ int RunNG(
     vector<array<float, 3>> &seed,
 	int &originX, int &originY, int &originZ,
     bool &localRefine,
-	const string& phi_solver
+	const string& phi_solver,
+	double& t_global
 ); // Runs the Neuron Growth simulation for the specified input parameters.
 
 #endif
