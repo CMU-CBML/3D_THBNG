@@ -392,36 +392,36 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 		distI.assign(cpt_sz, 0.0f);
 
 		for (size_t i = 0; i < cpt_sz; ++i) {
-		const auto& cpt = cpts[i];
-		const auto& [x, y, z] = cpt.coor;
+			const auto& cpt = cpts[i];
+			const auto& [x, y, z] = cpt.coor;
 
-		// Assign boundary labels based on spatial bounds
-		cpts[i].label = (x == min_x || x == max_x ||
-							y == min_y || y == max_y ||
-							z == min_z || z == max_z) ? 1 : 0;
+			// Assign boundary labels based on spatial bounds
+			cpts[i].label = (x == min_x || x == max_x ||
+								y == min_y || y == max_y ||
+								z == min_z || z == max_z) ? 1 : 0;
 
-		// Check if the point is within bounds
-		bool withinBounds = (x > min_x_prev && x < max_x_prev &&
-								y > min_y_prev && y < max_y_prev &&
-								z > min_z_prev && z < max_z_prev);
+			// Check if the point is within bounds
+			bool withinBounds = (x > min_x_prev && x < max_x_prev &&
+									y > min_y_prev && y < max_y_prev &&
+									z > min_z_prev && z < max_z_prev);
 
-		// Interpolate or find exact match for current point
-		InterpolateOrFindExact(
-			cpt, kdTree_prev, cloud_prev, NGvars, prev_cpts, 
-			phi[i], syn[i], tub[i], theta[i], phi_0[i], tub_0[i], 
-			distI[i], maxDistI, withinBounds
-		);
+			// Interpolate or find exact match for current point
+			InterpolateOrFindExact(
+				cpt, kdTree_prev, cloud_prev, NGvars, prev_cpts, 
+				phi[i], syn[i], tub[i], theta[i], phi_0[i], tub_0[i], 
+				distI[i], maxDistI, withinBounds
+			);
 
-		// Out-of-bounds handling (defaults)
-		if (!withinBounds) {
-			phi[i] = syn[i] = tub[i] = phi_0[i] = tub_0[i] = 0.0f;
-			theta[i] = static_cast<float>(rand() % 100) / 100.0f;
+			// Out-of-bounds handling (defaults)
+			if (!withinBounds) {
+				phi[i] = syn[i] = tub[i] = phi_0[i] = tub_0[i] = 0.0f;
+				theta[i] = static_cast<float>(rand() % 100) / 100.0f;
 
-			auto closestVertices = FindClosestVerticesWithIndicesAndDistances(kdTree, cloud, cpt, 6);
-			for (const auto& [_, __, distance] : closestVertices) {
-				distI[i] += distance;
+				auto closestVertices = FindClosestVerticesWithIndicesAndDistances(kdTree, cloud, cpt, 6);
+				for (const auto& [_, __, distance] : closestVertices) {
+					distI[i] += distance;
+				}
 			}
-		}
 		}
 
 		// // Initialize variables
@@ -2439,7 +2439,7 @@ int NeuronGrowth::CheckExpansion3D(const vector<float>& input, const vector<Vert
 								   const int& originX, const int& originY, const int& originZ) 
 {
     // Define clearance for boundary checks
-    constexpr float bc_clearance = 2.0f;
+    constexpr float bc_clearance = 5.0f;
 
     // Iterate over all control points
     for (size_t i = 0; i < cpts.size(); ++i) {
@@ -2465,128 +2465,6 @@ int NeuronGrowth::CheckExpansion3D(const vector<float>& input, const vector<Vert
     // If no boundary condition is met, return no action
     return 6;
 }
-
-// void NeuronGrowth::ExpandDomain(vector<float> input, vector<float> &expd_var, int edge) 
-// {
-// 	int length = input.size();
-// 	int sz = sqrt(length);
-
-// 	int expd_sz = 10; // directional expanding size
-// 	int new_sz = sz + expd_sz;
-
-// 	expd_var.clear(); expd_var.resize(pow(new_sz,2));
-// 	for (int i = 0; i < new_sz; i++)
-// 		expd_var[i] = 0;
-	
-// 	int ind;
-// 	switch (edge) {
-// 		case 0: // left
-// 			ind = 0;
-// 			for (int i = expd_sz; i < new_sz-1; i++) {
-// 				for (int j = (int)(expd_sz/2); j < (new_sz - (int)(expd_sz/2)); j++) {
-// 					expd_var[i * new_sz + j] = input[ind];
-// 					ind += 1;
-// 				}
-// 			}
-// 			// cout << "Expanding left!" << endl;
-// 			break;
-// 		case 1: // top
-// 			ind = 0;
-// 			for (int i = (int)(expd_sz/2); i < (new_sz - (int)(expd_sz/2)); i++) {
-// 				for (int j = 0; j < new_sz-expd_sz; j++) {
-// 					expd_var[i * new_sz + j] = input[ind];
-// 					ind += 1;
-// 				}
-// 			}
-// 			// cout << "Expanding top!" << endl;
-// 			break;
-// 		case 2: // right
-// 			ind = 0;
-// 			for (int i = 0; i < new_sz-1-expd_sz; i++) {
-// 				for (int j = (int)(expd_sz/2); j < (new_sz - (int)(expd_sz/2)); j++) {
-// 					expd_var[i * new_sz + j] = input[ind];
-// 					ind += 1;
-// 				}
-// 			}
-// 			// cout << "Expanding right!" << endl;
-// 			break;
-// 		case 3: // bottom
-// 			ind = 0;
-// 			for (int i = (int)(expd_sz/2); i < (new_sz - (int)(expd_sz/2)); i++) {
-// 				for (int j = expd_sz; j < new_sz; j++) {
-// 					expd_var[i * new_sz + j] = input[ind];
-// 					ind += 1;
-// 				}
-// 			}
-// 			// cout << "Expanding bottom!" << endl;
-// 			break;
-// 		case 4: // all direction
-// 			ind = 0;
-// 			for (int i = (int)(expd_sz/2); i < (new_sz - (int)(expd_sz/2)); i++) {
-// 				for (int j = (int)(expd_sz/2); j < (new_sz - (int)(expd_sz/2)); j++) {
-// 					expd_var[i * new_sz + j] = input[ind];
-// 					ind += 1;
-// 				}
-// 			}
-// 			// cout << "Expanding all direction!" << endl;
-// 			break;
-// 	}
-// 	// input.swap(expd_var);
-// }
-
-// void NeuronGrowth::ExpandDomain(vector<float> input, vector<float> &expd_var, int edge, int NX, int NY) 
-// {
-// 	int expd_sz = 10; // directional expanding size
-	
-// 	expd_var.clear(); expd_var.resize((NX+1) * (NY+1));
-// 	for (int i = 0; i < (expd_var.size()); i++)
-// 		expd_var[i] = 0;
-	
-// 	// (0-left|1-top|2-right|3-bottom)
-// 	int ind;
-// 	switch (edge) {
-// 		case 0: // left
-// 			ind = 0;
-// 			for (int i = expd_sz; i < NX; i++) {
-// 				for (int j = 0; j <= NY; j++) {
-// 					expd_var[i * (NY+1) + j] = input[ind];
-// 					ind += 1;
-// 				}
-// 			}
-// 			// cout << "Expanding left!" << endl;
-// 			break;
-// 		case 1: // top
-// 			ind = 0;
-// 			for (int i = 0; i < NX; i++) {
-// 				for (int j = 0; j <= NY-expd_sz; j++) {
-// 					expd_var[i * (NY+1) + j] = input[ind];
-// 					ind += 1;
-// 				}
-// 			}
-// 			// cout << "Expanding top!" << endl;
-// 			break;
-// 		case 2: // right
-// 			ind = 0;
-// 			for (int i = 0; i < NX-expd_sz; i++) {
-// 				for (int j = 0; j <= NY; j++) {
-// 					expd_var[i * (NY+1) + j] = input[ind];
-// 					ind += 1;
-// 				}
-// 			}
-// 			// cout << "Expanding right!" << endl;
-// 			break;
-// 		case 3: // bottom
-// 			ind = 0;
-// 			for (int i = 0; i < NX; i++) {
-// 				for (int j = expd_sz; j <= NY; j++) {
-// 					expd_var[i * (NY+1) + j] = input[ind];
-// 					ind += 1;
-// 				}
-// 			}
-// 			// cout << "Expanding bottom!" << endl;
-// 			break;
-// 	}
-// }
 
 void NeuronGrowth::PopulateRandom(vector<float> &input) {
     for_each(input.begin(), input.end(), [](float &value) {
@@ -2732,7 +2610,7 @@ void NeuronGrowth::CalculatePhiSum(const vector<Vertex3D>& cpts,
     tips.clear();
     tips.resize(cpts.size(), 0);
 
-    float threshold = 0.975;  // Threshold for tip detection
+    float threshold = 0.95;  // Threshold for tip detection
     float maxTipValue = 0;  // Track the maximum tip value for normalization
 
     // Precompute CellBoundary(phi[j], 0.5) for all j to avoid redundant calculations
@@ -2751,7 +2629,8 @@ void NeuronGrowth::CalculatePhiSum(const vector<Vertex3D>& cpts,
         float localSum = 0;
         for (size_t j = 0; j < phi.size(); ++j) {
 			if (IsInBox(cpts[j], center, dx, dy, dz)) {            
-				tips[i] += phiTransformed[j] * distI[j];
+				// tips[i] += phiTransformed[j] * distI[j];
+				tips[i] += phiTransformed[j];
 			}
         }
 
@@ -2775,16 +2654,20 @@ void NeuronGrowth::CalculatePhiSum(const vector<Vertex3D>& cpts,
 		maxTipValue = max(maxTipValue, tips[i]);
     }
 
+
+    // // Debugging and visualization
+    CheckVar("../io3D/outputs/TIP_", cpts, tips);
+    CheckVar("../io3D/outputs/DIST_", cpts, distI);
+    CheckVar("../io3D/outputs/PHI_", cpts, phi);
+
     // Thresholding and normalization
     for (size_t i = 0; i < tips.size(); ++i) {
         tips[i] = (tips[i] > threshold * maxTipValue) ? 1.0f : 0.0f;
+        // tips[i] = 1.0f;
     }
 
 	// CheckAndPrintThresholdExceedance(tips, 0.5);
 
-    // // Debugging and visualization
-    // CheckVar("../io3D/outputs/TIP_", cpts, tips);
-    // CheckVar("../io3D/outputs/PHI_", cpts, phi);
 }
 
 vector<pair<Vertex3D, int>> NeuronGrowth::FindClosestVerticesWithIndices(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k) {
@@ -2886,8 +2769,8 @@ vector<float> NeuronGrowth::ComputeRefine(
                 int index_out = (i - 1) * NY * NZ + (j - 1) * NZ + (k - 1);
 
                 // Apply refinement criteria based on phi thresholds
-                if ((phi_average < 0.5f) && (phi_average > 0.0005f)) {
-                // if (phi_average > 0.001f) {
+                // if ((phi_average < 0.5f) && (phi_average > 0.001f)) {
+                if (phi_average > 0.001f) {
                     ele_refine[index_out] = 1.0f; // Mark for refinement
                 } else {
                     ele_refine[index_out] = 0.0f; // No refinement
