@@ -361,24 +361,6 @@ public:
 		const vector<float>& eleEpsilonP, float& dAPdx, float& dAPdy   // EpsilonP derivatives
 	);
 
-	// void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
-	// 							const vector<float> elePhiGuess, float &elePG,
-	// 							const vector<float> elePhi, float &eleP,
-	// 							const vector<float> eleSyn, float &eleS,
-	// 							const vector<float> eleTips, float &eleTp,
-	// 							const vector<float> eleTubulin, float &eleTb,
-	// 							float &dPGdx, float &dPGdy, float &dPGdz);
-	// void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
-	// 							const vector<float> elePhiGuess, float &elePG,
-	// 							const vector<float> elePhi, float &eleP,
-	// 							const vector<float> eleSyn, float &eleS,
-	// 							const vector<float> eleTips, float &eleTp,
-	// 							const vector<float> eleTubulin, float &eleTb,
-	// 							const vector<float> eleEpsilon, float &eleEP,
-	// 							const vector<float> eleEpsilonP, float &eleEEP,
-	// 							float &dPGdx, float &dPGdy,
-	// 							float &dAdx, float &dAdy,
-	// 							float &dAPdx, float &dAPdy);
 	inline void ElementEvaluationAll_phi(
 		int nen,
 		const vector<float> &Nx,
@@ -398,8 +380,6 @@ public:
 								const vector<float> &elePhiGuess, 
 								vector<float> &vars);
 
-	// void ElementEvaluationAll_phi(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
-	// 	vector<vector<float>> &eleVal, vector<float> &vars);
 	void ElementEvaluationAll_syn_tub(const int nen, const vector<float> &Nx, vector<array<float, 3>> &dNdx,
 		const vector<float> elePhiDiff, float &elePf, 
 		const vector<float> eleSyn,float &eleS, const vector<float> elePhi, float &eleP,
@@ -413,7 +393,6 @@ public:
 	void PrepareBasis();              // Precompute basis functions and derivatives
 	void PreparePhaseField();         // Precompute variables specific to the phase field equation
 	void PrepareTermSource();         // Precompute source term contributions
-	void PrepareEpsilon();            // Precompute epsilon and related values
 
 	// Phase Field Equation Evaluations
 	void EvaluateEnergy(
@@ -533,8 +512,6 @@ public:
 		const Vertex3D& inputVertex,          // Target vertex
 		int k                                 // Number of closest vertices to find
 	); // Find the k closest vertices to a given vertex along with their indices
-		
-	// vector<tuple<Vertex3D, int, float>> FindClosestVerticesWithIndicesAndDistances(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k);
 	
 	// 3D Vertex and Cluster Operations
 	vector<tuple<Vertex3D, int, float>> FindClosestVerticesWithIndicesAndDistances(
@@ -603,8 +580,7 @@ public:
 
 	void PrintStatus(
 		int n, int end_iter, int reason_phi, int its_phi, double t_phi,
-		int reason_syn, int its_syn, double t_syn, 
-		int reason_tub, int its_tub, double t_tub, int n_bzmesh
+		int reason_syn, int reason_tub, int its_syn, int its_tub, double t_syn_tub, int n_bzmesh
 	); // Print the current status of the simulation with aligned output.
 };
 
@@ -615,20 +591,6 @@ PetscErrorCode SetupSNES(
     PetscErrorCode (*formJacobian)(SNES, Vec, Mat, Mat, void *),
     PetscReal rtol, PetscReal atol, PetscReal stol, PetscInt maxIters, PetscInt maxFails
 ); // Configures and initializes a PETSc SNES solver for nonlinear systems.
-// PetscErrorCode SetupSNES(
-//     SNES &snes, 
-//     const char *solverType, 
-//     void *ctx,
-//     PetscErrorCode (*formFunction)(SNES, Vec, Vec, void *),
-//     PetscErrorCode (*formJacobian)(SNES, Vec, Mat, Mat, void *),
-//     PetscReal rtol = 1e-5, 
-//     PetscReal atol = 1e-7, 
-//     PetscReal dtol = 1e-9,
-//     PetscInt maxIters = 100, 
-//     PetscInt maxFails = 1000, 
-//     PetscReal lineSearchDamping = 0.8, 
-//     SNESLineSearchType lineSearchType = SNESLINESEARCHCP
-// );
 
 PetscErrorCode SetupKSP(
     KSP &ksp, Mat &A, const char *kspType, const char *pcType,

@@ -69,6 +69,7 @@
                 "ostream": "cpp",
                 "print": "cpp",
                 "iostream": "cpp",
-                "forward_list": "cpp"
+                "forward_list": "cpp",
+                "iomanip": "cpp"
         }
 }

@@ -134,40 +134,6 @@ void mpmetis(int n_process, string path_in){
 	system(mpmetis_cmd);
 }
 
-// // Export hex mesh to vtk for visualization
-// void write_hex_toVTK(const char* qs, vector<vector<float>>& vertices, vector<vector<int>>& elements)
-// {
-// 	FILE* fp;
-// 	fp = fopen(qs, "w");
-// 	int nv, nhex, i, j;
-
-// 	nv = vertices.size();
-// 	nhex = elements.size();
-
-// 	fprintf(fp, "# vtk DataFile Version 2.0\n");
-// 	fprintf(fp, "2DmeshGen\n");
-// 	fprintf(fp, "ASCII\n");
-// 	fprintf(fp, "DATASET UNSTRUCTURED_GRID\n");
-
-// 	fprintf(fp, "POINTS %d float\n", nv);
-// 	for (i = 0; i < nv; i++) {
-// 		fprintf(fp, "%.2f %.2f %.2f\n", vertices[i][0], vertices[i][1], vertices[i][2]);
-// 	}
-
-// 	fprintf(fp, "\nCELLS %d %d\n", nhex, nhex * 9);
-
-// 	for (i = 0; i < nhex; i++) {
-// 		fprintf(fp, "8 %d %d %d %d %d %d %d %d\n", elements[i][0], elements[i][1], elements[i][2], elements[i][3], elements[i][4], elements[i][5], elements[i][6], elements[i][7]);
-// 	}
-
-// 	fprintf(fp, "\nCELL_TYPES %d\n", nhex);
-// 	for (i = 0; i < nhex; i++) {
-// 		fprintf(fp, "12\n");
-
-// 	}
-// 	fclose(fp);
-// }
-
 void write_hex_toVTK(const char* qs, vector<vector<float>>& vertices, vector<vector<int>>& elements)
 {
     FILE* fp;
