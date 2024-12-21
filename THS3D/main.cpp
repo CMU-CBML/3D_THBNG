@@ -21,6 +21,7 @@ int main(int argc, char **argv)
 {
 
 	string path_in = argv[1];
+	int level = atoi(argv[2]);
 
 	// int rf_level = atoi(argv[2]);
 
@@ -45,7 +46,7 @@ int main(int argc, char **argv)
 	kernel app;
 	// app.run_complex_fit(path_in);
 	// tt3.SetProblem("./io/hex_input/cube5");
-	app.run_neuronGrowth(path_in);
+	app.run_neuronGrowth(path_in, level);
 
 	return 0;
 }

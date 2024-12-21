@@ -50,12 +50,13 @@ void SetupSimulationFiles(const int nProcs, const string& path_in, bool localRef
     gen3Dmesh(originX, originY, originZ, NX, NY, NZ, 2, 2, 2, vertices, elements);
     write_hex_toVTK(fn_mesh_initial.c_str(), vertices, elements);
 
+	int level = 2;
     // Handle local refinement or default processing
     if (!localRefine) {
         write_hex_toVTK(fn_mesh.c_str(), vertices, elements);
         bzmesh3D(path_in); // Generate Bezier mesh info
     } else {
-        THS3D(path_in); // Perform local refinement
+        THS3D(path_in, level); // Perform local refinement
     }
 
     // Partition the mesh for parallel processing
@@ -642,13 +643,13 @@ float Lerp(float a, float b, float t) {
 	return a + t * (b - a);
 }
 
-void THS3D(const string &path_in) {
+void THS3D(const string &path_in, int level) {
     cout << "******************************************************************************" << endl;
     cout << "Local refinement based on Xiaodong's THS3D code ..." << endl;
     cout << "------------------------------------------------------------------------------" << endl;
 
     // Construct the command
-    string ths3d_cmd = "../THS3D/THS3D " + path_in;
+    string ths3d_cmd = "../THS3D/THS3D " + path_in + " " + to_string(level);
 
     // Log the command for debugging
     cout << "Executing THS3D command: " << ths3d_cmd << endl;

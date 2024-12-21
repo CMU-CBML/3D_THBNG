@@ -443,12 +443,13 @@ public:
 		const vector<Vertex3D>& cpts      // Control points for Bezier mesh
 	);
 
-	// Synaptogenesis and Tubulin Operations
-	void CalculateSumGradPhi0(const vector<Vertex3D>& cpts); 
-		// Calculate the sum of gradient phi0 over the control points
-
 	void BuildLinearSystemProcessNG_syn_tub(const vector<Vertex3D>& cpts); 
 		// Assemble the linear system for synaptogenesis and tubulin equations
+
+	void HandleExpansion(
+		int& NX, int& NY, int& NZ,
+		int& originX, int& originY, int& originZ
+	);
 
 	// Domain Expansion Operations
 	int CheckExpansion3D(
@@ -456,7 +457,7 @@ public:
 		const vector<Vertex3D>& cpts,      							// Control points for the domain
 		const int& originX, const int& originY, const int& originZ 	// Origin coordinates for the domain
 	); // Check and handle 3D domain expansion conditions
-
+	
 	void PopulateRandom(vector<float>& input);
 		// Populate input vector with random values after domain expansion
 

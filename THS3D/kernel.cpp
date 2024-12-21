@@ -541,9 +541,10 @@ void kernel::run_complex_fit(string path_in)
 	//output_err(fld + fn + "err", dof_list, err_list);
 }
 
-int kernel::run_neuronGrowth(string path_in)
+int kernel::run_neuronGrowth(string path_in, int level)
 {
-	int niter(2);
+	// int niter(2);
+	int niter = level;
 	double thresh(0.25);//cube
 	unsigned int i;
 	double xy[3][2], nm[3], a(50.);

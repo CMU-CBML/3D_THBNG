@@ -58,6 +58,6 @@ float round5(float value);
 float Lerp(float a, float b, float t);
 
 // THS3D Integration
-void THS3D(const string& path_in);
+void THS3D(const string& path_in, int level);
 
 #endif // UTILS_H
