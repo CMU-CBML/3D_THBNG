@@ -70,6 +70,8 @@
                 "print": "cpp",
                 "iostream": "cpp",
                 "forward_list": "cpp",
-                "iomanip": "cpp"
+                "iomanip": "cpp",
+                "optional": "cpp",
+                "ratio": "cpp"
         }
 }

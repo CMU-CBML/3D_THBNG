@@ -130,7 +130,6 @@ NeuronGrowth::NeuronGrowth(const string& phi_solver,
 		// Simulation parameters
 		var_save_invl   = 100;       // Interval for saving variables
 		expandCK_invl   = 5000;     // Interval for expanding control knots
-		expand_sz 		= 3.0f;		// Domain expansion size
 
 		// Neuron-specific parameters
 		aniso           = 6;         // Anisotropy constant
@@ -172,10 +171,9 @@ NeuronGrowth::NeuronGrowth(const string& phi_solver,
 
 	} else if (phi_solver == "snes") {
 		// Simulation settings
-		expandCK_invl   = 5000;    	// Interval for expanding control knots
+		expandCK_invl   = 5000;    // Interval for expanding control knots
 		var_save_invl   = 100;      // Interval for saving variables
-		refine_invl		= 5000;    	// Interval for local refinement
-		expand_sz 		= 3.0f;		// Domain expansion size
+		refine_invl		= 5000;    // Interval for local refinement
 
 		numNeuron       = 1;        // Number of neurons
 		seed_radius     = 4;        // Initial seed radius for neuron growth
@@ -233,7 +231,6 @@ void NeuronGrowth::SetVariables(const string &fn_par) {
         if (variableName == "expandCK_invl") expandCK_invl = value;
         else if (variableName == "refine_invl") refine_invl = value;
         else if (variableName == "var_save_invl") var_save_invl = value;
-        else if (variableName == "expand_sz") expand_sz = value;
         else if (variableName == "numNeuron") numNeuron = value;
         else if (variableName == "gc_sz") gc_sz = value;
         else if (variableName == "aniso") aniso = value;
@@ -311,9 +308,6 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 	}
 
 	// Determine bounds for previous control points
-	float max_x_prev, min_x_prev;
-	float max_y_prev, min_y_prev;
-	float max_z_prev, min_z_prev;
 	for (int i = 0; i < prev_cpts.size(); ++i) {
 		const auto& coord = prev_cpts[i].coor;
 		if (i == 0) {
@@ -2205,9 +2199,6 @@ void NeuronGrowth::HandleExpansion(
     if (comRank == 0) {
         expd_dir_global = CheckExpansion3D(phi, cpts, originX, originY, originZ);
     }
-	if (expd_dir_global != 6) {
-		expd_dir_global = 7;
-	}
 
     // Broadcast expansion direction to all ranks
     MPI_Bcast(&expd_dir_global, 1, MPI_INT, 0, PETSC_COMM_WORLD);
@@ -2218,56 +2209,41 @@ void NeuronGrowth::HandleExpansion(
     PetscPrintf(PETSC_COMM_WORLD, "Expanding in direction: %d\n", expd_dir_global);
 
     // Define the offset for expansion
-    float offset = expand_sz/2 * 2.0; // Half of expansion * delta element
-
+    float offset = 3 * 2.0; // expansion * delta element
+	expd_dir_global =1;
     // Apply expansion based on global direction
     switch (expd_dir_global) {
         case 0: 
-            NX += expand_sz;
+            NX += 3;
             PetscPrintf(PETSC_COMM_WORLD, "Expanding in +X direction. Updated NX: %d\n", NX);
             break; // Positive x boundary
         case 1: 
-            NX += expand_sz;
+            NX += 3;
             originX -= offset;
             PetscPrintf(PETSC_COMM_WORLD, "Expanding in -X direction. Updated NX: %d, OriginX: %.2f\n", NX, originX);
             break; // Negative x boundary
         case 2: 
-            NY += expand_sz;
+            NY += 3;
             PetscPrintf(PETSC_COMM_WORLD, "Expanding in +Y direction. Updated NY: %d\n", NY);
             break; // Positive y boundary
         case 3: 
-            NY += expand_sz;
+            NY += 3;
             originY -= offset;
             PetscPrintf(PETSC_COMM_WORLD, "Expanding in -Y direction. Updated NY: %d, OriginY: %.2f\n", NY, originY);
             break; // Negative y boundary
         case 4: 
-            NZ += expand_sz;
+            NZ += 3;
             PetscPrintf(PETSC_COMM_WORLD, "Expanding in +Z direction. Updated NZ: %d\n", NZ);
             break; // Positive z boundary
         case 5: 
-            NZ += expand_sz;
+            NZ += 3;
             originZ -= offset;
             PetscPrintf(PETSC_COMM_WORLD, "Expanding in -Z direction. Updated NZ: %d, OriginZ: %.2f\n", NZ, originZ);
             break; // Negative z boundary
         case 6: 
+        default: 
             PetscPrintf(PETSC_COMM_WORLD, "No expansion required. Global direction: %d\n", expd_dir_global);
             break; // No expansion
-        case 7: 
-            // Expand all directions
-            NX += expand_sz;
-            NY += expand_sz;
-            NZ += expand_sz;
-            originX -= offset;
-            originY -= offset;
-            originZ -= offset;
-            PetscPrintf(PETSC_COMM_WORLD, 
-                        "Expanding all directions. Updated NX: %d, NY: %d, NZ: %d, "
-                        "OriginX: %.2f, OriginY: %.2f, OriginZ: %.2f\n", 
-                        NX, NY, NZ, originX, originY, originZ);
-            break; // Expand all directions
-        default: 
-            PetscPrintf(PETSC_COMM_WORLD, "Invalid expansion direction: %d\n", expd_dir_global);
-            break;
     }
 }
 
@@ -2287,13 +2263,13 @@ int NeuronGrowth::CheckExpansion3D(const vector<float>& input,
 
             // Check each boundary direction in axis order (x, y, z)
             if (currX >= (max_x - bc_clearance)) return 0; // Positive x boundary
-            if (currX <= (bc_clearance)) return 1; // Negative x boundary
+            if (currX <= (min_x + bc_clearance)) return 1; // Negative x boundary
 
             if (currY >= (max_y - bc_clearance)) return 2; // Positive y boundary
-            if (currY <= (bc_clearance)) return 3; // Negative y boundary
+            if (currY <= (min_y + bc_clearance)) return 3; // Negative y boundary
 
             if (currZ >= (max_z - bc_clearance)) return 4; // Positive z boundary
-            if (currZ <= (bc_clearance)) return 5; // Negative z boundary
+            if (currZ <= (min_z + bc_clearance)) return 5; // Negative z boundary
         }
     }
 
@@ -2302,12 +2278,12 @@ int NeuronGrowth::CheckExpansion3D(const vector<float>& input,
 }
 
 void NeuronGrowth::PopulateRandom(vector<float> &input) {
-    for (float &value : input) {
+    for_each(input.begin(), input.end(), [](float &value) {
         if (value == 0.0f) {
             // Generate a random float between 0 and 1
             value = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
         }
-    }
+    });
 }
 
 bool NeuronGrowth::KD_SearchPair(const vector<Vertex3D>& cpts, 
@@ -2387,7 +2363,7 @@ bool NeuronGrowth::IsInBox(const Vertex3D& point, const Vertex3D& center, float 
 }
 
 void NeuronGrowth::CalculatePhiSum(const vector<Vertex3D>& cpts, 
-                                     const float& tip_I_sz, 
+                                     float dx, float dy, float dz, 
                                      const KDTree& kdTree) {
 
 	// CheckAndPrintThresholdExceedance(phi, 0.8);
@@ -2398,7 +2374,7 @@ void NeuronGrowth::CalculatePhiSum(const vector<Vertex3D>& cpts,
 
     float threshold = 0.95;  // Threshold for tip detection
     float maxTipValue = 0;  // Track the maximum tip value for normalization
-	
+
     // Precompute CellBoundary(phi[j], 0.5) for all j to avoid redundant calculations
     vector<float> phiTransformed(phi.size());
     for (size_t j = 0; j < phi.size(); ++j) {
@@ -2414,7 +2390,7 @@ void NeuronGrowth::CalculatePhiSum(const vector<Vertex3D>& cpts,
         // Sum phi values for points within the vicinity
         float localSum = 0;
         for (size_t j = 0; j < phi.size(); ++j) {
-			if (IsInBox(cpts[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {            
+			if (IsInBox(cpts[j], center, dx, dy, dz)) {            
 				// tips[i] += phiTransformed[j] * distI[j];
 				tips[i] += phiTransformed[j];
 			}
@@ -2537,35 +2513,36 @@ vector<float> NeuronGrowth::ComputeRefine(
                 vector<tuple<Vertex3D, int, float>> closestVertices = 
                     FindClosestVerticesWithIndicesAndDistances(kdTree, cloud, queryPoint, numNeighbors);
 
-				float phi_average(0);
-				if (closestVertices.empty()) {
-					// No neighbors found: set phi_average = 0 or handle case differently
-					phi_average = 0.0f;
-				} else {
+				// float phi_average(0);
+				// if (closestVertices.empty()) {
+				// 	// No neighbors found: set phi_average = 0 or handle case differently
+				// 	phi_average = 0.0f;
+				// } else {
 					
-					// Compute weighted average for phi
-					float weightedSum = 0.0;
-					float weightTotal = 0.0;
-					const float epsilon = 1e-6f; // Avoid division by zero
+				// 	// Compute weighted average for phi
+				// 	float weightedSum = 0.0;
+				// 	float weightTotal = 0.0;
+				// 	const float epsilon = 1e-6f; // Avoid division by zero
 
-					for (const auto& neighbor : closestVertices) {
-						int idx = get<1>(neighbor);     // Index of the neighbor
-						float distance = get<2>(neighbor); // Distance to the neighbor
-						float weight = 1.0f / (distance + epsilon); // Weight based on distance
-						weightedSum += phi_in[idx] * weight;
-						weightTotal += weight;
-					}
+				// 	for (const auto& neighbor : closestVertices) {
+				// 		int idx = get<1>(neighbor);     // Index of the neighbor
+				// 		float distance = get<2>(neighbor); // Distance to the neighbor
+				// 		float weight = 1.0f / (distance + epsilon); // Weight based on distance
+				// 		weightedSum += phi_in[idx] * weight;
+				// 		weightTotal += weight;
+				// 	}
 
-					phi_average = weightedSum / weightTotal; // Compute weighted average
-				}
+				// 	phi_average = weightedSum / weightTotal; // Compute weighted average
+				// }
+				int idx = get<1>(closestVertices[0]);
+				float phi_average = closestVertices.empty() ? 0.0f : phi_in[idx];
 
                 // Compute indices for output grid (ele_refine)
-                // int index_out = (i - 1) * NY * NZ + (j - 1) * NZ + (k - 1);
-                int index_out = (i) * NY * NZ + (j) * NZ + (k);
+                int index_out = (i - 1) * NY * NZ + (j - 1) * NZ + (k - 1);
 
                 // Apply refinement criteria based on phi thresholds
-                const float phi_detected_threshold = 0.001f;
                 // if ((phi_average < 0.5f) && (phi_average > 0.001f)) {
+                const float phi_detected_threshold = 0.001f;
 				if (phi_average > phi_detected_threshold) {
 					ele_refine[index_out] = 1.0f;
 				} else {
@@ -3615,35 +3592,58 @@ int RunNG(
 		NG.n = iter;
 
 		/*========================================================*/
-		// Neuron identification and tip detection
-		// Periodically save variables, detect tips, and write results
-		if ((NG.n % NG.var_save_invl == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size()) || (NG.n == NG.end_iter)) {
-			// Log progress and start collecting results
-			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-			PetscPrintf(PETSC_COMM_WORLD, "Identifying neurons, calculating geodesic distances, and detecting tips\n");
-
-			// Detect tips and save intermediate results
-			float tip_intensity_sz = 8.0f;
-			NG.CalculatePhiSum(cpts, tip_intensity_sz, kdTree);
-
-			// Write physical domain results to file
-			if (NG.n % NG.var_save_invl == 0) {
-				NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
-				PetscPrintf(PETSC_COMM_WORLD, 
-							"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
-							NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
-			}
-
-			// Separator for clarity in logs
-			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-		}
-
-		/*--------------------------------------------------------*/
 		// Domain expansion and variable passing
 		if (NG.n % NG.expandCK_invl == 0 && NG.n >= 10) {
 			localRefine = true;
 
 			NG.HandleExpansion(NX, NY, NZ, originX, originY, originZ);
+			
+			// //==================================================
+			// // need to update NG variables - interpolate to new domain and then calculate refine element ID
+			
+			// // Update variables for current state
+			// NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
+
+			// // Initialize variables
+			// int cpt_sz = cpts.size();
+			// NG.phi.assign(cpt_sz, 0.0f);
+			// NG.syn.assign(cpt_sz, 0.0f);
+			// NG.tub.assign(cpt_sz, 0.0f);
+			// NG.theta.assign(cpt_sz, 0.0f);
+			// NG.phi_0.assign(cpt_sz, 0.0f);
+			// NG.tub_0.assign(cpt_sz, 0.0f);
+			// NG.distI.assign(cpt_sz, 0.0f);
+			// float maxDistI = 0.0f;
+			// for (size_t i = 0; i < cpt_sz; ++i) {
+			// 	const auto& cpt = cpts[i];
+			// 	const auto& [x, y, z] = cpt.coor;
+
+			// 	// Assign boundary labels based on spatial bounds
+			// 	cpts[i].label = (x == NG.min_x || x == NG.max_x ||
+			// 						y == NG.min_y || y == NG.max_y ||
+			// 						z == NG.min_z || z == NG.max_z) ? 1 : 0;
+
+			// 	// Check if the point is within bounds
+			// 	bool withinBounds = (x > NG.min_x_prev && x < NG.max_x_prev &&
+			// 							y > NG.min_y_prev && y < NG.max_y_prev &&
+			// 							z > NG.min_z_prev && z < NG.max_z_prev);
+
+			// 	// Interpolate or find exact match for current point
+			// 	NG.InterpolateOrFindExact(
+			// 		cpt, kdTree_prev, cloud_prev, NGvars, prev_cpts, 
+			// 		NG.phi[i], NG.syn[i], NG.tub[i], NG.theta[i], NG.phi_0[i], NG.tub_0[i], 
+			// 		NG.distI[i], maxDistI, withinBounds
+			// 	);
+
+			// 	// Out-of-bounds handling (defaults)
+			// 	if (!withinBounds) {
+			// 		NG.phi[i] = NG.syn[i] = NG.tub[i] = NG.phi_0[i] = NG.tub_0[i] = 0.0f;
+			// 		NG.theta[i] = static_cast<float>(rand() % 100) / 100.0f;
+			// 	}
+			// }
+
+			// //==================================================
+
 			// Update variables for current state
 			NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
 
@@ -3690,6 +3690,28 @@ int RunNG(
 			return 1;
 		}
 
+		/*--------------------------------------------------------*/
+		// Neuron identification and tip detection
+		// Periodically save variables, detect tips, and write results
+		if ((NG.n % NG.var_save_invl == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size()) || (NG.n == NG.end_iter)) {
+			// Log progress and start collecting results
+			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+			PetscPrintf(PETSC_COMM_WORLD, "Identifying neurons, calculating geodesic distances, and detecting tips\n");
+
+			// Detect tips and save intermediate results
+			NG.CalculatePhiSum(cpts, 8, 8, 8, kdTree);
+
+			// Write physical domain results to file
+			if (NG.n % NG.var_save_invl == 0) {
+				NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
+				PetscPrintf(PETSC_COMM_WORLD, 
+							"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
+							NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
+			}
+
+			// Separator for clarity in logs
+			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+		}
 		UpdateSimulationTimers(t_collect, t_write, t_global);
 
 		/*==============================================================================*/
@@ -3818,6 +3840,17 @@ int RunNG(
 			// Phase Field Equation Solver (SNES)
 			if (NG.judge_phi == 0) {
 				SetupSNES(NG.snes_phi, SNESNEWTONLS, &NG, FormFunction_phi, FormJacobian_phi);
+				// SetupSNES(NG.snes_phi, SNESNEWTONLS, &NG, 
+				// 		FormFunction_phi, 
+				// 		FormJacobian_phi, 
+				// 		1e-5,   // Relative tolerance
+				// 		1e-7,   // Absolute tolerance
+				// 		1e-9,   // Step tolerance
+				// 		200,    // Max iterations
+				// 		1000,   // Max function evaluations
+				// 		0.9,    // Line search damping
+				// 		SNESLINESEARCHCP // Backtracking line search
+				// );
 
 				if (NG.n == 0) {
 					CHKERRQ(SNESView(NG.snes_phi, PETSC_VIEWER_STDOUT_WORLD));

@@ -541,10 +541,77 @@ void kernel::run_complex_fit(string path_in)
 	//output_err(fld + fn + "err", dof_list, err_list);
 }
 
-int kernel::run_neuronGrowth(string path_in)
+
+int kernel::run_neuronGrowth_optionA(const string& path_in, int level)
 {
-	int niter(4);
-	double thresh(0.25);//cube
+    // 1) Instantiate T-spline object and load initial mesh
+    TruncatedTspline_3D tt3;
+    tt3.SetProblem(path_in + "controlmesh_initial");
+
+    // 2) Read the initial 'phi.txt' which indicates elements to refine
+    vector<double> phi_old = readVectorFromFile(path_in + "phi.txt", false);
+
+    // 3) Prepare containers for the current mesh
+    vector<BezierElement3D> bzmesh;
+    vector<int> IDBC;         // For boundary conditions
+    vector<double> gh;        // For geometry/function values if needed
+
+    // 4) Build the initial mesh representation
+    tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
+
+    // Keep a copy of the old mesh before refinement
+    vector<BezierElement3D> bzmesh_old = bzmesh; 
+
+    // We want 3 local refinements total
+    const int numRefinements = level; 
+
+    for (int pass = 0; pass < numRefinements; pass++) {
+        cout << "\n===== Local Refinement Pass " << pass+1 
+             << " of " << numRefinements << " =====\n";
+
+        // (A) Interpolate old phi onto the current mesh
+        //     So that we know which elements in the new mesh should be flagged
+        vector<double> phi_new = InterpolateValues(bzmesh_old, phi_old, bzmesh);
+
+        // (B) Identify which elements to refine using 'Identify_Laplace'
+        //     We'll build 'eh' to map each element in 'bzmesh' to a level/index
+        vector<array<double, 2>> eh(bzmesh.size());
+        for (size_t i = 0; i < bzmesh.size(); i++) {
+            // 'prt' typically stores hierarchical or indexing info in [0], [1]
+            eh[i][0] = bzmesh[i].prt[0];
+            eh[i][1] = bzmesh[i].prt[1];
+        }
+
+        // We'll use 'phi_new' as the error array
+        vector<array<int, 2>> rfid, gst;
+        tt3.Identify_Laplace(eh, phi_new, rfid, gst);
+
+        // (C) Refine the mesh based on 'rfid'/'gst' 
+        tt3.Refine(rfid, gst);
+
+        // (D) Re-generate the updated mesh with 'AnalysisInterface_Poisson_1'
+        //     This step updates 'bzmesh' so we see the newly refined elements
+        bzmesh_old = bzmesh;      // Keep a copy for the next pass interpolation
+        tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
+
+        // (E) Now we want to preserve the newly computed phi for the next pass
+        //     So that we can re-check. We'll store 'phi_new' in 'phi_old'
+        phi_old = phi_new;
+    }
+
+    // (F) (Optional) Output the final mesh for visualization
+    tt3.OutputGeom_All(path_in + "final_geom");
+
+    cout << "All " << numRefinements << " local refinement passes complete.\n";
+
+    return 0;
+}
+
+int kernel::run_neuronGrowth(string path_in, int level)
+{
+	// int niter(2);
+	int niter = level;
+	// double thresh(0.25);//cube
 	unsigned int i;
 	double xy[3][2], nm[3], a(50.);
 	TruncatedTspline_3D tt3;
@@ -632,7 +699,7 @@ int kernel::run_neuronGrowth(string path_in)
 		// lap.Run(bzmesh, fld + fn + ss.str(), err);
 
 		phi = InterpolateValues(bzmesh_old, phi_old, bzmesh);
-		writeVectorToFile(phi, "./phi_refine.txt", false);
+		writeVectorToFile(phi, path_in + "phi_refine.txt", false);
 		// err.clear();
 		err = phi;
 		// std::cout << "ck2 " << bzmesh.size() << " " << err.size() << " " << ids.size() << std::endl;
@@ -717,59 +784,217 @@ int kernel::run_neuronGrowth(string path_in)
 	return 0;
 }
 
-// Function to find the index of the nearest neighbor in the old mesh
-int kernel::FindNearestNeighbor(const std::vector<BezierElement3D>& bzmesh_old, const BezierElement3D& target_element, double& min_distance, const std::vector<double>& phi_old)
+// int kernel::run_neuronGrowth(string path_in, int level)
+// {
+//     // 1) Create and initialize the T-spline object
+//     TruncatedTspline_3D tt3;
+//     tt3.SetProblem(path_in + "controlmesh_initial");
+
+//     // 2) Load or compute the initial Bezier mesh
+//     std::vector<BezierElement3D> bzmesh;
+//     std::vector<int> IDBC;
+//     std::vector<double> gh;
+//     tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
+
+//     // 3) Read 'phi.txt' indicating which elements are initially flagged
+//     //    for local refinement
+//     std::vector<double> phi_old = readVectorFromFile(path_in + "phi.txt", false);
+//     std::cout << "Vector successfully read from " << path_in << "phi.txt"
+//               << " with size: " << phi_old.size() << "\n";
+
+//     // We'll iterate 'level' times for local refinement
+//     // For each pass, we refine the mesh and re-check the new mesh structure
+//     for (int pass = 0; pass < level; pass++) {
+//         std::cout << "\n===== Local Refinement Pass " 
+//                   << (pass + 1) << " of " << level << " =====\n";
+
+//         // (A) Interpolate old phi onto the current 'bzmesh'
+//         //     (Old mesh is effectively 'bzmesh' from previous iteration, so
+//         //      we keep 'bzmesh' consistent or store a copy if needed).
+//         //     If this is the first pass, 'bzmesh' is the original mesh.
+//         //     Otherwise, it’s the newly refined mesh from the last pass.
+//         std::vector<double> phi_new = InterpolateValues(
+//             bzmesh,  // old mesh (or the same if first pass)
+//             phi_old, // old phi
+//             bzmesh   // new mesh is also 'bzmesh' if we re-check
+//         );
+
+//         // (B) Build 'eh' to map each element in 'bzmesh' to hierarchical indexes
+//         std::vector<std::array<double, 2>> eh(bzmesh.size());
+//         for (size_t i = 0; i < bzmesh.size(); i++) {
+//             eh[i][0] = bzmesh[i].prt[0];
+//             eh[i][1] = bzmesh[i].prt[1];
+//         }
+
+//         // (C) Identify which elements to refine using 'phi_new' as the error metric
+//         std::vector<std::array<int, 2>> rfid, gst;
+//         tt3.Identify_Laplace(eh, phi_new, rfid, gst);
+
+//         // (D) Refine the flagged elements
+//         if (!rfid.empty() || !gst.empty()) {
+//             tt3.Refine(rfid, gst);
+//             std::cout << "Refining done. rfid.size()=" << rfid.size() 
+//                       << ", gst.size()=" << gst.size() << "\n";
+//         } else {
+//             std::cout << "No elements flagged for refinement this pass.\n";
+//         }
+
+//         // (E) Output geometry or mesh if desired (for debugging or final output)
+//         //     'pass' indicates which iteration. 
+//         //     E.g., "geom_pass0", "geom_pass1", "geom_pass2", etc.
+//         std::stringstream ss;
+//         ss << "geom_pass" << pass;
+//         tt3.OutputGeom_All(path_in + ss.str());
+
+//         // (F) Re-generate the updated Bezier mesh to reflect the refined structure
+//         //     so next pass re-checks a newly refined mesh.
+//         bzmesh.clear(); // optional, since 'AnalysisInterface_Poisson_1' does it
+//         IDBC.clear();
+//         gh.clear();
+//         tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
+
+//         // (G) Preserve newly interpolated phi for the next pass
+//         //     so we can re-check or re-interpolate from 'phi_new'
+//         phi_old = phi_new;
+//     }
+
+//     std::cout << "\nAll " << level << " local refinement passes complete.\n";
+
+//     // (H) Optionally output final mesh or other data
+//     tt3.OutputGeom_All(path_in + "final_geom");
+
+//     return 0;
+// }
+
+int kernel::FindNearestNeighbor(
+    const std::vector<BezierElement3D>& bzmesh_old, 
+    const BezierElement3D& target_element, 
+    double& min_distance, 
+    const std::vector<double>& phi_old)
 {
-	int nearest_index = 0;
-	min_distance = std::numeric_limits<double>::max();
-	// double min_distance = std::numeric_limits<double>::max();
+    // Initialize the nearest neighbor index and minimum distance
+    int nearest_index = -1;  // -1 indicates no valid neighbor found
+    min_distance = std::numeric_limits<double>::max();
+    
+    // Ensure target_element.pts[0] is valid
+    if (target_element.pts.empty() || target_element.pts[0].size() < 3) {
+        throw std::runtime_error("Invalid target_element: missing point data.");
+    }
 
-	for (int i = 0; i < bzmesh_old.size(); ++i) {
-		// if (phi_old[i] != 0) {
-			// Calculate the Euclidean distance between target_element and elements in bzmesh_old
-			double distance = 0.0;
-			for (int j = 0; j < 3; ++j)
-			{
-				double diff = target_element.pts[0][j] - bzmesh_old[i].pts[0][j];
-				distance += diff * diff;
-			}
-			distance = std::sqrt(distance);
+    // Loop through the old mesh elements to find the nearest neighbor
+    for (size_t i = 0; i < bzmesh_old.size(); ++i) {
+        // Optionally skip elements with phi_old[i] == 0
+        if (phi_old[i] == 0.0) continue; 
 
-			// Update nearest neighbor if a closer one is found
-			if (distance < min_distance) {
-				min_distance = distance;
-				nearest_index = i;
-			}
-		// }
-	}
+        // Ensure the old element has valid point data
+        if (bzmesh_old[i].pts.empty() || bzmesh_old[i].pts[0].size() < 3) {
+            continue;  // Skip invalid elements
+        }
 
-	return nearest_index;
+        // Calculate the squared Euclidean distance
+        double distance_squared = 0.0;
+        for (int j = 0; j < 3; ++j) {
+            double diff = target_element.pts[0][j] - bzmesh_old[i].pts[0][j];
+            distance_squared += diff * diff;
+        }
+
+        // Update the nearest neighbor if a closer one is found
+        if (distance_squared < min_distance) {
+            min_distance = distance_squared;
+            nearest_index = static_cast<int>(i);
+        }
+    }
+
+    // Convert min_distance to the actual distance
+    if (nearest_index != -1) {
+        min_distance = std::sqrt(min_distance);
+    } else {
+        min_distance = 0.0; // No valid neighbors found
+    }
+
+    return nearest_index;
 }
+// // Function to find the index of the nearest neighbor in the old mesh
+// int kernel::FindNearestNeighbor(const std::vector<BezierElement3D>& bzmesh_old, const BezierElement3D& target_element, double& min_distance, const std::vector<double>& phi_old)
+// {
+// 	int nearest_index = 0;
+// 	min_distance = std::numeric_limits<double>::max();
+// 	// double min_distance = std::numeric_limits<double>::max();
 
-// Function to perform interpolation from old mesh to new mesh
-std::vector<double> kernel::InterpolateValues(const std::vector<BezierElement3D>& bzmesh_old,
-                                     const std::vector<double>& phi_old,
-                                     const std::vector<BezierElement3D>& bzmesh_new)
+// 	for (int i = 0; i < bzmesh_old.size(); ++i) {
+// 		// if (phi_old[i] != 0) {
+// 			// Calculate the Euclidean distance between target_element and elements in bzmesh_old
+// 			double distance = 0.0;
+// 			for (int j = 0; j < 3; ++j)
+// 			{
+// 				double diff = target_element.pts[0][j] - bzmesh_old[i].pts[0][j];
+// 				distance += diff * diff;
+// 			}
+// 			distance = std::sqrt(distance);
+
+// 			// Update nearest neighbor if a closer one is found
+// 			if (distance < min_distance) {
+// 				min_distance = distance;
+// 				nearest_index = i;
+// 			}
+// 		// }
+// 	}
+
+// 	return nearest_index;
+// }
+
+std::vector<double> kernel::InterpolateValues(
+    const std::vector<BezierElement3D>& bzmesh_old,
+    const std::vector<double>& phi_old,
+    const std::vector<BezierElement3D>& bzmesh_new)
 {
-	std::vector<double> phi_new(bzmesh_new.size(), 0.0);
+    std::vector<double> phi_new(bzmesh_new.size(), 0.0);
 
-	for (int i = 0; i < bzmesh_new.size(); ++i) {
-		// Find the nearest neighbor in the old mesh for each element in bzmesh_new
-		double dist(10);
-		int nearest_index = FindNearestNeighbor(bzmesh_old, bzmesh_new[i], dist, phi_old);
-		// std::cout << dist << std::endl;
-		// Interpolate the value based on the nearest neighbor
-		// phi_new[i] = phi_old[nearest_index];
-		if (dist <= 2) {
-			phi_new[i] = phi_old[nearest_index];
-		} else {
-			phi_new[i] = 0;
-		}
+    for (size_t i = 0; i < bzmesh_new.size(); ++i) {
+        double min_distance = std::numeric_limits<double>::max();
+        int nearest_index = FindNearestNeighbor(bzmesh_old, bzmesh_new[i], min_distance, phi_old);
+
+        // If an exact match is found, no need for further checks
+        if (min_distance <= 0.01) {
+            phi_new[i] = phi_old[nearest_index];
+            continue;
+        }
+
+        // Assign the nearest neighbor value if within the threshold
+        const double DIST_THRESHOLD = 4.0; // Threshold for valid interpolation
+        if (min_distance <= DIST_THRESHOLD) {
+            phi_new[i] = phi_old[nearest_index];
+        } else {
+            phi_new[i] = 0.0; // Default value for no valid neighbor
+        }
+    }
+
+    return phi_new;
+}
+// // Function to perform interpolation from old mesh to new mesh
+// std::vector<double> kernel::InterpolateValues(const std::vector<BezierElement3D>& bzmesh_old,
+//                                      const std::vector<double>& phi_old,
+//                                      const std::vector<BezierElement3D>& bzmesh_new)
+// {
+// 	std::vector<double> phi_new(bzmesh_new.size(), 0.0);
+
+// 	for (int i = 0; i < bzmesh_new.size(); ++i) {
+// 		// Find the nearest neighbor in the old mesh for each element in bzmesh_new
+// 		double dist(10);
+// 		int nearest_index = FindNearestNeighbor(bzmesh_old, bzmesh_new[i], dist, phi_old);
+// 		// std::cout << dist << std::endl;
+// 		// Interpolate the value based on the nearest neighbor
+// 		// phi_new[i] = phi_old[nearest_index];
+// 		if (dist <= 4) {
+// 			phi_new[i] = phi_old[nearest_index];
+// 		} else {
+// 			phi_new[i] = 0;
+// 		}
 			
-	}
+// 	}
 
-	return phi_new;
-}
+// 	return phi_new;
+// }
 
 void kernel::writeVectorToFile(const std::vector<double>& data, const std::string& filename, bool binary) {
 	std::ofstream outfile;

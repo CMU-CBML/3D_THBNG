@@ -66,6 +66,9 @@ public:
     float max_x, min_x;  // x-dimension bounds
     float max_y, min_y;  // y-dimension bounds
     float max_z, min_z;  // z-dimension bounds
+	float max_x_prev, min_x_prev;
+	float max_y_prev, min_y_prev;
+	float max_z_prev, min_z_prev;
 
 	// Basis Function Values and Derivatives
 	vector<vector<float>> pre_Nx;                   // Shape function values at Gauss points
@@ -142,7 +145,6 @@ public:
     int gamma;                  // Growth factor
     int seed_radius;            // Radius for neuron seeding
 
-    float expand_sz;          	// Domain expansion size
     float kappa;                // Diffusion coefficient
     float dt;                   // Time step
     float Dc;                   // Diffusion constant
@@ -505,7 +507,7 @@ public:
 	// Sum Calculation for Phi within a Specified Box
 	void CalculatePhiSum(
 		const vector<Vertex3D>& cpts,    // Control points representing center points
-		const float& tip_I_sz, 		     // Cube size for calculating tip intensity
+		float dx, float dy, float dz,    // Half-dimensions of the box
 		const KDTree& kdTree             // KDTree for spatial indexing
 	); // Calculate the sum of phi values within a 3D box for each center point in `cpts`
 

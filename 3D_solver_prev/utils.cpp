@@ -56,8 +56,7 @@ void SetupSimulationFiles(const int nProcs, const string& path_in, bool localRef
         write_hex_toVTK(fn_mesh.c_str(), vertices, elements);
         bzmesh3D(path_in); // Generate Bezier mesh info
     } else {
-        // THS3D(path_in, level); // Perform local refinement
-        THS3D(path_in); // Perform local refinement
+        THS3D(path_in, level); // Perform local refinement
     }
 
     // Partition the mesh for parallel processing
@@ -275,11 +274,7 @@ void InitializeSoma(int numNeuron, vector<array<float, 3>>& seed, int& NX, int& 
     // Initialize neuron soma based on the number of neurons
     switch (numNeuron) {
         case 1:
-            // // Single neuron case
-            // NX = 10;
-            // NY = 10;
-            // NZ = 10;  // Assumes 3D initialization
-            // seed[0] = {10.0f, 10.0f, 10.0f};
+            // Single neuron case
             NX = 10;
             NY = 10;
             NZ = 10;  // Assumes 3D initialization
@@ -648,15 +643,13 @@ float Lerp(float a, float b, float t) {
 	return a + t * (b - a);
 }
 
-// void THS3D(const string &path_in, int level) {
-void THS3D(const string &path_in) {
+void THS3D(const string &path_in, int level) {
     cout << "******************************************************************************" << endl;
     cout << "Local refinement based on Xiaodong's THS3D code ..." << endl;
     cout << "------------------------------------------------------------------------------" << endl;
 
     // Construct the command
-    // string ths3d_cmd = "../THS3D/THS3D " + path_in + " " + to_string(level);
-    string ths3d_cmd = "../THS3D/THS3D " + path_in;
+    string ths3d_cmd = "../THS3D/THS3D " + path_in + " " + to_string(level);
 
     // Log the command for debugging
     cout << "Executing THS3D command: " << ths3d_cmd << endl;

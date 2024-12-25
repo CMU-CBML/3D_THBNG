@@ -20,7 +20,7 @@ endif
 EIGEN_DIR = ../eigen-3.4.0
 
 include ${PETSC_DIR}/lib/petsc/conf/variables
-CFLAGS= ${PETSC_CC_INCLUDES} ${CXX_FLAGS} ${CXXFLAGS} ${CPPFLAGS} ${PSOURCECXX} -Ofast -march=native -std=c++17 -fopenmp -I ${EIGEN_DIR}
+CFLAGS= ${PETSC_CC_INCLUDES} ${CXX_FLAGS} ${CXXFLAGS} ${CPPFLAGS} ${PSOURCECXX} -O3 -march=native -std=c++17 -fopenmp -I ${EIGEN_DIR}
 # -flto
 all: 3DNG
 
