@@ -1,5 +1,6 @@
 var_save_invl = 100
 expandCK_invl = 150
+tip_detect_invl = 250
 refine_invl = 100
 expand_sz = 3
 numNeuron = 1

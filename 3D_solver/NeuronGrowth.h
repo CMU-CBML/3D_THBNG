@@ -83,12 +83,8 @@ public:
 	vector<float> pre_eleEEP;                      // Element epsilon derivative values
 
 	// Gradients of Phase Field Variables
-	vector<float> pre_dAdx;                        // Derivative of A w.r.t. x
-	vector<float> pre_dAdy;                        // Derivative of A w.r.t. y
-	vector<float> pre_dAdz;                        // Derivative of A w.r.t. z
-	vector<float> pre_dAPdx;                       // Derivative of AP w.r.t. x
-	vector<float> pre_dAPdy;                       // Derivative of AP w.r.t. y
-	vector<float> pre_dAPdz;                       // Derivative of AP w.r.t. z
+	vector<float> pre_dAdx, pre_dAdy, pre_dAdz;	   // Derivative of A w.r.t. x, y, z
+	vector<float> pre_dAPdx, pre_dAPdy, pre_dAPdz; // Derivative of AP w.r.t. x, y, z
 
 	// Element Properties
 	vector<float> pre_eleP;                        // Pre-calculated element P values
@@ -120,7 +116,6 @@ public:
     float sum_grad_phi0_local, sum_grad_phi0_global;  // Gradient sums
     float dP0dx, dP0dy, dP0dz;          // Derivatives of pressure
     vector<float> elePhi0, eleTheta;    // Element-specific variables
-    vector<float> distI;                // Distances for interpolation
 
     // PETSc Solvers and Variables
     SNES snes_phi;              // PETSc SNES nonlinear solver
@@ -134,6 +129,7 @@ public:
     // Parameters for Neuron Growth Model
     int var_save_invl;          // Interval for saving variables
     int expandCK_invl;          // Interval for checking expansion
+	int tip_detect_invl; 		// interval for tip detection
 	int refine_invl;			// Interval for local refinement
     int numNeuron;              // Number of neurons
     int gc_sz;                  // Grid cell size
@@ -193,7 +189,6 @@ public:
 		const vector<vector<float>>& NGvars, 
 		const vector<Vertex3D>& prev_cpts, 
 		float& phi, float& syn, float& tub, float& theta, float& phi_0, float& tub_0, 
-		float& dist, float& maxDist, 
 		bool withinBounds
 	);
 
