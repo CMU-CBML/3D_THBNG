@@ -518,8 +518,8 @@ public:
 
 	// Refinement and Clustering
 	vector<float> ComputeRefine(const vector<float>& phi_in,
-		int NX, int NY, int NZ,
-		int &originX, int &originY, int &originZ,
+		const int& NX, const int& NY, const int& NZ,
+		const int& originX, const int& originY, const int& originZ,
 		const KDTree& kdTree, const Vertex3DCloud& cloud);
 
 	void BFS3D(

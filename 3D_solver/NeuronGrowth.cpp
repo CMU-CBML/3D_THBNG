@@ -2168,11 +2168,9 @@ void NeuronGrowth::HandleExpansion(const vector<float>& phi_in,
     int& originX, int& originY, int& originZ) 
 {
     int expd_dir_global = 6; // Default: No expansion
-
     // Determine expansion direction on rank 0
     if (comRank == 0) {
-        expd_dir_global = CheckExpansion3D(phi_in, cpts, originX, originY, originZ);
-        // expd_dir_global = CheckExpansion3D(phi_in, cpts, originX, originY, originZ) == 6 ? 6 : 7;
+        expd_dir_global = CheckExpansion3D(phi_in, cpts, originX, originY, originZ) == 6 ? 6 : 7;
 	}
 
     // Broadcast expansion direction to all ranks
@@ -2184,7 +2182,7 @@ void NeuronGrowth::HandleExpansion(const vector<float>& phi_in,
     PetscPrintf(PETSC_COMM_WORLD, "Expanding in direction: %d\n", expd_dir_global);
 
     // Define the offset for expansion
-    float offset = expand_sz/2 * 2.0; // Half of expansion * delta element (original coarse level)
+    float offset = expand_sz * 2.0; // Half of expansion * delta element (original coarse level)
 
     // Apply expansion based on global direction
     switch (expd_dir_global) {
@@ -2243,7 +2241,7 @@ int NeuronGrowth::CheckExpansion3D(const vector<float>& input,
 {
     constexpr float bc_clearance = 2.0f;
 
-    CheckVar("../io3D/outputs/input_", cpts, input);
+    CheckVar("../io3D/outputs/checkExp_", cpts, input);
 
     // Iterate over all control points to detect boundary conditions
     for (size_t i = 0; i < cpts.size(); ++i) {
@@ -2471,11 +2469,11 @@ vector<tuple<Vertex3D, int, float>> NeuronGrowth::FindClosestVerticesWithIndices
 
 vector<float> NeuronGrowth::ComputeRefine(
     const vector<float>& phi_in, 
-	int NX, int NY, int NZ,
-	int &originX, int &originY, int &originZ,
+	const int& NX, const int& NY, const int& NZ,
+	const int& originX, const int& originY, const int& originZ,
     const KDTree& kdTree, const Vertex3DCloud& cloud) 
 {
-	// CheckVar("../io3D/outputs/PHI_", cpts, phi_in); // check control points phi for debugging
+	CheckVar("../io3D/outputs/PHI_", cpts, phi_in); // check control points phi for debugging
 
     // Initialize the refined elements vector
     vector<float> ele_refine(NX * NY * NZ, 0.0);
@@ -2518,8 +2516,9 @@ vector<float> NeuronGrowth::ComputeRefine(
 
                 // Compute indices for output grid (ele_refine)
                 // int index_out = (i - 1) * NY * NZ + (j - 1) * NZ + (k - 1);
-                int index_out = (i) * NY * NZ + (j) * NZ + (k);
-
+                // int index_out = (i) * NY * NZ + (j) * NZ + (k);
+				int index_out = k * NX * NY + j * NX + i;
+				
                 // Apply refinement criteria based on phi thresholds
                 const float phi_detected_threshold = 0.0005f;
 				if (phi_average > phi_detected_threshold) {
@@ -3608,17 +3607,18 @@ int RunNG(
 			localRefine = true;
 
 			NG.HandleExpansion(NG.phi, NX, NY, NZ, originX, originY, originZ);
-			// Update variables for current state
+			// Store NG variables
 			NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
-
-			if (NG.comRank == 0) {
-				// Compute refinement values and save to file
-				auto ele_refine = NG.ComputeRefine(NGvars[0], NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
-				writeVectorToFile(ele_refine, path_in + "phi.txt", false);
-			}
 
 			// Clean up solvers and synchronize processes
 			CHKERRQ(CleanUpSolvers(NG));
+			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+
+			if (NG.comRank == 0) {
+				// Compute refinement values and save to file
+				vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
+				writeVectorToFile(ele_refine, path_in + "phi.txt", false);
+			}
 			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
 
 			iter++;
