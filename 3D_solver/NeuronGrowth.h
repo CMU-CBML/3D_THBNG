@@ -443,6 +443,7 @@ public:
 		// Assemble the linear system for synaptogenesis and tubulin equations
 
 	void HandleExpansion(
+		const vector<float>& phi_in,
 		int& NX, int& NY, int& NZ,
 		int& originX, int& originY, int& originZ
 	);
