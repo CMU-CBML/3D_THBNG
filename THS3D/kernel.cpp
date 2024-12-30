@@ -575,14 +575,16 @@ int kernel::run_neuronGrowth(string path_in)
 	tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
 	// tt3.GetBezierMesh(bzmesh);
 
-	vector<BezierElement3D> bzmesh_old = bzmesh;
+	// vector<BezierElement3D> bzmesh_old = bzmesh;
+	vector<BezierElement3D> bzmesh_old;
 
 	// vector<double> phi = readVectorFromFile("../ioTHS3D/phi.txt", false);
 	vector<double> phi = readVectorFromFile(path_in + "phi.txt", false);
 	// int sum_of_elems = std::accumulate(phi.begin(), phi.end(),
         //                         decltype(phi)::value_type(0));
 	// std::cout << "#refine phi read: " << sum_of_elems << std::endl;
-	vector<double> phi_old = phi;
+	// vector<double> phi_old = phi;
+	vector<double> phi_old;
 
 	for (itr = 0; itr <= niter; itr++)
 	// itr = 0;
@@ -592,7 +594,9 @@ int kernel::run_neuronGrowth(string path_in)
 		cout << "Refine iter " << itr << "...\n";
 
 		// vector<BezierElement3D> bzmesh_old = bzmesh;
+		bzmesh_old = bzmesh;
 		// vector<double> phi_old = phi;
+		phi_old = phi;
 		// vector<BezierElement3D> bzmesh;
 		// vector<int> IDBC;
 		// // vector<double> gh, err;
