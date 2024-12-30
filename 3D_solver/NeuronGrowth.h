@@ -188,8 +188,7 @@ public:
 		const Vertex3DCloud& cloud_prev, 
 		const vector<vector<float>>& NGvars, 
 		const vector<Vertex3D>& prev_cpts, 
-		float& phi, float& syn, float& tub, float& theta, float& phi_0, float& tub_0, 
-		bool withinBounds
+		float& phi, float& syn, float& tub, float& theta, float& phi_0, float& tub_0
 	);
 
 	// Check and save variables to file

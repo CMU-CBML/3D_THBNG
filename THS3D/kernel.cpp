@@ -746,30 +746,57 @@ int kernel::FindNearestNeighbor(const std::vector<BezierElement3D>& bzmesh_old, 
 	return nearest_index;
 }
 
-// Function to perform interpolation from old mesh to new mesh
 std::vector<double> kernel::InterpolateValues(const std::vector<BezierElement3D>& bzmesh_old,
                                      const std::vector<double>& phi_old,
                                      const std::vector<BezierElement3D>& bzmesh_new)
 {
-	std::vector<double> phi_new(bzmesh_new.size(), 0.0);
+    // Initialize phi_new with 0.0
+    std::vector<double> phi_new(bzmesh_new.size(), 0.0);
 
-	for (int i = 0; i < bzmesh_new.size(); ++i) {
-		// Find the nearest neighbor in the old mesh for each element in bzmesh_new
-		double dist(10);
-		int nearest_index = FindNearestNeighbor(bzmesh_old, bzmesh_new[i], dist, phi_old);
-		// std::cout << dist << std::endl;
-		// Interpolate the value based on the nearest neighbor
-		// phi_new[i] = phi_old[nearest_index];
-		if (dist <= 2) {
-			phi_new[i] = phi_old[nearest_index];
-		} else {
-			phi_new[i] = 0;
-		}
-			
-	}
+    // Track updated indices
+    std::vector<bool> updated(bzmesh_new.size(), false);
 
-	return phi_new;
+    for (int i = 0; i < bzmesh_new.size(); ++i) {
+        // Find the nearest neighbor in the old mesh for each element in bzmesh_new
+        double dist(10);
+        int nearest_index = FindNearestNeighbor(bzmesh_old, bzmesh_new[i], dist, phi_old);
+
+        // Update phi_new only if it has not been updated and distance is within the threshold
+        if (!updated[i] && dist <= 6) {
+            phi_new[i] = phi_old[nearest_index];
+            updated[i] = true; // Mark this index as updated
+        }
+    }
+
+    // No need to explicitly set unupdated elements to 0 as phi_new is already initialized to 0.0
+
+    return phi_new;
 }
+
+// // Function to perform interpolation from old mesh to new mesh
+// std::vector<double> kernel::InterpolateValues(const std::vector<BezierElement3D>& bzmesh_old,
+//                                      const std::vector<double>& phi_old,
+//                                      const std::vector<BezierElement3D>& bzmesh_new)
+// {
+// 	std::vector<double> phi_new(bzmesh_new.size(), 0.0);
+
+// 	for (int i = 0; i < bzmesh_new.size(); ++i) {
+// 		// Find the nearest neighbor in the old mesh for each element in bzmesh_new
+// 		double dist(10);
+// 		int nearest_index = FindNearestNeighbor(bzmesh_old, bzmesh_new[i], dist, phi_old);
+// 		// std::cout << dist << std::endl;
+// 		// Interpolate the value based on the nearest neighbor
+// 		// phi_new[i] = phi_old[nearest_index];
+// 		if (dist <= 6) {
+// 			phi_new[i] = phi_old[nearest_index];
+// 		} else {
+// 			phi_new[i] = 0;
+// 		}
+			
+// 	}
+
+// 	return phi_new;
+// }
 
 void kernel::writeVectorToFile(const std::vector<double>& data, const std::string& filename, bool binary) {
 	std::ofstream outfile;
