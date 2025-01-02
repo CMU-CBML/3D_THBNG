@@ -498,7 +498,7 @@ public:
 	); // Check if a given point is within a specified 3D box centered at 'center'
 
 	// Sum Calculation for Phi within a Specified Box
-	void CalculatePhiSum(
+	void DetectTips(
 		const vector<Vertex3D>& cpts,    // Control points representing center points
 		const float& tip_I_sz, 		     // Cube size for calculating tip intensity
 		const KDTree& kdTree             // KDTree for spatial indexing

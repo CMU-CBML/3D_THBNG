@@ -331,10 +331,10 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 
 	// Log the calculated bounds for debugging
 	PetscPrintf(PETSC_COMM_WORLD, "Bounds for current control points:\n");
-	PetscPrintf(PETSC_COMM_WORLD, "max x: %f, min x: %f | max y: %f, min y: %f | max z: %f, min z: %f\n", 
+	PetscPrintf(PETSC_COMM_WORLD, "max x: %.2f, min x: %.2f | max y: %.2f, min y: %.2f | max z: %.2f, min z: %.2f\n", 
 				max_x, min_x, max_y, min_y, max_z, min_z);
 	PetscPrintf(PETSC_COMM_WORLD, "Bounds for previous control points:\n");
-	PetscPrintf(PETSC_COMM_WORLD, "max px: %f, min px: %f | max py: %f, min py: %f | max pz: %f, min pz: %f\n", 
+	PetscPrintf(PETSC_COMM_WORLD, "max px: %.2f, min px: %.2f | max py: %.2f, min py: %.2f | max pz: %.2f, min pz: %.2f\n", 
 				max_x_prev, min_x_prev, max_y_prev, min_y_prev, max_z_prev, min_z_prev);
 
 	// Initialize parameters for the simulation
@@ -2390,70 +2390,61 @@ bool NeuronGrowth::IsInBox(const Vertex3D& point, const Vertex3D& center, float 
     return true;
 }
 
-void NeuronGrowth::CalculatePhiSum(const vector<Vertex3D>& cpts, 
-                                     const float& tip_I_sz, 
-                                     const KDTree& kdTree) {
-
-	// CheckAndPrintThresholdExceedance(phi, 0.8);
-
+void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts, 
+                              const float& tip_I_sz, 
+                              const KDTree& kdTree)
+{
+    // Clear and resize tips to match the number of control points
     tips.clear();
-    tips.resize(cpts.size(), 0);
+    tips.resize(cpts.size(), 0.0f);
 
-    // float threshold = 0.85;  // Threshold for tip detection
-    // float maxTipValue = 0;  // Track the maximum tip value for normalization
-	
-    // // Precompute CellBoundary(phi[j], 0.5) for all j to avoid redundant calculations
-    // vector<float> phiTransformed(phi.size());
-    // for (size_t j = 0; j < phi.size(); ++j) {
-    //     phiTransformed[j] = CellBoundary(phi[j], 0.5);
-    // }
+    const float threshold = 0.9;    // Threshold for tip detection
+    float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
 
-    // // Iterate over each vertex to compute tip scores
-    // for (size_t i = 0; i < cpts.size(); ++i) {
-    //     const auto& center = cpts[i];
+    // --------------------------------------
+    // Precompute transformed phi values
+    // --------------------------------------
+    vector<float> phiTransformed(phi.size());
+    for (size_t j = 0; j < phi.size(); ++j) {
+        phiTransformed[j] = CellBoundary(phi[j], 0.5f);
+    }
 
-    //     // Sum phi values for points within the vicinity
-    //     float localSum = 0;
-    //     for (size_t j = 0; j < phi.size(); ++j) {
-	// 		if (IsInBox(cpts[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {            
-	// 			tips[i] += phiTransformed[j];
-	// 		}
-    //     }
+    // --------------------------------------
+    // Main loop: compute tip scores per vertex
+    // --------------------------------------
+    for (size_t i = 0; i < cpts.size(); ++i) {
+        const auto& center = cpts[i];
+        float localSum = 0.0f; // Sum of phi values within the box
 
-    //     // Compute the tip value for the current vertex
-    //     if (tips[i] > 0) {
-    //         tips[i] = phiTransformed[i] / tips[i] * phiTransformed[i];
-    //     } else {
-    //         tips[i] = 0;  // Avoid division by zero
-    //     }
+        // Compute the sum of phi values for points within the vicinity
+        for (size_t j = 0; j < phi.size(); ++j) {
+            if (IsInBox(cpts[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
+                localSum += phiTransformed[j];
+            }
+        }
 
-    //     // // Suppress tips near boundaries
-    //     // if ((center.coor[0] <= min_x + 1) || (center.coor[0] >= max_x - 1) ||
-    //     //     (center.coor[1] <= min_y + 1) || (center.coor[1] >= max_y - 1) ||
-    //     //     (center.coor[2] <= min_z + 1) || (center.coor[2] >= max_z - 1)) {
-    //     //     tips[i] = 0;
-    //     // }
+        // Compute the tip score for the current vertex
+        if (localSum > 0.0f) {
+            tips[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
+        } else {
+            tips[i] = 0.0f; // Avoid division by zero
+        }
 
-    //     // Update the maximum tip value for normalization
-	// 	// if (phiTransformed[i] > 0)
-	// 	maxTipValue = max(maxTipValue, tips[i]);
-    // }
+        // Update the maximum tip value for normalization
+        maxTipValue = max(maxTipValue, tips[i]);
+    }
 
-    // // // Debugging and visualization
-    // // CheckVar("../io3D/outputs/TIP_", cpts, tips);
-    // // CheckVar("../io3D/outputs/PHI_", cpts, phi);
+    // --------------------------------------
+    // Debugging and visualization
+    // --------------------------------------
+    CheckVar("../io3D/outputs/TIP_", cpts, tips);
+    // cout << "Max Tip Value: " << maxTipValue << endl;
 
-    // // Thresholding and normalization
-    // for (size_t i = 0; i < tips.size(); ++i) {
-    //     tips[i] = (tips[i] > threshold * maxTipValue) ? 1.0f : 0.0f;
-    // }
-
-	for (size_t i = 0; i < cpts.size(); ++i) {
-		if (cpts[i].coor[0] >= (max_x / 2)) {
-			tips[i] = 1.0f;
-		} else {
-			tips[i] = 0.0f;
-		}
+    // --------------------------------------
+    // Thresholding and normalization
+    // --------------------------------------
+    for (float& tip : tips) {
+        tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
     }
 }
 
@@ -2513,60 +2504,6 @@ vector<tuple<Vertex3D, int, float>> NeuronGrowth::FindClosestVerticesWithIndices
     return closestVertices;
 }
 
-// vector<float> NeuronGrowth::ComputeRefine(
-//     const vector<float>& phi_in, 
-//     const int& NX, const int& NY, const int& NZ,
-//     const int& originX, const int& originY, const int& originZ,
-//     const KDTree& kdTree, const Vertex3DCloud& cloud) 
-// {
-//     CheckVar("../io3D/outputs/PHI_", cpts, phi_in); // Check control points phi for debugging
-
-//     // Initialize the refined elements vector
-//     vector<float> ele_refine(NX * NY * NZ, 0.0);
-
-//     const float phi_ceil = 0.8f;
-//     const float phi_floor = 0.1f;
-
-//     // Loop through the 3D grid to compute the refinement flags
-//     for (int i = 1; i < NX - 1; ++i) {       // Avoid boundaries in x
-//         for (int j = 1; j < NY - 1; ++j) {   // Avoid boundaries in y
-//             for (int k = 1; k < NZ - 1; ++k) { // Avoid boundaries in z
-
-//                 // Define the current query point
-//                 Vertex3D queryPoint;
-//                 float spacing = 2.0f;
-//                 queryPoint.coor[0] = i * spacing + originX;
-//                 queryPoint.coor[1] = j * spacing + originY;
-//                 queryPoint.coor[2] = k * spacing + originZ;
-
-//                 // Find the k closest vertices and their distances
-//                 int numNeighbors = 6; // Number of neighbors to consider
-//                 vector<tuple<Vertex3D, int, float>> closestVertices = 
-//                     FindClosestVerticesWithIndicesAndDistances(kdTree, cloud, queryPoint, numNeighbors);
-
-//                 // Check if any closest vertex phi value is not 0 or 1
-//                 bool refine = false;
-//                 for (const auto& neighbor : closestVertices) {
-//                     int idx = get<1>(neighbor);         // Index of the neighbor
-//                     float phi_value = phi_in[idx];      // Phi value of the neighbor
-//                     if (phi_value != phi_ceil && phi_value != phi_floor) {
-//                         refine = true;
-//                         break; // No need to check further neighbors
-//                     }
-//                 }
-
-//                 // Compute indices for output grid (ele_refine)
-//                 int index_out = k * NX * NY + j * NX + i;
-
-//                 // Set refinement flag based on condition
-//                 ele_refine[index_out] = refine ? 1.0f : 0.0f;
-//             }
-//         }
-//     }
-
-//     return ele_refine;
-// }
-
 vector<float> NeuronGrowth::ComputeRefine(
     const vector<float>& phi_in, 
 	const int& NX, const int& NY, const int& NZ,
@@ -2598,42 +2535,40 @@ vector<float> NeuronGrowth::ComputeRefine(
                 vector<tuple<Vertex3D, int, float>> closestVertices = 
                     FindClosestVerticesWithIndicesAndDistances(kdTree, cloud, queryPoint, numNeighbors);
 									
-				float phi_average(0);
-				// float phi_max = 0.0f; // Initialize phi_max to a default value
+				// float phi_average(0);
+				float phi_max = 0.0f; // Initialize phi_max to a default value
 				if (!closestVertices.empty()) {
-					// Compute weighted average for phi
-					float weightedSum = 0.0;
-					float weightTotal = 0.0;
-					const float epsilon = 1e-6f; // Avoid division by zero
+					// // Compute weighted average for phi
+					// float weightedSum = 0.0;
+					// float weightTotal = 0.0;
+					// const float epsilon = 1e-6f; // Avoid division by zero
 
-					for (const auto& neighbor : closestVertices) {
-						int idx = get<1>(neighbor);     // Index of the neighbor
-						float distance = get<2>(neighbor); // Distance to the neighbor
-						float weight = 1.0f / (distance + epsilon); // Weight based on distance
-						weightedSum += CellBoundary(phi_in[idx], 0.1) * weight;
-						// weightedSum += abs(phi_in[idx]) * weight;
-						weightTotal += weight;
-					}
-
-					phi_average = weightedSum / weightTotal; // Compute weighted average
-
-					// // Iterate over the closest vertices to find the maximum phi value
 					// for (const auto& neighbor : closestVertices) {
-					// 	int idx = get<1>(neighbor);         // Index of the neighbor
-					// 	float phi_value = phi_in[idx]; // Adjust phi value using CellBoundary
-					// 	phi_max = std::max(phi_max, phi_value); // Update phi_max if current phi_value is greater
+					// 	int idx = get<1>(neighbor);     // Index of the neighbor
+					// 	float distance = get<2>(neighbor); // Distance to the neighbor
+					// 	float weight = 1.0f / (distance + epsilon); // Weight based on distance
+					// 	weightedSum += CellBoundary(phi_in[idx], 0.1) * weight;
+					// 	weightTotal += weight;
 					// }
+
+					// phi_average = weightedSum / weightTotal; // Compute weighted average
+
+					// Iterate over the closest vertices to find the maximum phi value
+					for (const auto& neighbor : closestVertices) {
+						int idx = get<1>(neighbor);         // Index of the neighbor
+						float phi_value = phi_in[idx]; // Adjust phi value using CellBoundary
+						phi_max = max(phi_max, phi_value); // Update phi_max if current phi_value is greater
+					}
 				}
 
                 // Compute indices for output grid (ele_refine)
 				int index_out = k * NX * NY + j * NX + i;
 
-				// PetscPrintf(PETSC_COMM_WORLD, "Check 2 %.2f\n", phi_max);
-
                 // Apply refinement criteria based on phi thresholds
-                // const float phi_detected_threshold = 0.0005f;
+                const float phi_detected_threshold = 0.005f;
 				// if (phi_average > phi_detected_threshold) {
-                if ((phi_average < phi_ceil) && (phi_average > phi_floor)) {
+				if (phi_max > phi_detected_threshold) {
+                // if ((phi_average < phi_ceil) && (phi_average > phi_floor)) {
                 // if ((phi_max < phi_ceil) && (phi_max > phi_floor)) {
 					ele_refine[index_out] = 1.0f;
 				} else {
@@ -2939,7 +2874,7 @@ void NeuronGrowth::PrintOutNeurons3D(const vector<vector<vector<int>>>& neurons)
 void NeuronGrowth::PrintStatus(int n, int end_iter, int reason_phi, int its_phi, double t_phi,
                                int reason_syn, int reason_tub, int its_syn, int its_tub, double t_syn_tub, 
                                int n_bzmesh) {
-    std::ostringstream oss;
+    ostringstream oss;
 
     // Use setw for aligned, compact output
     oss << "Step: " << setw(4) << n << "/" << setw(4) << end_iter
@@ -3271,13 +3206,15 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
 						if (user->vars[9] > 0) {
 							user->vars[8] = user->alphaOverPi*atan(user->gamma * 1 * (1 - user->vars[6]));
 						} else {
-							// user->vars[8] = user->alphaOverPi*atan(user->gamma * 0.01 * (1 - user->vars[6]));
 							user->vars[8] = user->alphaOverPi*atan(user->gamma * 0 * (1 - user->vars[6]));
+							// user->vars[8] = user->alphaOverPi*atan(user->gamma * 0.1 * (1 - user->vars[6]));
 						}
 					}
 
 					// calculate C1 variable for phase field energy term
 					user->vars[0] = user->vars[8] - user->pre_C0[ind];
+					
+					// PetscPrintf(PETSC_COMM_WORLD, "vars: %.2f | %.2f \n", user->vars[8], user->pre_C0[ind]);
 
 					// loop through control points
 					for (int m = 0; m < nen; m++) {
@@ -3695,18 +3632,14 @@ int RunNG(
 						NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 		}
+
 		// Neuron identification and tip detection
 		if ((NG.n % NG.tip_detect_invl == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size()) || (NG.n == NG.end_iter)) {
-			// Log progress and start collecting results
-			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-			PetscPrintf(PETSC_COMM_WORLD, "Identifying neurons, calculating geodesic distances, and detecting tips\n");
-
 			// Detect tips and save intermediate results
+			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+			PetscPrintf(PETSC_COMM_WORLD, "Detecting tips\n");
 			float tip_intensity_sz = 8.0f; // box size for calculating tip intensity
-			NG.CalculatePhiSum(cpts, tip_intensity_sz, kdTree);
-
-
-			// Separator for clarity in logs
+			NG.DetectTips(cpts, tip_intensity_sz, kdTree);
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 		}
 
@@ -3736,7 +3669,8 @@ int RunNG(
 
 		/*--------------------------------------------------------*/
 		// Update local refinement information (2 scenarios, initial local refinement and later interval based local refinements)
-		if ((NG.n == 10 && !localRefine) || (NG.n % NG.refine_invl == 0 && NG.n != 0)) {
+		// if ((NG.n == 10 && !localRefine) || (NG.n % NG.refine_invl == 0 && NG.n != 0)) {
+		if (NG.n == 10 && !localRefine) {
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			PetscPrintf(PETSC_COMM_WORLD, "Checking and compuing local refinement information\n");
 			// Store NG variables

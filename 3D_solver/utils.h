@@ -57,8 +57,10 @@ int SearchNeighbor(const vector<Vertex3D>& cpts, float targetX, float targetY, f
 float round5(float value);
 float Lerp(float a, float b, float t);
 
+float ComputeDistance(const Vertex3D& a, const Vertex3D& b);
+
 // THS3D Integration
-// void THS3D(const string& path_in, int level);
-void THS3D(const string& path_in);
+void THS3D(const string& path_in, int level);
+// void THS3D(const string& path_in);
 
 #endif // UTILS_H

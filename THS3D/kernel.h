@@ -27,7 +27,7 @@ public:
 	
 	void run_complex_fit(string path_in);
 
-	int run_neuronGrowth(string path_in);
+	int run_neuronGrowth(string path_in, int rf_level);
 	int FindNearestNeighbor(const vector<BezierElement3D>& bzmesh_old, const BezierElement3D& target_element, double& min_distance, const std::vector<double>& phi_old);
 	vector<double> InterpolateValues(const std::vector<BezierElement3D>& bzmesh_old,
 					const vector<double>& phi_old,
