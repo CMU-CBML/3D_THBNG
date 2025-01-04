@@ -2390,138 +2390,132 @@ bool NeuronGrowth::IsInBox(const Vertex3D& point, const Vertex3D& center, float 
     return true;
 }
 
-// void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts,
-//                               const float& tip_I_sz, 
-//                               const KDTree& kdTree)
-// {
-//     // ---------------------------------------------------
-//     // 0) Prepare the 'tips' vector
-//     // ---------------------------------------------------
-//     tips.clear();
-//     tips.resize(cpts.size(), 0.0f);
-
-//     // ---------------------------------------------------
-//     // 1) Transform phi (like your original code)
-//     //    (Assuming phi.size() == cpts.size())
-//     // ---------------------------------------------------
-//     vector<float> phiTransformed(phi.size());
-//     for (size_t i = 0; i < phi.size(); ++i) {
-//         // Example: clamp each phi[i] to 0.5f using CellBoundary.
-//         // Replace this with your actual transformation.
-//         phiTransformed[i] = CellBoundary(phi[i], 0.5f);
-//     }
-
-//     // ---------------------------------------------------
-//     // 2) Compute a continuous "tip score" for each point 
-//     //    using a box-based neighbor summation
-//     // ---------------------------------------------------
-//     vector<float> tipScores(cpts.size(), 0.0f);
-
-//     for (size_t i = 0; i < cpts.size(); ++i) {
-//         float localSum = 0.0f;
-//         // For each other point, check if it's in the local box
-//         for (size_t j = 0; j < cpts.size(); ++j) {
-//             if (IsInBox(cpts[j], cpts[i], tip_I_sz, tip_I_sz, tip_I_sz)) {
-//                 localSum += phiTransformed[j];
-//             }
-//         }
-
-//         // tipScore formula from your original snippet:
-//         //    tipScore = (selfContribution / localSum) * selfContribution
-//         if (localSum > 0.0f) {
-//             tipScores[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
-//         } else {
-//             tipScores[i] = 0.0f;  // Avoid division by zero
-//         }
-//     }
-
-//     // ---------------------------------------------------
-//     // 3) Local maximum detection in the box neighborhood
-//     // ---------------------------------------------------
-//     for (size_t i = 0; i < cpts.size(); ++i) {
-//         bool isLocalMax = true;
-//         float score_i = tipScores[i];
-
-//         // Compare tipScores[i] to neighbors in the local box
-//         for (size_t j = 0; j < cpts.size(); ++j) {
-//             if (IsInBox(cpts[j], cpts[i], 4, 4, 4)) {
-//                 // If a neighbor has a strictly greater tip score,
-//                 // point i is NOT a local max
-//                 if (tipScores[j] > score_i) {
-//                     isLocalMax = false;
-//                     break;
-//                 }
-//             }
-//         }
-
-//         // Mark only local maxima (and > 0) as tips
-//         tips[i] = (isLocalMax && score_i > 0.0f) ? 1.0f : 0.0f;
-//     }
-
-//     // ---------------------------------------------------
-//     // 4) (Optional) Debugging or output
-//     // ---------------------------------------------------
-//     // You can log or visualize the results if needed
-//     CheckVar("../io3D/outputs/TIP_BoxBased_", cpts, tips);
-// }
-
-void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts, 
-                              const float& tip_I_sz, 
-                              const KDTree& kdTree)
+void NeuronGrowth::DetectTips(const std::vector<Vertex3D>& cpts,
+                              const float& tip_I_sz,
+                              const KDTree& /*kdTree*/)
 {
-    // Clear and resize tips to match the number of control points
+    // 0) Prepare tips
     tips.clear();
     tips.resize(cpts.size(), 0.0f);
 
-    const float threshold = 0.85f;    // Threshold for tip detection
-    float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
+    const float threshold  = 0.85f;
+    float       maxTipValue = 0.0f;
 
-    // --------------------------------------
-    // Precompute transformed phi values
-    // --------------------------------------
-    vector<float> phiTransformed(phi.size());
+    // 1) Precompute phi values (clamped/thresholded)
+    std::vector<float> phiTransformed(phi.size());
     for (size_t j = 0; j < phi.size(); ++j) {
         phiTransformed[j] = CellBoundary(phi[j], 0.5f);
     }
 
-    // --------------------------------------
-    // Main loop: compute tip scores per vertex
-    // --------------------------------------
+    // 2) Define a local inline Gaussian weight function
+    //    (Could also be inline static in your header if you prefer)
+    auto GaussianWeight = [&](const Vertex3D& a, const Vertex3D& b, float sigma) {
+        float dx = a.coor[0] - b.coor[0];
+        float dy = a.coor[1] - b.coor[1];
+        float dz = a.coor[2] - b.coor[2];
+        float dist2 = dx*dx + dy*dy + dz*dz;
+        // w = exp(-dist^2 / (2*sigma^2))
+        return std::exp(-dist2 / (2.0f * sigma * sigma));
+    };
+
+    // Choose sigma relative to your box half-size
+    float sigma = 0.5f * tip_I_sz;
+
+    // 3) Compute tip scores per vertex
     for (size_t i = 0; i < cpts.size(); ++i) {
         const auto& center = cpts[i];
-        float localSum = 0.0f; // Sum of phi values within the box
 
-        // Compute the sum of phi values for points within the vicinity
-        for (size_t j = 0; j < phi.size(); ++j) {
+        float localWeightedSum = 0.0f;
+        float totalWeight      = 0.0f;
+
+        // For each point j, check if it's inside the box
+        // centered at `cpts[i]` with half-widths tip_I_sz
+        for (size_t j = 0; j < cpts.size(); ++j) {
             if (IsInBox(cpts[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
-                localSum += phiTransformed[j];
+                // Compute distance-based weight
+                float w = GaussianWeight(center, cpts[j], sigma);
+
+                localWeightedSum += w * phiTransformed[j];
+                totalWeight      += w;
             }
         }
 
-        // Compute the tip score for the current vertex
-        if (localSum > 0.0f) {
-            tips[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
+        // tip score: e.g. phi_i^2 / localWeightedSum
+        if (totalWeight > 0.0f && localWeightedSum > 0.0f) {
+            tips[i] = (phiTransformed[i] * phiTransformed[i]) / localWeightedSum;
         } else {
-            tips[i] = 0.0f; // Avoid division by zero
+            tips[i] = 0.0f;
         }
 
-        // Update the maximum tip value for normalization
-        maxTipValue = max(maxTipValue, tips[i]);
+        // Track the maximum tip value for normalization
+        maxTipValue = std::max(maxTipValue, tips[i]);
     }
 
-    // --------------------------------------
-    // Debugging and visualization
-    // --------------------------------------
     CheckVar("../io3D/outputs/TIP_", cpts, tips);
-    // cout << "Max Tip Value: " << maxTipValue << endl;
 
-    // --------------------------------------
-    // Thresholding and normalization
-    // --------------------------------------
-    for (float& tip : tips) {
+    // 4) Threshold and finalize tips
+    for (auto& tip : tips) {
         tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
     }
 }
+
+// void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts, 
+//                               const float& tip_I_sz, 
+//                               const KDTree& kdTree)
+// {
+//     // Clear and resize tips to match the number of control points
+//     tips.clear();
+//     tips.resize(cpts.size(), 0.0f);
+
+//     const float threshold = 0.85f;    // Threshold for tip detection
+//     float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
+
+//     // --------------------------------------
+//     // Precompute transformed phi values
+//     // --------------------------------------
+//     vector<float> phiTransformed(phi.size());
+//     for (size_t j = 0; j < phi.size(); ++j) {
+//         phiTransformed[j] = CellBoundary(phi[j], 0.5f);
+//     }
+
+//     // --------------------------------------
+//     // Main loop: compute tip scores per vertex
+//     // --------------------------------------
+//     for (size_t i = 0; i < cpts.size(); ++i) {
+//         const auto& center = cpts[i];
+//         float localSum = 0.0f; // Sum of phi values within the box
+
+//         // Compute the sum of phi values for points within the vicinity
+//         for (size_t j = 0; j < phi.size(); ++j) {
+//             if (IsInBox(cpts[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
+//                 localSum += phiTransformed[j];
+//             }
+//         }
+
+//         // Compute the tip score for the current vertex
+//         if (localSum > 0.0f) {
+//             tips[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
+//         } else {
+//             tips[i] = 0.0f; // Avoid division by zero
+//         }
+
+//         // Update the maximum tip value for normalization
+//         maxTipValue = max(maxTipValue, tips[i]);
+//     }
+
+//     // --------------------------------------
+//     // Debugging and visualization
+//     // --------------------------------------
+//     // CheckVar("../io3D/outputs/TIP_", cpts, tips);
+//     // cout << "Max Tip Value: " << maxTipValue << endl;
+
+//     // --------------------------------------
+//     // Thresholding and normalization
+//     // --------------------------------------
+//     for (float& tip : tips) {
+//         tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
+//     }
+// }
 
 vector<pair<Vertex3D, int>> NeuronGrowth::FindClosestVerticesWithIndices(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k) {
 	// Custom comparator that prioritizes larger squared distances and considers the vertex index
@@ -3713,7 +3707,7 @@ int RunNG(
 			// Detect tips and save intermediate results
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			PetscPrintf(PETSC_COMM_WORLD, "Detecting tips\n");
-			float tip_intensity_sz = 16.0f; // box size for calculating tip intensity
+			float tip_intensity_sz = 8.0f; // box size for calculating tip intensity
 			NG.DetectTips(cpts, tip_intensity_sz, kdTree);
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 		}
