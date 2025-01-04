@@ -50,7 +50,7 @@ void SetupSimulationFiles(const int nProcs, const string& path_in, bool localRef
     gen3Dmesh(originX, originY, originZ, NX, NY, NZ, 2, 2, 2, vertices, elements);
     write_hex_toVTK(fn_mesh_initial.c_str(), vertices, elements);
 
-	int level = 4;
+	int level = 3;
     // Handle local refinement or default processing
     if (!localRefine) {
         write_hex_toVTK(fn_mesh.c_str(), vertices, elements);

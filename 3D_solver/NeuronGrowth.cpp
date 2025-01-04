@@ -2248,7 +2248,7 @@ int NeuronGrowth::CheckExpansion3D(const vector<float>& input,
     // Iterate over all control points to detect boundary conditions
     for (size_t i = 0; i < cpts.size(); ++i) {
         // Only consider points where phi exceeds the threshold
-        if (input[i] > 0.05f) {
+        if (input[i] > 0.1f) {
             float currX = cpts[i].coor[0];
             float currY = cpts[i].coor[1];
             float currZ = cpts[i].coor[2];
@@ -2398,7 +2398,7 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts,
     tips.clear();
     tips.resize(cpts.size(), 0.0f);
 
-    const float threshold = 0.9;    // Threshold for tip detection
+    const float threshold = 0.85f;    // Threshold for tip detection
     float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
 
     // --------------------------------------
@@ -2556,7 +2556,7 @@ vector<float> NeuronGrowth::ComputeRefine(
 					// Iterate over the closest vertices to find the maximum phi value
 					for (const auto& neighbor : closestVertices) {
 						int idx = get<1>(neighbor);         // Index of the neighbor
-						float phi_value = phi_in[idx]; // Adjust phi value using CellBoundary
+						float phi_value = CellBoundary(phi_in[idx], 0.25); // Adjust phi value using CellBoundary
 						phi_max = max(phi_max, phi_value); // Update phi_max if current phi_value is greater
 					}
 				}

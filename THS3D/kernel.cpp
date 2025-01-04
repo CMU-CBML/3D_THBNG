@@ -544,8 +544,7 @@ void kernel::run_complex_fit(string path_in)
 int kernel::run_neuronGrowth(string path_in, int rf_level)
 {
 	// int niter(4);
-	int niter = rf_level;
-	niter = 10;
+	int niter = 10;
 	double thresh(0.25);//cube
 	unsigned int i;
 	double xy[3][2], nm[3], a(50.);
@@ -590,8 +589,12 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 
 	// for (itr = 0; itr <= niter; itr++)
 	itr = 0;
-	while (tt3.getLevels() <= 3)
+	while (tt3.getLevels() <= rf_level)
 	{
+		if (itr >= niter) {
+			cerr << "Something went wrong, refine looping too many times." << endl;
+		}
+
 		std::cout << "+++++++++++++++++++++" << std::endl;
 		cout << "Refine iter " << itr << "| Current level: " << tt3.getLevels() << "...\n";
 
@@ -617,7 +620,7 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 			// tt3.OutputControlPoints("../ioTHS3D/");
 			OutputMesh(bzmesh, path_in);
 			tt3.OutputControlPoints(path_in);
-			if (tt3.getLevels() == 3) {
+			if (tt3.getLevels() == rf_level) {
 			// if (itr == niter-1) {
 				std::cout << niter << std::endl;
 				return 0;		
