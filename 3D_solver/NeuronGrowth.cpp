@@ -2180,7 +2180,7 @@ void NeuronGrowth::HandleExpansion(const vector<float>& phi_in,
     PetscPrintf(PETSC_COMM_WORLD, "Expanding in direction: %d\n", expd_dir_global);
 
     // Define the offset for expansion
-    float offset = expand_sz * 2.0; // Half of expansion * delta element (original coarse level)
+    float offset = expand_sz * 4.0; // Half of expansion * delta element (original coarse level)
 
     // Apply expansion based on global direction
     switch (expd_dir_global) {
@@ -2390,6 +2390,81 @@ bool NeuronGrowth::IsInBox(const Vertex3D& point, const Vertex3D& center, float 
     return true;
 }
 
+// void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts,
+//                               const float& tip_I_sz, 
+//                               const KDTree& kdTree)
+// {
+//     // ---------------------------------------------------
+//     // 0) Prepare the 'tips' vector
+//     // ---------------------------------------------------
+//     tips.clear();
+//     tips.resize(cpts.size(), 0.0f);
+
+//     // ---------------------------------------------------
+//     // 1) Transform phi (like your original code)
+//     //    (Assuming phi.size() == cpts.size())
+//     // ---------------------------------------------------
+//     vector<float> phiTransformed(phi.size());
+//     for (size_t i = 0; i < phi.size(); ++i) {
+//         // Example: clamp each phi[i] to 0.5f using CellBoundary.
+//         // Replace this with your actual transformation.
+//         phiTransformed[i] = CellBoundary(phi[i], 0.5f);
+//     }
+
+//     // ---------------------------------------------------
+//     // 2) Compute a continuous "tip score" for each point 
+//     //    using a box-based neighbor summation
+//     // ---------------------------------------------------
+//     vector<float> tipScores(cpts.size(), 0.0f);
+
+//     for (size_t i = 0; i < cpts.size(); ++i) {
+//         float localSum = 0.0f;
+//         // For each other point, check if it's in the local box
+//         for (size_t j = 0; j < cpts.size(); ++j) {
+//             if (IsInBox(cpts[j], cpts[i], tip_I_sz, tip_I_sz, tip_I_sz)) {
+//                 localSum += phiTransformed[j];
+//             }
+//         }
+
+//         // tipScore formula from your original snippet:
+//         //    tipScore = (selfContribution / localSum) * selfContribution
+//         if (localSum > 0.0f) {
+//             tipScores[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
+//         } else {
+//             tipScores[i] = 0.0f;  // Avoid division by zero
+//         }
+//     }
+
+//     // ---------------------------------------------------
+//     // 3) Local maximum detection in the box neighborhood
+//     // ---------------------------------------------------
+//     for (size_t i = 0; i < cpts.size(); ++i) {
+//         bool isLocalMax = true;
+//         float score_i = tipScores[i];
+
+//         // Compare tipScores[i] to neighbors in the local box
+//         for (size_t j = 0; j < cpts.size(); ++j) {
+//             if (IsInBox(cpts[j], cpts[i], 4, 4, 4)) {
+//                 // If a neighbor has a strictly greater tip score,
+//                 // point i is NOT a local max
+//                 if (tipScores[j] > score_i) {
+//                     isLocalMax = false;
+//                     break;
+//                 }
+//             }
+//         }
+
+//         // Mark only local maxima (and > 0) as tips
+//         tips[i] = (isLocalMax && score_i > 0.0f) ? 1.0f : 0.0f;
+//     }
+
+//     // ---------------------------------------------------
+//     // 4) (Optional) Debugging or output
+//     // ---------------------------------------------------
+//     // You can log or visualize the results if needed
+//     CheckVar("../io3D/outputs/TIP_BoxBased_", cpts, tips);
+// }
+
 void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts, 
                               const float& tip_I_sz, 
                               const KDTree& kdTree)
@@ -2525,7 +2600,7 @@ vector<float> NeuronGrowth::ComputeRefine(
 
                 // Define the current query point
                 Vertex3D queryPoint;
-				float spacing = 2.0f;
+				float spacing = 4.0f;
 				queryPoint.coor[0] = i * spacing + originX;
 				queryPoint.coor[1] = j * spacing + originY;
 				queryPoint.coor[2] = k * spacing + originZ;
@@ -3203,7 +3278,7 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
 					if (user->n < 0) {
 						user->vars[8] = user->alphaOverPi*atan(user->gamma * (1 - user->vars[6]));
 					} else {
-						if (user->vars[9] > 0) {
+						if (user->vars[9] > 0.1) {
 							user->vars[8] = user->alphaOverPi*atan(user->gamma * 1 * (1 - user->vars[6]));
 						} else {
 							user->vars[8] = user->alphaOverPi*atan(user->gamma * 0 * (1 - user->vars[6]));
@@ -3638,7 +3713,7 @@ int RunNG(
 			// Detect tips and save intermediate results
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			PetscPrintf(PETSC_COMM_WORLD, "Detecting tips\n");
-			float tip_intensity_sz = 8.0f; // box size for calculating tip intensity
+			float tip_intensity_sz = 16.0f; // box size for calculating tip intensity
 			NG.DetectTips(cpts, tip_intensity_sz, kdTree);
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 		}

@@ -47,7 +47,7 @@ void SetupSimulationFiles(const int nProcs, const string& path_in, bool localRef
     string fn_mesh = path_in + "controlmesh.vtk";
 
     // Generate the initial 3D mesh and write it to file
-    gen3Dmesh(originX, originY, originZ, NX, NY, NZ, 2, 2, 2, vertices, elements);
+    gen3Dmesh(originX, originY, originZ, NX, NY, NZ, 4, 4, 4, vertices, elements);
     write_hex_toVTK(fn_mesh_initial.c_str(), vertices, elements);
 
 	int level = 3;
@@ -283,7 +283,7 @@ void InitializeSoma(int numNeuron, vector<array<float, 3>>& seed, int& NX, int& 
             NX = 10;
             NY = 10;
             NZ = 10;  // Assumes 3D initialization
-            seed[0] = {10.0f, 10.0f, 10.0f};
+            seed[0] = {20.0f, 20.0f, 20.0f};
             break;
 
         case 2:
