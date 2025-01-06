@@ -1,6 +1,6 @@
-var_save_invl = 100
-expandCK_invl = 500
-tip_detect_invl = 500
+var_save_invl = 10
+expandCK_invl = 20
+tip_detect_invl = 10
 expand_sz = 3
 numNeuron = 1
 seed_radius = 8

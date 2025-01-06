@@ -191,6 +191,16 @@ public:
 		float& phi, float& syn, float& tub, float& theta, float& phi_0, float& tub_0
 	);
 
+	void InterpolateOrFindExact_singleVar(
+		const Vertex3D& cpt, 
+		const KDTree& kdTree_prev, 
+		const Vertex3DCloud& cloud_prev, 
+		const vector<float>& original_var, 
+		const vector<Vertex3D>& prev_cpts, 
+		float& output_var,
+		bool weighted
+	);
+
 	// Check and save variables to file
 	void CheckVar(
 		const string& fn,                    // File name for output
@@ -497,12 +507,21 @@ public:
 		float dx, float dy, float dz     // Half-dimensions of the box
 	); // Check if a given point is within a specified 3D box centered at 'center'
 
-	// Sum Calculation for Phi within a Specified Box
-	void DetectTips(
-		const vector<Vertex3D>& cpts,    // Control points representing center points
-		const float& tip_I_sz, 		     // Cube size for calculating tip intensity
-		const KDTree& kdTree             // KDTree for spatial indexing
-	); // Calculate the sum of phi values within a 3D box for each center point in `cpts`
+	void DetectTips(const vector<Vertex3D>& cpts_fine, 
+		const Vertex3DCloud& cloud_fine,
+		const KDTree& kdTree_fine,
+		const float& tip_I_sz,
+		const vector<Vertex3D>& cpts,
+		const Vertex3DCloud& cloud,
+		const KDTree& kdTree
+	);
+
+	// // Sum Calculation for Phi within a Specified Box
+	// void DetectTips(
+	// 	const vector<Vertex3D>& cpts,    // Control points representing center points
+	// 	const float& tip_I_sz, 		     // Cube size for calculating tip intensity
+	// 	const KDTree& kdTree             // KDTree for spatial indexing
+	// ); // Calculate the sum of phi values within a 3D box for each center point in `cpts`
 
 	vector<pair<Vertex3D, int>> FindClosestVerticesWithIndices(
 		const vector<Vertex3D>& vertices,     // List of vertices
@@ -616,7 +635,7 @@ PetscErrorCode CleanUpSolvers(NeuronGrowth &NG);
 // Main Simulation Driver
 int RunNG(
     const int n_bzmesh, vector<vector<int>> ele_process_in,
-    vector<Vertex3D> &cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
+    vector<Vertex3D> &cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D>& prev_cpts, vector<Vertex3D>& cpts_fine,
     string path_in, string path_out,
     int &iter, int end_iter_in,
     vector<vector<float>> &NGvars,

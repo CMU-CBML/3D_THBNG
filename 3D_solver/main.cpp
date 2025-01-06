@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
     int n_bzmesh;
     vector<vector<float>> vertices;
     vector<vector<int>> elements, ele_process(nProcs);
-    vector<Vertex3D> cpts_initial, cpts, prev_cpts;
+    vector<Vertex3D> cpts_initial, cpts, prev_cpts, cpts_fine;
     vector<vector<float>> NGvars(6); // Stores neuron growth variables
 
     bool localRefine = false; // Flag for local refinement
@@ -69,11 +69,13 @@ int main(int argc, char** argv) {
         // File paths for reading control points
         string fn_mesh_initial = path_in + "controlmesh_initial.vtk";
         string fn_mesh = localRefine ? path_in + "controlPoints.vtk" : path_in + "controlmesh.vtk";
+        string fn_mesh_fine = path_in + "controlmesh_fine.vtk";
         string fn_bz = path_in + "bzmeshinfo.txt.epart." + to_string(nProcs);
 
         // Read control points and assign processors
         ReadControlPoints(fn_mesh_initial, cpts_initial);
         ReadControlPoints(fn_mesh, cpts);
+        ReadControlPoints(fn_mesh_fine, cpts_fine);
         AssignProcessor(fn_bz, n_bzmesh, ele_process);
 
         PetscPrintf(PETSC_COMM_WORLD, "Processor Assigned!\n");
@@ -81,7 +83,7 @@ int main(int argc, char** argv) {
         // Run neuron growth simulation for the current iteration
         state = RunNG(
             n_bzmesh, ele_process, 
-            cpts_initial, cpts, prev_cpts, 
+            cpts_initial, cpts, prev_cpts, cpts_fine,
             path_in, path_out,
             iter, end_iter,
             NGvars,

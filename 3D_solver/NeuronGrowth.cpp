@@ -512,6 +512,55 @@ void NeuronGrowth::InterpolateOrFindExact(
     }
 }
 
+
+void NeuronGrowth::InterpolateOrFindExact_singleVar(
+    const Vertex3D& cpt, 
+    const KDTree& kdTree_prev, 
+    const Vertex3DCloud& cloud_prev, 
+    const vector<float>& original_var, 
+    const vector<Vertex3D>& prev_cpts, 
+    float& output_var,
+	bool weighted
+) {
+    int exactIndex(0);
+
+    if (KD_SearchPair(prev_cpts, kdTree_prev, cpt.coor[0], cpt.coor[1], cpt.coor[2], exactIndex)) {
+        // Exact match: copy values directly
+        output_var = original_var[exactIndex];
+    } else {
+        // Interpolate using nearest neighbors
+        auto closestVertices = FindClosestVerticesWithIndicesAndDistances(kdTree_prev, cloud_prev, cpt, 6);
+
+		if (closestVertices.empty()) {
+			std::cerr << "KD-Tree validation failed: No neighbors found for sample point." << std::endl;
+		} 
+		// else {
+			// std::cout << "KD-Tree validation successful: Found " << closestVertices.size() << " neighbors for sample point." << std::endl;
+		// }
+
+		float totalWeight = 0.0f;
+		output_var = 0.0f; // Initialize before accumulation
+
+		for (const auto& [_, idx, distance] : closestVertices) {
+			float weight;
+			if (weight) {
+				weight = 1.0f / (distance + 1e-6f); // Inverse-distance weight
+			} else {
+				weight = 1.0f;
+			}
+			output_var += original_var[idx] * weight;
+			totalWeight += weight;
+		}
+
+		// Normalize interpolated values
+		if (totalWeight > 0.0f) {
+			output_var /= totalWeight;
+		} else {
+			output_var = 0.0f; // Handle zero totalWeight gracefully
+		}
+    }
+}
+
 void NeuronGrowth::CheckVar(const string& fn, const vector<Vertex3D>& cpts, const vector<float>& input) {
     // Construct the output file name
     string fname = fn + "_" + to_string(n) + ".vtk";
@@ -2390,74 +2439,150 @@ bool NeuronGrowth::IsInBox(const Vertex3D& point, const Vertex3D& center, float 
     return true;
 }
 
-void NeuronGrowth::DetectTips(const std::vector<Vertex3D>& cpts,
-                              const float& tip_I_sz,
-                              const KDTree& /*kdTree*/)
+void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine, 
+							const Vertex3DCloud& cloud_fine,
+							const KDTree& kdTree_fine,
+							const float& tip_I_sz,
+							const vector<Vertex3D>& cpts,
+							const Vertex3DCloud& cloud,
+							const KDTree& kdTree)
 {
-    // 0) Prepare tips
-    tips.clear();
-    tips.resize(cpts.size(), 0.0f);
+	vector<float> phi_fine(cpts_fine.size(), 0.0f);
 
-    const float threshold  = 0.85f;
-    float       maxTipValue = 0.0f;
+	for (size_t i = 0; i < cpts_fine.size(); ++i) {
+		InterpolateOrFindExact_singleVar(
+			cpts_fine[i], kdTree, cloud, phi, cpts, phi_fine[i], true);
+	}
 
-    // 1) Precompute phi values (clamped/thresholded)
-    std::vector<float> phiTransformed(phi.size());
-    for (size_t j = 0; j < phi.size(); ++j) {
-        phiTransformed[j] = CellBoundary(phi[j], 0.5f);
+    CheckVar("../io3D/outputs/PHI_FINE_", cpts_fine, phi_fine);
+
+    const float threshold = 0.80f;    // Threshold for tip detection
+    float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
+
+    // --------------------------------------
+    // Precompute transformed phi values
+    // --------------------------------------
+    vector<float> phiTransformed(phi_fine.size());
+    for (size_t j = 0; j < phi_fine.size(); ++j) {
+        phiTransformed[j] = CellBoundary(phi_fine[j], 0.5f);
     }
 
-    // 2) Define a local inline Gaussian weight function
-    //    (Could also be inline static in your header if you prefer)
-    auto GaussianWeight = [&](const Vertex3D& a, const Vertex3D& b, float sigma) {
-        float dx = a.coor[0] - b.coor[0];
-        float dy = a.coor[1] - b.coor[1];
-        float dz = a.coor[2] - b.coor[2];
-        float dist2 = dx*dx + dy*dy + dz*dz;
-        // w = exp(-dist^2 / (2*sigma^2))
-        return std::exp(-dist2 / (2.0f * sigma * sigma));
-    };
+    // Clear and resize tips to match the number of control points
+    vector<float> tips_fine(cpts_fine.size(), 0.0f);
+	
+    // --------------------------------------
+    // Main loop: compute tip scores per vertex
+    // --------------------------------------
+    for (size_t i = 0; i < cpts_fine.size(); ++i) {
+        const auto& center = cpts_fine[i];
+        float localSum = 0.0f; // Sum of phi values within the box
 
-    // Choose sigma relative to your box half-size
-    float sigma = 0.5f * tip_I_sz;
-
-    // 3) Compute tip scores per vertex
-    for (size_t i = 0; i < cpts.size(); ++i) {
-        const auto& center = cpts[i];
-
-        float localWeightedSum = 0.0f;
-        float totalWeight      = 0.0f;
-
-        // For each point j, check if it's inside the box
-        // centered at `cpts[i]` with half-widths tip_I_sz
-        for (size_t j = 0; j < cpts.size(); ++j) {
-            if (IsInBox(cpts[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
-                // Compute distance-based weight
-                float w = GaussianWeight(center, cpts[j], sigma);
-
-                localWeightedSum += w * phiTransformed[j];
-                totalWeight      += w;
+        // Compute the sum of phi values for points within the vicinity
+        for (size_t j = 0; j < phi_fine.size(); ++j) {
+            if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
+                localSum += phiTransformed[j];
             }
         }
 
-        // tip score: e.g. phi_i^2 / localWeightedSum
-        if (totalWeight > 0.0f && localWeightedSum > 0.0f) {
-            tips[i] = (phiTransformed[i] * phiTransformed[i]) / localWeightedSum;
+        // Compute the tip score for the current vertex
+        if (localSum > 0.0f) {
+            tips_fine[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
         } else {
-            tips[i] = 0.0f;
+            tips_fine[i] = 0.0f; // Avoid division by zero
         }
 
-        // Track the maximum tip value for normalization
-        maxTipValue = std::max(maxTipValue, tips[i]);
+        // Update the maximum tip value for normalization
+        maxTipValue = max(maxTipValue, tips_fine[i]);
     }
 
-    CheckVar("../io3D/outputs/TIP_", cpts, tips);
+    // --------------------------------------
+    // Debugging and visualization
+    // --------------------------------------
+    CheckVar("../io3D/outputs/TIP_FINE_", cpts_fine, tips_fine);
+    // cout << "Max Tip Value: " << maxTipValue << endl;
 
-    // 4) Threshold and finalize tips
-    for (auto& tip : tips) {
+    // Clear and resize tips to match the number of control points
+    tips.clear();
+    tips.resize(cpts.size(), 0.0f);
+
+	for (size_t i = 0; i < cpts.size(); ++i) {
+		InterpolateOrFindExact_singleVar(
+			cpts[i], kdTree_fine, cloud_fine, tips_fine, cpts_fine, tips[i], false);
+	}
+	CheckVar("../io3D/outputs/TIP_", cpts, tips);
+
+    // --------------------------------------
+    // Thresholding and normalization
+    // --------------------------------------
+    for (float& tip : tips) {
         tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
     }
+	CheckVar("../io3D/outputs/TIP_cutoff_", cpts, tips);
+
 }
+
+// void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts, 
+//                               const float& tip_I_sz, 
+//                               const KDTree& kdTree)
+// {
+//     tips.assign(cpts.size(), 0.0f);
+//     float maxTipValue = 0.0f;
+//     float threshold   = 0.85f;
+
+//     // For simplicity, assume phi[i] is in [0,1].
+//     // If you want "clamping" at 0.5, you can do that as well.
+//     vector<float> phiTransformed(phi.size());
+//     for (size_t i = 0; i < phi.size(); ++i) {
+//         phiTransformed[i] = phi[i];
+//     }
+
+//     auto GaussianWeight = [&](const Vertex3D& a, const Vertex3D& b, float sigma) {
+//         float dx = a.coor[0] - b.coor[0];
+//         float dy = a.coor[1] - b.coor[1];
+//         float dz = a.coor[2] - b.coor[2];
+//         float dist2 = dx*dx + dy*dy + dz*dz;
+//         return exp(-dist2 / (2.f * sigma * sigma));
+//     };
+//     float sigma = 0.5f * tip_I_sz;
+
+//     for (size_t i = 0; i < cpts.size(); ++i) {
+//         const auto& center = cpts[i];
+
+//         float sumWphi = 0.0f;
+//         float sumW    = 0.0f;
+
+//         // naive box neighbor search
+//         for (size_t j = 0; j < cpts.size(); ++j) {
+//             if (IsInBox(cpts[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
+//                 float w = GaussianWeight(center, cpts[j], sigma);
+//                 sumWphi += w * phiTransformed[j];
+//                 sumW    += w;
+//             }
+//         }
+
+//         float localAvg = 0.0f;
+//         if (sumW > 1e-9) {
+//             localAvg = sumWphi / sumW;
+//         }
+//         // tip score: ratio of phi[i] to local average
+//         // If phi[i] is bigger than localAvg, score > 1. If smaller, score < 1.
+//         float tipScore = 0.0f;
+//         if (localAvg > 1e-12f) {
+//             tipScore = phiTransformed[i] / localAvg; 
+//         }
+
+//         tips[i] = tipScore;
+//         maxTipValue = max(maxTipValue, tipScore);
+//     }
+	
+// 	// maxTipValue = 0.0018;
+//     CheckVar("../io3D/outputs/TIP_", cpts, tips);
+//     // threshold final tips
+//     for (auto & t : tips) {
+//         t = (t > threshold * maxTipValue) ? 1.0f : 0.0f;
+//     }
+// 	// CheckVar("../io3D/outputs/TIP_cutoff_", cpts, tips);
+// }
 
 // void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts, 
 //                               const float& tip_I_sz, 
@@ -2506,7 +2631,7 @@ void NeuronGrowth::DetectTips(const std::vector<Vertex3D>& cpts,
 //     // --------------------------------------
 //     // Debugging and visualization
 //     // --------------------------------------
-//     // CheckVar("../io3D/outputs/TIP_", cpts, tips);
+//     CheckVar("../io3D/outputs/TIP_", cpts, tips);
 //     // cout << "Max Tip Value: " << maxTipValue << endl;
 
 //     // --------------------------------------
@@ -2515,6 +2640,7 @@ void NeuronGrowth::DetectTips(const std::vector<Vertex3D>& cpts,
 //     for (float& tip : tips) {
 //         tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
 //     }
+// 	CheckVar("../io3D/outputs/TIP_cutoff_", cpts, tips);
 // }
 
 vector<pair<Vertex3D, int>> NeuronGrowth::FindClosestVerticesWithIndices(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k) {
@@ -2625,7 +2751,7 @@ vector<float> NeuronGrowth::ComputeRefine(
 					// Iterate over the closest vertices to find the maximum phi value
 					for (const auto& neighbor : closestVertices) {
 						int idx = get<1>(neighbor);         // Index of the neighbor
-						float phi_value = CellBoundary(phi_in[idx], 0.25); // Adjust phi value using CellBoundary
+						float phi_value = CellBoundary(phi_in[idx], 0.5); // Adjust phi value using CellBoundary
 						phi_max = max(phi_max, phi_value); // Update phi_max if current phi_value is greater
 					}
 				}
@@ -2634,7 +2760,7 @@ vector<float> NeuronGrowth::ComputeRefine(
 				int index_out = k * NX * NY + j * NX + i;
 
                 // Apply refinement criteria based on phi thresholds
-                const float phi_detected_threshold = 0.005f;
+                const float phi_detected_threshold = 0.001f;
 				// if (phi_average > phi_detected_threshold) {
 				if (phi_max > phi_detected_threshold) {
                 // if ((phi_average < phi_ceil) && (phi_average > phi_floor)) {
@@ -3621,7 +3747,7 @@ PetscErrorCode CleanUpSolvers(NeuronGrowth &NG) {
 
 int RunNG(
     const int n_bzmesh, vector<vector<int>> ele_process_in,
-    vector<Vertex3D> &cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D> prev_cpts,
+    vector<Vertex3D> &cpts_initial, vector<Vertex3D> &cpts, vector<Vertex3D>& prev_cpts, vector<Vertex3D>& cpts_fine,
     string path_in, string path_out,
     int &iter, int end_iter,
     vector<vector<float>> &NGvars,
@@ -3641,14 +3767,17 @@ int RunNG(
 	Vertex3DCloud cloud_initial(cpts_initial); 	// Cloud for initial points
 	Vertex3DCloud cloud(cpts); 					// Cloud for current points
 	Vertex3DCloud cloud_prev(prev_cpts);  		// Cloud for previous points
+	Vertex3DCloud cloud_fine(cpts_fine);  		// Cloud for fine points
 	// Initialize KD-Trees for the current, fine, and previous vertex clouds
 	KDTree kdTree_initial(3 /* dim */, cloud_initial, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
 	KDTree kdTree(3 /* dim */, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
 	KDTree kdTree_prev(3 /* dim */, cloud_prev, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
+	KDTree kdTree_fine(3 /* dim */, cloud_fine, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
 	// Build indexes for KD-Trees to optimize search operations
 	kdTree_initial.buildIndex();
 	kdTree.buildIndex();
 	kdTree_prev.buildIndex();
+	kdTree_fine.buildIndex();
 
 	// Call InitializeProblemNG with proper arguments
 	NG.InitializeProblemNG(n_bzmesh, cpts, cloud, kdTree, prev_cpts, cloud_prev, kdTree_prev, NGvars, seed);
@@ -3707,8 +3836,9 @@ int RunNG(
 			// Detect tips and save intermediate results
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			PetscPrintf(PETSC_COMM_WORLD, "Detecting tips\n");
-			float tip_intensity_sz = 8.0f; // box size for calculating tip intensity
-			NG.DetectTips(cpts, tip_intensity_sz, kdTree);
+			float tip_intensity_sz = 16.0f; // box size for calculating tip intensity
+			// NG.DetectTips(cpts, tip_intensity_sz, kdTree);
+			NG.DetectTips(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree);
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 		}
 
@@ -3728,6 +3858,12 @@ int RunNG(
 			if (NG.comRank == 0) {
 				// Compute refinement values and save to file
 				vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
+				// vector<float> tmp(NG.tips.size());
+				// for (int i = 0; i < NG.tips.size(); i++) {
+				// 	tmp[i] = NG.CellBoundary(NG.tips[i], 0);
+				// }
+				// NG.CheckVar("../io3D/outputs/TMP_", cpts, tmp); // check control points phi for debugging
+				// vector<float> ele_refine = NG.ComputeRefine(tmp, NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
 				writeVectorToFile(ele_refine, path_in + "phi.txt", false);
 			}
 			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));

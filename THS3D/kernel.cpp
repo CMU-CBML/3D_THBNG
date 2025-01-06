@@ -168,7 +168,7 @@ void kernel::OutputMesh(const vector<BezierElement3D>& bzmesh, string fn)
 	ofstream fout;
 	fout.open(fname.c_str());	
 
-	// std::cout << "ck2" << std::endl;
+	// cout << "ck2" << endl;
 
 	if (fout.is_open())
 	{
@@ -209,7 +209,7 @@ void kernel::OutputMesh(const vector<BezierElement3D>& bzmesh, string fn)
 		cout << "Cannot open " << fname << "!\n";
 	}
 	
-	// std::cout << "ck3" << std::endl;
+	// cout << "ck3" << endl;
 
 	string fname3(fn + "bzmeshinfo.txt");
 	//ofstream fout;
@@ -239,7 +239,7 @@ void kernel::OutputMesh(const vector<BezierElement3D>& bzmesh, string fn)
 		cerr << "Can't open " << fname3 << '\n';
 	}
 
-	// std::cout << "ck4" << std::endl;
+	// cout << "ck4" << endl;
 
 	string fname1(fn + "cmat.txt");
 	//ofstream fout;
@@ -286,7 +286,7 @@ void kernel::OutputMesh(const vector<BezierElement3D>& bzmesh, string fn)
 		cerr << "Can't open " << fname1 << '\n';
 	}
 
-	// std::cout << "ck5" << std::endl;
+	// cout << "ck5" << endl;
 
 	string fname2(fn + "bzpt.txt");
 	//ofstream fout;
@@ -316,7 +316,7 @@ void kernel::OutputMesh(const vector<BezierElement3D>& bzmesh, string fn, int it
 	ofstream fout;
 	fout.open(fname.c_str());	
 
-	// std::cout << "ck2" << std::endl;
+	// cout << "ck2" << endl;
 
 	if (fout.is_open())
 	{
@@ -357,7 +357,7 @@ void kernel::OutputMesh(const vector<BezierElement3D>& bzmesh, string fn, int it
 		cout << "Cannot open " << fname << "!\n";
 	}
 	
-	// std::cout << "ck3" << std::endl;
+	// cout << "ck3" << endl;
 
 	string fname3(fn + to_string(itr) + "_bzmeshinfo.txt");
 	//ofstream fout;
@@ -387,7 +387,7 @@ void kernel::OutputMesh(const vector<BezierElement3D>& bzmesh, string fn, int it
 		cerr << "Can't open " << fname3 << '\n';
 	}
 
-	// std::cout << "ck4" << std::endl;
+	// cout << "ck4" << endl;
 
 	string fname1(fn + to_string(itr) + "_cmat.txt");
 	//ofstream fout;
@@ -434,7 +434,7 @@ void kernel::OutputMesh(const vector<BezierElement3D>& bzmesh, string fn, int it
 		cerr << "Can't open " << fname1 << '\n';
 	}
 
-	// std::cout << "ck5" << std::endl;
+	// cout << "ck5" << endl;
 
 	string fname2(fn + to_string(itr) + "_bzpt.txt");
 	//ofstream fout;
@@ -497,9 +497,9 @@ void kernel::run_complex_fit(string path_in)
 		lap.GetEqParameter(xy, nm, a);
 		lap.Run(bzmesh, fld + fn + ss.str(), err);
 
-		std::cout << "+++++++++++++++++++++" << std::endl;
-		std::cout << err.size() << std::endl;
-		std::cout << "+++++++++++++++++++++" << std::endl;
+		cout << "+++++++++++++++++++++" << endl;
+		cout << err.size() << endl;
+		cout << "+++++++++++++++++++++" << endl;
 
 		errL2 = 0.;
 		for (i = 0; i < err.size(); i++) errL2 += err[i];
@@ -565,7 +565,7 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 	vector<int> dof_list(niter, 0);
 	vector<double> err_list(niter, 0.);
 
-	// std::cout << "ck1" << std::endl;
+	// cout << "ck1" << endl;
 	int itr;
 	double errL2(1.e6);
 	vector<BezierElement3D> bzmesh;
@@ -581,9 +581,9 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 
 	// vector<double> phi = readVectorFromFile("../ioTHS3D/phi.txt", false);
 	vector<double> phi = readVectorFromFile(path_in + "phi.txt", false);
-	// int sum_of_elems = std::accumulate(phi.begin(), phi.end(),
+	// int sum_of_elems = accumulate(phi.begin(), phi.end(),
         //                         decltype(phi)::value_type(0));
-	// std::cout << "#refine phi read: " << sum_of_elems << std::endl;
+	// cout << "#refine phi read: " << sum_of_elems << endl;
 	// vector<double> phi_old = phi;
 	vector<double> phi_old;
 
@@ -595,7 +595,7 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 			cerr << "Something went wrong, refine looping too many times." << endl;
 		}
 
-		std::cout << "+++++++++++++++++++++" << std::endl;
+		cout << "+++++++++++++++++++++" << endl;
 		cout << "Refine iter " << itr << "| Current level: " << tt3.getLevels() << "...\n";
 
 		// vector<BezierElement3D> bzmesh_old = bzmesh;
@@ -608,7 +608,7 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 		// vector<double> gh, err(bzmesh.size(), 0);
 		vector<double> err(bzmesh.size(), 0);
 
-		// std::cout << "level: " << tt3.getLevels() << std::endl;
+		// cout << "level: " << tt3.getLevels() << endl;
 		if(itr > 0) {
 			cout << "Reading bzmesh...\n";
 			tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
@@ -622,7 +622,7 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 			tt3.OutputControlPoints(path_in);
 			if (tt3.getLevels() == rf_level) {
 			// if (itr == niter-1) {
-				std::cout << niter << std::endl;
+				cout << niter << endl;
 				return 0;		
 			}		
 		}
@@ -644,16 +644,16 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 		writeVectorToFile(phi, "./phi_refine.txt", false);
 		// err.clear();
 		err = phi;
-		// std::cout << "ck2 " << bzmesh.size() << " " << err.size() << " " << ids.size() << std::endl;
+		// cout << "ck2 " << bzmesh.size() << " " << err.size() << " " << ids.size() << endl;
 
-		std::cout << "bzmesh size: " << bzmesh.size() << " phi size: " << phi.size() << std::endl;
+		cout << "bzmesh size: " << bzmesh.size() << " phi size: " << phi.size() << endl;
 		
 		// lap.VisualizeError(bzmesh, err, fld + fn + ss.str());
 
-		// std::cout << "+++++++++++++++++++++" << std::endl;
-		// std::cout << err.size() << std::endl;
+		// cout << "+++++++++++++++++++++" << endl;
+		// cout << err.size() << endl;
 		// cout << "Refining iter " << itr << "...\n";
-		// std::cout << "+++++++++++++++++++++" << std::endl;
+		// cout << "+++++++++++++++++++++" << endl;
 
 		errL2 = 0.;
 		for (i = 0; i < err.size(); i++) errL2 += err[i];
@@ -661,7 +661,7 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 		dof_list[itr] = IDBC.size();
 		err_list[itr] = errL2;
 
-		std::cout << "err size: " << err.size() << std::endl;;
+		cout << "err size: " << err.size() << endl;;
 
 		// output_err(fld + fn + ss.str() + "_err", dof_list, err);
 
@@ -687,7 +687,7 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 
 		cout << "Refine iter " << itr << " done!\n";
 
-		// std::cout << "ck0" << std::endl;
+		// cout << "ck0" << endl;
 
 		// if (itr == niter) { // update bzmesh for outputmesh
 		// 	tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
@@ -696,7 +696,7 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 		// tt3.OutputCM(itr, "../ioTHS3D/controlmesh");
 
 		// OutputMesh(bzmesh, "../ioTHS3D/");
-		// std::cout << eh.size() << " " << err.size() << std::endl;
+		// cout << eh.size() << " " << err.size() << endl;
 
 		// tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
 		// // tt3.OutputCM(itr, "../ioTHS3D/controlmesh");
@@ -710,14 +710,14 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 	// tt3.VisualizeControlMesh("../ioTHS3D/controlmesh");
 
 	// tt3.OutputCM_allLevel("../ioTHS3D/controlmesh");
-	// std::cout << "Writing Hierarachical mesh ..." << std::endl;
+	// cout << "Writing Hierarachical mesh ..." << endl;
 	// tt3.VisualizeControlMesh_hierarchical("../ioTHS3D/controlmesh");
-	// std::cout << "Writing Tmesh ..." << std::endl;
+	// cout << "Writing Tmesh ..." << endl;
 	// tt3.VisualizeTMesh("../ioTHS3D/controlmesh");
-	// std::cout << "Writing CM ..." << std::endl;
+	// cout << "Writing CM ..." << endl;
 	// tt3.OutputCM("../ioTHS3D/controlmesh");
 
-	// std::cout << "ck1" << std::endl;
+	// cout << "ck1" << endl;
 	// tt3.AnalysisInterface_Poisson_1(bzmesh, IDBC, gh);
 	// OutputMesh(bzmesh, "../ioTHS3D/");
 
@@ -728,74 +728,162 @@ int kernel::run_neuronGrowth(string path_in, int rf_level)
 	return 0;
 }
 
-// Function to find the index of the nearest neighbor in the old mesh
-int kernel::FindNearestNeighbor(const std::vector<BezierElement3D>& bzmesh_old, const BezierElement3D& target_element, double& min_distance, const std::vector<double>& phi_old)
+// A small struct for convenience
+struct NeighborInfo {
+    int index;      // index in the old mesh
+    double distance;
+};
+
+// This function returns a sorted list (by ascending distance) of the n nearest neighbors
+vector<NeighborInfo> FindKNearestNeighbors(const vector<BezierElement3D>& bzmesh_old,
+												const BezierElement3D& target_element,
+												int K)
 {
-	int nearest_index = 0;
-	min_distance = std::numeric_limits<double>::max();
-	// double min_distance = std::numeric_limits<double>::max();
+    vector<NeighborInfo> neighbors;
+    neighbors.reserve(bzmesh_old.size());
 
-	for (int i = 0; i < bzmesh_old.size(); ++i) {
-		// if (phi_old[i] != 0) {
-			// Calculate the Euclidean distance between target_element and elements in bzmesh_old
-			double distance = 0.0;
-			for (int j = 0; j < 3; ++j)
-			{
-				double diff = target_element.pts[0][j] - bzmesh_old[i].pts[0][j];
-				distance += diff * diff;
-			}
-			distance = std::sqrt(distance);
-
-			// Update nearest neighbor if a closer one is found
-			if (distance < min_distance) {
-				min_distance = distance;
-				nearest_index = i;
-			}
-		// }
-	}
-
-	return nearest_index;
-}
-
-std::vector<double> kernel::InterpolateValues(const std::vector<BezierElement3D>& bzmesh_old,
-                                     const std::vector<double>& phi_old,
-                                     const std::vector<BezierElement3D>& bzmesh_new)
-{
-    // Initialize phi_new with 0.0
-    std::vector<double> phi_new(bzmesh_new.size(), 0.0);
-
-    // Track updated indices
-    std::vector<bool> updated(bzmesh_new.size(), false);
-
-    for (int i = 0; i < bzmesh_new.size(); ++i) {
-        // Find the nearest neighbor in the old mesh for each element in bzmesh_new
-        double dist(10);
-        int nearest_index = FindNearestNeighbor(bzmesh_old, bzmesh_new[i], dist, phi_old);
-
-        // Update phi_new only if it has not been updated and distance is within the threshold
-        if (!updated[i] && dist <= 6) {
-            phi_new[i] = phi_old[nearest_index];
-            updated[i] = true; // Mark this index as updated
+    // Compute distance from target_element to each old element
+    for (int i = 0; i < (int)bzmesh_old.size(); ++i) {
+        double distance = 0.0;
+        for (int j = 0; j < 3; ++j) {
+            double diff = target_element.pts[0][j] - bzmesh_old[i].pts[0][j];
+            distance += diff * diff;
         }
+        // distance = sqrt(distance);
+
+        NeighborInfo info;
+        info.index = i;
+        info.distance = distance;
+        neighbors.push_back(info);
     }
 
-    // No need to explicitly set unupdated elements to 0 as phi_new is already initialized to 0.0
+    // Sort by distance ascending
+    sort(neighbors.begin(), neighbors.end(),
+              [](const NeighborInfo& a, const NeighborInfo& b) {
+                  return a.distance < b.distance;
+              });
+
+    // Truncate to the first K neighbors if the array is larger
+    if ((int)neighbors.size() > K) {
+        neighbors.resize(K);
+    }
+
+    return neighbors;
+}
+
+// // Function to find the index of the nearest neighbor in the old mesh
+// int kernel::FindNearestNeighbor(const vector<BezierElement3D>& bzmesh_old, const BezierElement3D& target_element, double& min_distance, const vector<double>& phi_old)
+// {
+// 	int nearest_index = 0;
+// 	min_distance = numeric_limits<double>::max();
+// 	// double min_distance = numeric_limits<double>::max();
+
+// 	for (int i = 0; i < bzmesh_old.size(); ++i) {
+// 		// if (phi_old[i] != 0) {
+// 			// Calculate the Euclidean distance between target_element and elements in bzmesh_old
+// 			double distance = 0.0;
+// 			for (int j = 0; j < 3; ++j)
+// 			{
+// 				double diff = target_element.pts[0][j] - bzmesh_old[i].pts[0][j];
+// 				distance += diff * diff;
+// 			}
+// 			distance = sqrt(distance);
+
+// 			// Update nearest neighbor if a closer one is found
+// 			if (distance < min_distance) {
+// 				min_distance = distance;
+// 				nearest_index = i;
+// 			}
+// 		// }
+// 	}
+
+// 	return nearest_index;
+// }
+
+vector<double> kernel::InterpolateValues(const vector<BezierElement3D>& bzmesh_old,
+                                              const vector<double>& phi_old,
+                                              const vector<BezierElement3D>& bzmesh_new)
+{
+    // 1) Choose how many neighbors (K) you want to average
+    const int K = 6;               // e.g. 6 nearest neighbors
+    const double DIST_THRESHOLD = 12.0;
+
+    // 2) Initialize output
+    vector<double> phi_new(bzmesh_new.size(), 0.0);
+    vector<bool>   updated(bzmesh_new.size(), false);
+
+    // 3) For each new element, find the K nearest neighbors from the old mesh
+    for (int i = 0; i < (int)bzmesh_new.size(); ++i) {
+        // Gather the K nearest neighbors
+        auto neighbors = FindKNearestNeighbors(bzmesh_old, bzmesh_new[i], K);
+
+        // If the closest neighbor is beyond the threshold, skip
+        if (!neighbors.empty()) {
+            double closestDist = neighbors[0].distance;
+            if (!updated[i] && closestDist <= DIST_THRESHOLD) 
+            {
+                // 4) Compute the average phi of these neighbors.
+                double sum_phi = 0.0;
+                int validCount = 0;
+                for (auto& nb : neighbors) {
+                    // If you ONLY want neighbors <= DIST_THRESHOLD
+                    if (nb.distance <= DIST_THRESHOLD) {
+						sum_phi += phi_old[nb.index];
+						validCount++;
+					}
+                }
+
+                if (validCount > 0) {
+                    double avgVal = sum_phi / (double)validCount;
+                    phi_new[i] = avgVal;
+                    updated[i] = true;
+                }
+            }
+        }
+    }
 
     return phi_new;
 }
 
-// // Function to perform interpolation from old mesh to new mesh
-// std::vector<double> kernel::InterpolateValues(const std::vector<BezierElement3D>& bzmesh_old,
-//                                      const std::vector<double>& phi_old,
-//                                      const std::vector<BezierElement3D>& bzmesh_new)
+// vector<double> kernel::InterpolateValues(const vector<BezierElement3D>& bzmesh_old,
+//                                      const vector<double>& phi_old,
+//                                      const vector<BezierElement3D>& bzmesh_new)
 // {
-// 	std::vector<double> phi_new(bzmesh_new.size(), 0.0);
+//     // Initialize phi_new with 0.0
+//     vector<double> phi_new(bzmesh_new.size(), 0.0);
+
+//     // Track updated indices
+//     vector<bool> updated(bzmesh_new.size(), false);
+
+//     for (int i = 0; i < bzmesh_new.size(); ++i) {
+//         // Find the nearest neighbor in the old mesh for each element in bzmesh_new
+//         double dist(10);
+//         int nearest_index = FindNearestNeighbor(bzmesh_old, bzmesh_new[i], dist, phi_old);
+
+//         // Update phi_new only if it has not been updated and distance is within the threshold
+//         if (!updated[i] && dist <= 6) {
+//             phi_new[i] = phi_old[nearest_index];
+//             updated[i] = true; // Mark this index as updated
+//         }
+//     }
+
+//     // No need to explicitly set unupdated elements to 0 as phi_new is already initialized to 0.0
+
+//     return phi_new;
+// }
+
+// // Function to perform interpolation from old mesh to new mesh
+// vector<double> kernel::InterpolateValues(const vector<BezierElement3D>& bzmesh_old,
+//                                      const vector<double>& phi_old,
+//                                      const vector<BezierElement3D>& bzmesh_new)
+// {
+// 	vector<double> phi_new(bzmesh_new.size(), 0.0);
 
 // 	for (int i = 0; i < bzmesh_new.size(); ++i) {
 // 		// Find the nearest neighbor in the old mesh for each element in bzmesh_new
 // 		double dist(10);
 // 		int nearest_index = FindNearestNeighbor(bzmesh_old, bzmesh_new[i], dist, phi_old);
-// 		// std::cout << dist << std::endl;
+// 		// cout << dist << endl;
 // 		// Interpolate the value based on the nearest neighbor
 // 		// phi_new[i] = phi_old[nearest_index];
 // 		if (dist <= 6) {
@@ -809,17 +897,17 @@ std::vector<double> kernel::InterpolateValues(const std::vector<BezierElement3D>
 // 	return phi_new;
 // }
 
-void kernel::writeVectorToFile(const std::vector<double>& data, const std::string& filename, bool binary) {
-	std::ofstream outfile;
+void kernel::writeVectorToFile(const vector<double>& data, const string& filename, bool binary) {
+	ofstream outfile;
 
 	if (binary) {
-		outfile.open(filename, std::ios::out | std::ios::binary);
+		outfile.open(filename, ios::out | ios::binary);
 	} else {
 		outfile.open(filename);
 	}
 
 	if (!outfile) {
-		std::cerr << "Error opening file: " << filename << std::endl;
+		cerr << "Error opening file: " << filename << endl;
 		return;
 	}
 
@@ -831,30 +919,30 @@ void kernel::writeVectorToFile(const std::vector<double>& data, const std::strin
 		}
 	}
 
-	std::cout << "Vector successfully written to " << filename << std::endl;
+	cout << "Vector successfully written to " << filename << endl;
 	outfile.close();
 }
 
-std::vector<double> kernel::readVectorFromFile(const std::string& filename, bool binary) {
-	std::ifstream infile;
+vector<double> kernel::readVectorFromFile(const string& filename, bool binary) {
+	ifstream infile;
 
 	if (binary) {
-		infile.open(filename, std::ios::in | std::ios::binary);
+		infile.open(filename, ios::in | ios::binary);
 	} else {
 		infile.open(filename);
 	}
 
 	if (!infile) {
-		std::cerr << "Error opening file: " << filename << std::endl;
+		cerr << "Error opening file: " << filename << endl;
 		return {};
 	}
 
-	std::vector<double> data;
+	vector<double> data;
 
 	if (binary) {
-		infile.seekg(0, std::ios::end);
+		infile.seekg(0, ios::end);
 		size_t fileSize = infile.tellg();
-		infile.seekg(0, std::ios::beg);
+		infile.seekg(0, ios::beg);
 
 		data.resize(fileSize / sizeof(double));
 		infile.read(reinterpret_cast<char*>(data.data()), fileSize);
@@ -866,7 +954,7 @@ std::vector<double> kernel::readVectorFromFile(const std::string& filename, bool
 		}
 	}
 
-	std::cout << "Vector successfully read from " << filename << std::endl;
+	cout << "Vector successfully read from " << filename << endl;
 	infile.close();
 
 	return data;

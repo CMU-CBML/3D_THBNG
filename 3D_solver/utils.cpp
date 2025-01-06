@@ -45,11 +45,17 @@ void SetupSimulationFiles(const int nProcs, const string& path_in, bool localRef
     // File paths for the meshes
     string fn_mesh_initial = path_in + "controlmesh_initial.vtk";
     string fn_mesh = path_in + "controlmesh.vtk";
+    string fn_mesh_fine = path_in + "controlmesh_fine.vtk";
 
     // Generate the initial 3D mesh and write it to file
     gen3Dmesh(originX, originY, originZ, NX, NY, NZ, 4, 4, 4, vertices, elements);
     write_hex_toVTK(fn_mesh_initial.c_str(), vertices, elements);
 
+	vector<vector<float>> vertices_fine;
+	vector<vector<int>> elements_fine;
+    gen3Dmesh(originX, originY, originZ, NX*4, NY*4, NZ*4, 1, 1, 1, vertices_fine, elements_fine);
+    write_hex_toVTK(fn_mesh_fine.c_str(), vertices_fine, elements_fine);
+	
 	int level = 3;
     // Handle local refinement or default processing
     if (!localRefine) {
@@ -662,8 +668,9 @@ void THS3D(const string &path_in, int level) {
     cout << "------------------------------------------------------------------------------" << endl;
 
     // Construct the command
+    // string ths3d_cmd = "../THS3D_prev/THS3D " + path_in + " " + to_string(level);
+    // string ths3d_cmd = "../THS3D_aveInter/THS3D " + path_in + " " + to_string(level);
     string ths3d_cmd = "../THS3D/THS3D " + path_in + " " + to_string(level);
-    // string ths3d_cmd = "../THS3D/THS3D " + path_in;
 
     // Log the command for debugging
     cout << "Executing THS3D command: " << ths3d_cmd << endl;
