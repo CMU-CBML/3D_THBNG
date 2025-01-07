@@ -801,49 +801,78 @@ vector<NeighborInfo> FindKNearestNeighbors(const vector<BezierElement3D>& bzmesh
 // }
 
 vector<double> kernel::InterpolateValues(const vector<BezierElement3D>& bzmesh_old,
-                                              const vector<double>& phi_old,
-                                              const vector<BezierElement3D>& bzmesh_new)
+                                         const vector<double>& phi_old,
+                                         const vector<BezierElement3D>& bzmesh_new)
 {
-    // 1) Choose how many neighbors (K) you want to average
-    const int K = 6;               // e.g. 6 nearest neighbors
-    const double DIST_THRESHOLD = 12.0;
+	int K = 6;
+	double DIST_THRESHOLD = 12.0;
 
-    // 2) Initialize output
+    // Ensure input sizes match
+    assert(bzmesh_old.size() == phi_old.size());
+
+    // Initialize output
     vector<double> phi_new(bzmesh_new.size(), 0.0);
-    vector<bool>   updated(bzmesh_new.size(), false);
 
-    // 3) For each new element, find the K nearest neighbors from the old mesh
+    // For each new element, find the K nearest neighbors
     for (int i = 0; i < (int)bzmesh_new.size(); ++i) {
-        // Gather the K nearest neighbors
         auto neighbors = FindKNearestNeighbors(bzmesh_old, bzmesh_new[i], K);
 
-        // If the closest neighbor is beyond the threshold, skip
-        if (!neighbors.empty()) {
-            double closestDist = neighbors[0].distance;
-            if (!updated[i] && closestDist <= DIST_THRESHOLD) 
-            {
-                // 4) Compute the average phi of these neighbors.
-                double sum_phi = 0.0;
-                int validCount = 0;
-                for (auto& nb : neighbors) {
-                    // If you ONLY want neighbors <= DIST_THRESHOLD
-                    if (nb.distance <= DIST_THRESHOLD) {
-						sum_phi += phi_old[nb.index];
-						validCount++;
-					}
-                }
-
-                if (validCount > 0) {
-                    double avgVal = sum_phi / (double)validCount;
-                    phi_new[i] = avgVal;
-                    updated[i] = true;
-                }
+        // Check if any of the neighbors has a non-zero value
+        for (const auto& nb : neighbors) {
+            if (nb.distance <= DIST_THRESHOLD && phi_old[nb.index] != 0.0) {
+                phi_new[i] = 1.0; // Set phi_new[i] to 1 if any neighbor is non-zero
+                break;           // No need to check further neighbors
             }
         }
     }
 
     return phi_new;
 }
+
+// vector<double> kernel::InterpolateValues(const vector<BezierElement3D>& bzmesh_old,
+//                                          const vector<double>& phi_old,
+//                                          const vector<BezierElement3D>& bzmesh_new)
+// {
+//     // 1) Choose how many neighbors (K) you want to average
+//     const int K = 6;               // e.g. 6 nearest neighbors
+//     const double DIST_THRESHOLD = 12.0;
+
+//     // 2) Initialize output
+//     vector<double> phi_new(bzmesh_new.size(), 0.0);
+//     vector<bool>   updated(bzmesh_new.size(), false);
+
+//     // 3) For each new element, find the K nearest neighbors from the old mesh
+//     for (int i = 0; i < (int)bzmesh_new.size(); ++i) {
+//         // Gather the K nearest neighbors
+//         auto neighbors = FindKNearestNeighbors(bzmesh_old, bzmesh_new[i], K);
+
+//         // If the closest neighbor is beyond the threshold, skip
+//         if (!neighbors.empty()) {
+//             double closestDist = neighbors[0].distance;
+//             if (!updated[i] && closestDist <= DIST_THRESHOLD) {
+//                 // 4) Compute the weighted average phi of these neighbors
+//                 double weighted_sum_phi = 0.0;
+//                 double weight_sum = 0.0;
+
+//                 for (auto& nb : neighbors) {
+//                     // Only consider neighbors within the distance threshold
+//                     if (nb.distance <= DIST_THRESHOLD) {
+//                         double weight = 1.0 / (nb.distance + 1e-6); // Avoid division by zero
+//                         weighted_sum_phi += phi_old[nb.index] * weight;
+//                         weight_sum += weight;
+//                     }
+//                 }
+
+//                 if (weight_sum > 0) {
+//                     phi_new[i] = weighted_sum_phi / weight_sum; // Weighted average
+//                     updated[i] = true;
+//                 }
+//             }
+//         }
+//     }
+
+//     return phi_new;
+// }
 
 // vector<double> kernel::InterpolateValues(const vector<BezierElement3D>& bzmesh_old,
 //                                      const vector<double>& phi_old,

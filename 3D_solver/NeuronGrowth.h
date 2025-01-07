@@ -431,6 +431,18 @@ public:
 		float& dA_dPdz                   		// Derivative of anisotropy w.r.t z
 	);
 
+	void EvaluateOrientation_old(
+		const int nen, 
+		const vector<float> &Nx, 
+		const vector<array<float, 3>> &dNdx, 
+		const vector<float> elePhi, 
+		const vector<float> eleTheta,  
+		float& eleAniso, 
+		float& dA_dPdx, 
+		float& dA_dPdy, 
+		float& dA_dPdz
+	);
+	
 	void EvaluateOrientationSpherical(
 		const int nen,                    		// Number of nodes in the element
 		const vector<float>& Nx,          		// Basis function values

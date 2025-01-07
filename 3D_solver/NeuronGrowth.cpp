@@ -518,7 +518,7 @@ void NeuronGrowth::InterpolateOrFindExact_singleVar(
     const KDTree& kdTree_prev, 
     const Vertex3DCloud& cloud_prev, 
     const vector<float>& original_var, 
-    const vector<Vertex3D>& prev_cpts, 
+    const vector<Vertex3D>& prev_cpts,
     float& output_var,
 	bool weighted
 ) {
@@ -1887,90 +1887,71 @@ void NeuronGrowth::EvaluateOrientation(
         dA_dPdz += sanitize_value(tmp_dA_dPdz, "dA_dPdz");
     }
 }
-// void NeuronGrowth::EvaluateOrientation(
-//     const int nen, 
-//     const vector<float>& Nx, 
-//     const vector<array<float, 3>>& dNdx, 
-//     const vector<float>& elePhi, 
-//     const vector<float>& eleTheta, 
-//     float& eleAniso, 
-//     float& dA_dPdx, 
-//     float& dA_dPdy, 
-//     float& dA_dPdz
-// ) {
-//     dA_dPdx = dA_dPdy = dA_dPdz = eleAniso = 0.0f;
-//     const float stable = 1e-2;
 
-//     for (int i = 0; i < nen; i++) {
-//         // Compute derivatives of different orders using direct multiplication
-//         float dPdx1 = elePhi[i] * dNdx[i][0];
-//         float dPdy1 = elePhi[i] * dNdx[i][1];
-//         float dPdz1 = elePhi[i] * dNdx[i][2];
+void NeuronGrowth::EvaluateOrientation_old(const int nen, const vector<float> &Nx, const vector<array<float, 3>> &dNdx, const vector<float> elePhi, const vector<float> eleTheta,  float& eleAniso, float& dA_dPdx, float& dA_dPdy, float& dA_dPdz)
+{
+	dA_dPdx = 0; dA_dPdy = 0; dA_dPdz = 0;
+	for (int i = 0; i < nen; i++) {
+		// if ((elePhi[i] > 0.05) && (elePhi[i] < 0.95)) {	
+			float dPdx4 = pow(elePhi[i] * dNdx[i][0], 4);
+			float dPdy4 = pow(elePhi[i] * dNdx[i][1], 4);
+			float dPdz4 = pow(elePhi[i] * dNdx[i][2], 4);
+			float dPdx3 = pow(elePhi[i] * dNdx[i][0], 3);
+			float dPdy3 = pow(elePhi[i] * dNdx[i][1], 3);
+			float dPdz3 = pow(elePhi[i] * dNdx[i][2], 3);
+			float dPdx2 = pow(elePhi[i] * dNdx[i][0], 2);
+			float dPdy2 = pow(elePhi[i] * dNdx[i][1], 2);
+			float dPdz2 = pow(elePhi[i] * dNdx[i][2], 2);
+			float dPdx1 = elePhi[i] * dNdx[i][0];
+			float dPdy1 = elePhi[i] * dNdx[i][1];
+			float dPdz1 = elePhi[i] * dNdx[i][2];
 
-//         float dPdx2 = dPdx1 * dPdx1;
-//         float dPdy2 = dPdy1 * dPdy1;
-//         float dPdz2 = dPdz1 * dPdz1;
+			float dP4 = dPdx4 + dPdy4 + dPdz4;
+			float md4 = pow((dPdx2 + dPdy2 + dPdz2), 2);
 
-//         float dPdx3 = dPdx2 * dPdx1;
-//         float dPdy3 = dPdy2 * dPdy1;
-//         float dPdz3 = dPdz2 * dPdz1;
+			float stable(1e-2);
 
-//         float dPdx4 = dPdx3 * dPdx1;
-//         float dPdy4 = dPdy3 * dPdy1;
-//         float dPdz4 = dPdz3 * dPdz1;
+			float tmp(0);
+			tmp = epsilonb * (1 - 3 * delta) + epsilonb * 4 * delta * dP4 / (md4 + stable);
 
-//         // Aggregate contributions to dP4 and md4
-//         float dP4 = dPdx4 + dPdy4 + dPdz4;
-//         float md4 = (dPdx2 + dPdy2 + dPdz2) * (dPdx2 + dPdy2 + dPdz2);
+			if ((isnan(tmp) == 1) || (abs(tmp) > 10)) {
+				std::cout << "nan 1: " << tmp << std::endl;
+				tmp = 0;
+			}
+			eleAniso += tmp;
 
-//         // Compute eleAniso contribution
-//         float tmp = epsilonb * (1 - 3 * delta) + epsilonb * 4 * delta * dP4 / (md4 + stable);
-//         if (isnan(tmp) || abs(tmp) > 10) { // does not work if Ofast and ffast-math are enabled in makefile
-//             cout << "nan eleAniso: " << tmp << endl;
-//             tmp = 0.0f;
-//         }
-//         eleAniso += tmp;
+			float C1x = dPdy4 + dPdz4;
+			float C2x = dPdy2 + dPdz2;
+			tmp = epsilonb * 4 * delta * ( (4 * dPdx3) / (pow(C2x + dPdx2, 2) + stable)
+				- (4 * dPdx1 * (C1x + dPdx4)) / (pow((C2x + dPdx2), 3) + stable) );
+			if ((isnan(tmp) == 1) || (abs(tmp) > 10)) {
+				std::cout << "nan 2: " << tmp << std::endl;
+				tmp = 0;
+			}
+			dA_dPdx += tmp;
 
-//         // Contribution to dA_dPdx
-//         float C1x = dPdy4 + dPdz4;
-//         float C2x = dPdy2 + dPdz2;
-//         tmp = epsilonb * 4 * delta * (
-//             (4 * dPdx3) / ((C2x + dPdx2) * (C2x + dPdx2) + stable) -
-//             (4 * dPdx1 * (C1x + dPdx4)) / ((C2x + dPdx2) * (C2x + dPdx2) * (C2x + dPdx2) + stable)
-//         );
-//         if (isnan(tmp) || abs(tmp) > 10) { // does not work if Ofast and ffast-math are enabled in makefile
-//             cout << "nan dA_dPdx: " << tmp << endl;
-//             tmp = 0.0f;
-//         }
-//         dA_dPdx += tmp;
-
-//         // Contribution to dA_dPdy
-//         float C1y = dPdx4 + dPdz4;
-//         float C2y = dPdx2 + dPdz2;
-//         tmp = epsilonb * 4 * delta * (
-//             (4 * dPdy3) / ((C2y + dPdy2) * (C2y + dPdy2) + stable) -
-//             (4 * dPdy1 * (C1y + dPdy4)) / ((C2y + dPdy2) * (C2y + dPdy2) * (C2y + dPdy2) + stable)
-//         );
-//         if (isnan(tmp) || abs(tmp) > 10) { // does not work if Ofast and ffast-math are enabled in makefile
-//             cout << "nan dA_dPdy: " << tmp << endl;
-//             tmp = 0.0f;
-//         }
-//         dA_dPdy += tmp;
-
-//         // Contribution to dA_dPdz
-//         float C1z = dPdx4 + dPdy4;
-//         float C2z = dPdx2 + dPdy2;
-//         tmp = epsilonb * 4 * delta * (
-//             (4 * dPdz3) / ((C2z + dPdz2) * (C2z + dPdz2) + stable) -
-//             (4 * dPdz1 * (C1z + dPdz4)) / ((C2z + dPdz2) * (C2z + dPdz2) * (C2z + dPdz2) + stable)
-//         );
-//         if (isnan(tmp) || abs(tmp) > 10) { // does not work if Ofast and ffast-math are enabled in makefile
-//             cout << "nan dA_dPdz: " << tmp << endl;
-//             tmp = 0.0f;
-//         }
-//         dA_dPdz += tmp;
-//     }
-// }
+			float C1y = dPdx4 + dPdz4;
+			float C2y = dPdx2 + dPdz2;
+			tmp =  epsilonb * 4 * delta * ( (4 * dPdy3) / (pow(C2y + dPdy2, 2) + stable)
+				- (4 * dPdy1 * (C1y + dPdy4)) / (pow((C2y + dPdy2), 3) + stable) );
+			if ((isnan(tmp) == 1) || (abs(tmp) > 10)) {
+				std::cout << "nan 3: " << tmp << std::endl;
+				tmp = 0;
+			}
+			dA_dPdy += tmp;
+		
+			float C1z = dPdx4 + dPdy4;
+			float C2z = dPdx2 + dPdy2;
+			tmp =  epsilonb * 4 * delta * ( (4 * dPdz3) / (pow(C2z + dPdz2, 2) + stable)
+				- (4 * dPdz1 * (C1z + dPdz4)) / (pow((C2z + dPdz2), 3) + stable) );
+			if ((isnan(tmp) == 1) || (abs(tmp) > 10)) {
+				std::cout << "nan 4: " << tmp << std::endl;
+				tmp = 0;
+			}
+			dA_dPdz += tmp;
+		// }
+	}
+}
 
 void NeuronGrowth::EvaluateOrientationSpherical(
 		const int nen,                    // Number of nodes in the element
@@ -2456,7 +2437,7 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 
     CheckVar("../io3D/outputs/PHI_FINE_", cpts_fine, phi_fine);
 
-    const float threshold = 0.80f;    // Threshold for tip detection
+    const float threshold = 0.90f;    // Threshold for tip detection
     float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
 
     // --------------------------------------
@@ -2464,7 +2445,7 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
     // --------------------------------------
     vector<float> phiTransformed(phi_fine.size());
     for (size_t j = 0; j < phi_fine.size(); ++j) {
-        phiTransformed[j] = CellBoundary(phi_fine[j], 0.5f);
+        phiTransformed[j] = CellBoundary(phi_fine[j], 0.25f);
     }
 
     // Clear and resize tips to match the number of control points
@@ -2492,7 +2473,6 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
         }
 
         // Update the maximum tip value for normalization
-        maxTipValue = max(maxTipValue, tips_fine[i]);
     }
 
     // --------------------------------------
@@ -2500,6 +2480,7 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
     // --------------------------------------
     CheckVar("../io3D/outputs/TIP_FINE_", cpts_fine, tips_fine);
     // cout << "Max Tip Value: " << maxTipValue << endl;
+	// maxTipValue = 0.0008;
 
     // Clear and resize tips to match the number of control points
     tips.clear();
@@ -2508,6 +2489,7 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 	for (size_t i = 0; i < cpts.size(); ++i) {
 		InterpolateOrFindExact_singleVar(
 			cpts[i], kdTree_fine, cloud_fine, tips_fine, cpts_fine, tips[i], false);
+		maxTipValue = max(maxTipValue, tips[i]);
 	}
 	CheckVar("../io3D/outputs/TIP_", cpts, tips);
 
@@ -2516,6 +2498,7 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
     // --------------------------------------
     for (float& tip : tips) {
         tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
+        // tip = (tip > 0.006) ? 1.0f : 0.0f;
     }
 	CheckVar("../io3D/outputs/TIP_cutoff_", cpts, tips);
 
@@ -2751,7 +2734,7 @@ vector<float> NeuronGrowth::ComputeRefine(
 					// Iterate over the closest vertices to find the maximum phi value
 					for (const auto& neighbor : closestVertices) {
 						int idx = get<1>(neighbor);         // Index of the neighbor
-						float phi_value = CellBoundary(phi_in[idx], 0.5); // Adjust phi value using CellBoundary
+						float phi_value = CellBoundary(phi_in[idx], 0.1); // Adjust phi value using CellBoundary
 						phi_max = max(phi_max, phi_value); // Update phi_max if current phi_value is greater
 					}
 				}
@@ -2768,6 +2751,7 @@ vector<float> NeuronGrowth::ComputeRefine(
 					ele_refine[index_out] = 1.0f;
 				} else {
                     ele_refine[index_out] = 0.0f; // No refinement
+                    // ele_refine[index_out] = 1.0f; // for debugging
                 }
             }
         }
@@ -3398,7 +3382,7 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
 					if (user->n < 0) {
 						user->vars[8] = user->alphaOverPi*atan(user->gamma * (1 - user->vars[6]));
 					} else {
-						if (user->vars[9] > 0.1) {
+						if (user->vars[9] > 0) {
 							user->vars[8] = user->alphaOverPi*atan(user->gamma * 1 * (1 - user->vars[6]));
 						} else {
 							user->vars[8] = user->alphaOverPi*atan(user->gamma * 0 * (1 - user->vars[6]));
@@ -3822,21 +3806,29 @@ int RunNG(
 
 		/*========================================================*/
 		// Write physical domain results to file
-		if (NG.n % NG.var_save_invl == 0) {
+		// if (NG.n % NG.var_save_invl == 0) {
+		// 	PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+		// 	NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
+		// 	PetscPrintf(PETSC_COMM_WORLD, 
+		// 				"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
+		// 				NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
+		// 	PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+		// }
+
+		// Neuron identification and tip detection
+		if ((NG.n % NG.tip_detect_invl == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size()) || (NG.n == NG.end_iter)) {
+			
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
 			PetscPrintf(PETSC_COMM_WORLD, 
 						"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
 						NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-		}
 
-		// Neuron identification and tip detection
-		if ((NG.n % NG.tip_detect_invl == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size()) || (NG.n == NG.end_iter)) {
 			// Detect tips and save intermediate results
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			PetscPrintf(PETSC_COMM_WORLD, "Detecting tips\n");
-			float tip_intensity_sz = 16.0f; // box size for calculating tip intensity
+			float tip_intensity_sz = 8.0f; // box size for calculating tip intensity
 			// NG.DetectTips(cpts, tip_intensity_sz, kdTree);
 			NG.DetectTips(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree);
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");

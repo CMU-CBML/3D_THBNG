@@ -12495,7 +12495,7 @@ void TruncatedTspline_3D::Identify_Laplace(const vector<array<double, 2>>& eh, c
 			}
 		}
 	}
-	double eta(0.5);
+	double eta(0.2);
 	double tol(eta*err_max);
 	vector<array<int, 2>> rf_pid;
 	for (i = 0; i < hcp.size(); i++)
