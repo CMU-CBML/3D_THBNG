@@ -384,6 +384,7 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 		phi_0.assign(cpt_sz, 0.0f);
 		tub_0.assign(cpt_sz, 0.0f);
 
+// #pragma omp parallel for
 		for (size_t i = 0; i < cpt_sz; ++i) {
 			const auto& cpt = cpts[i];
 			const auto& [x, y, z] = cpt.coor;
@@ -476,8 +477,9 @@ void NeuronGrowth::InterpolateOrFindExact(
     const vector<Vertex3D>& prev_cpts, 
     float& phi, float& syn, float& tub, float& theta, float& phi_0, float& tub_0
 ) {
-    int exactIndex;
+    phi = syn = tub = theta = phi_0 = tub_0 = 0.0f;
 
+    int exactIndex;
     if (KD_SearchPair(prev_cpts, kdTree_prev, cpt.coor[0], cpt.coor[1], cpt.coor[2], exactIndex)) {
         // Exact match: copy values directly
         phi   = NGvars[0][exactIndex];
@@ -486,6 +488,7 @@ void NeuronGrowth::InterpolateOrFindExact(
         theta = NGvars[3][exactIndex];
         phi_0 = NGvars[4][exactIndex];
         tub_0 = NGvars[5][exactIndex];
+		return;
     } else {
         // Interpolate using nearest neighbors
         auto closestVertices = FindClosestVerticesWithIndicesAndDistances(kdTree_prev, cloud_prev, cpt, 4);
@@ -2674,8 +2677,8 @@ vector<tuple<Vertex3D, int, float>> NeuronGrowth::FindClosestVerticesWithIndices
     vector<tuple<Vertex3D, int, float>> closestVertices;
     for (size_t i = 0; i < k; ++i) {
         const Vertex3D& vertex = cloud.pts[closestIndices[i]];
-        // float distance = sqrt(squaredDistances[i]); // Convert squared distance to actual distance
-        float distance = squaredDistances[i]; // remove sqrt to improve computational efficiency
+        float distance = sqrt(squaredDistances[i]); // Convert squared distance to actual distance
+        // float distance = squaredDistances[i]; // remove sqrt to improve computational efficiency
         closestVertices.emplace_back(vertex, static_cast<int>(closestIndices[i]), distance);
     }
 
@@ -2692,7 +2695,6 @@ vector<float> NeuronGrowth::ComputeRefine(
 
     // Initialize the refined elements vector
     vector<float> ele_refine(NX * NY * NZ, 0.0);
-
 	const float phi_ceil = 0.95f, phi_floor = 0.0f;
 
     // Loop through the 3D grid to compute the refinement flags
@@ -3806,25 +3808,16 @@ int RunNG(
 
 		/*========================================================*/
 		// Write physical domain results to file
-		// if (NG.n % NG.var_save_invl == 0) {
-		// 	PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-		// 	NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
-		// 	PetscPrintf(PETSC_COMM_WORLD, 
-		// 				"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
-		// 				NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
-		// 	PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-		// }
-
-		// Neuron identification and tip detection
-		if ((NG.n % NG.tip_detect_invl == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size()) || (NG.n == NG.end_iter)) {
-			
+		if (NG.n % NG.var_save_invl == 0) {
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
 			PetscPrintf(PETSC_COMM_WORLD, 
 						"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
 						NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-
+		}
+		// Neuron identification and tip detection
+		if ((NG.n % NG.tip_detect_invl == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size()) || (NG.n == NG.end_iter)) {
 			// Detect tips and save intermediate results
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			PetscPrintf(PETSC_COMM_WORLD, "Detecting tips\n");
@@ -3833,7 +3826,6 @@ int RunNG(
 			NG.DetectTips(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree);
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 		}
-
 		/*--------------------------------------------------------*/
 		// Domain expansion and variable passing
 		if (NG.n % NG.expandCK_invl == 0 && NG.n >= 10) {
@@ -4129,6 +4121,16 @@ int RunNG(
 
 		// Increment iteration counter if no expansion
 		iter++;
+
+		// // Write physical domain results to file
+		// if (NG.n % NG.var_save_invl == 0) {
+		// 	PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+		// 	NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
+		// 	PetscPrintf(PETSC_COMM_WORLD, 
+		// 				"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
+		// 				NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
+		// 	PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+		// }
 	}
 
 		/*==============================================================================*/
