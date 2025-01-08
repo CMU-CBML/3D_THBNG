@@ -564,38 +564,40 @@ void NeuronGrowth::InterpolateOrFindExact_singleVar(
     }
 }
 
-void NeuronGrowth::CheckVar(const string& fn, const vector<Vertex3D>& cpts, const vector<float>& input) {
-    // Construct the output file name
-    string fname = fn + "_" + to_string(n) + ".vtk";
-    
-    // Open the output file
-    ofstream fout(fname.c_str());
-    if (fout.is_open()) {
-        // Write VTK file header
-        fout << "# vtk DataFile Version 2.0\n";
-        fout << "Square plate test\n";
-        fout << "ASCII\n";
-        fout << "DATASET UNSTRUCTURED_GRID\n";
-        
-        // Write control point coordinates
-        fout << "POINTS " << cpts.size() << " float\n";
-        for (const auto& point : cpts) {
-            fout << point.coor[0] << " " << point.coor[1] << " " << point.coor[2] << "\n";
-        }
-        
-        // Write scalar data associated with points
-        fout << "POINT_DATA " << input.size() << "\n";
-        fout << "SCALARS pact float 1\n";
-        fout << "LOOKUP_TABLE default\n";
-        for (const auto& value : input) {
-            fout << value << "\n";
-        }
-        
-        fout.close(); // Close the file
-    } else {
-        // Print an error message if the file cannot be opened
-        cerr << "Error: Cannot open file " << fname << " for writing.\n";
-    }
+void NeuronGrowth::CheckVar(const string& fn, const vector<Vertex3D>& cpts, const vector<float>& input) 
+{
+	// Construct the output file name
+	// string fname = fn + "_" + to_string(n) + ".vtk";
+	string fname = path_out + "/" + fn + "_" + to_string(n) + ".vtk";
+	
+	// Open the output file
+	ofstream fout(fname.c_str());
+	if (fout.is_open()) {
+		// Write VTK file header
+		fout << "# vtk DataFile Version 2.0\n";
+		fout << "Square plate test\n";
+		fout << "ASCII\n";
+		fout << "DATASET UNSTRUCTURED_GRID\n";
+		
+		// Write control point coordinates
+		fout << "POINTS " << cpts.size() << " float\n";
+		for (const auto& point : cpts) {
+			fout << point.coor[0] << " " << point.coor[1] << " " << point.coor[2] << "\n";
+		}
+		
+		// Write scalar data associated with points
+		fout << "POINT_DATA " << input.size() << "\n";
+		fout << "SCALARS pact float 1\n";
+		fout << "LOOKUP_TABLE default\n";
+		for (const auto& value : input) {
+			fout << value << "\n";
+		}
+		
+		fout.close(); // Close the file
+	} else {
+		// Print an error message if the file cannot be opened
+		cerr << "Error: Cannot open file " << fname << " for writing.\n";
+	}
 }
 
 void NeuronGrowth::ToPETScVec(const vector<float>& input, Vec& petscVec)
@@ -2274,14 +2276,14 @@ int NeuronGrowth::CheckExpansion3D(const vector<float>& input,
     constexpr float epsilon = 1e-5f;    // Small value to account for floating-point precision
 
     // Debugging: Print grid bounds
-    // CheckVar("../io3D/outputs/checkExp_", cpts, input);
+    CheckVar("CheckExp", cpts, input);
     PetscPrintf(PETSC_COMM_WORLD, "Grid bounds: max_x: %.2f, max_y: %.2f, max_z: %.2f\n", 
                 max_x, max_y, max_z);
 
     // Iterate over all control points to detect boundary conditions
     for (size_t i = 0; i < cpts.size(); ++i) {
         // Only consider points where phi exceeds the threshold
-        if (input[i] > 0.1f) {
+        if (input[i] > 0.01f) {
             float currX = cpts[i].coor[0];
             float currY = cpts[i].coor[1];
             float currZ = cpts[i].coor[2];
@@ -2306,37 +2308,6 @@ int NeuronGrowth::CheckExpansion3D(const vector<float>& input,
     PetscPrintf(PETSC_COMM_WORLD, "No expansion required.\n");
     return 6; // No expansion
 }
-// int NeuronGrowth::CheckExpansion3D(const vector<float>& input,
-//                                    const vector<Vertex3D>& cpts, 
-//                                    const int& originX, const int& originY, const int& originZ) 
-// {
-//     constexpr float bc_clearance = 2.0f;
-
-//     // CheckVar("../io3D/outputs/checkExp_", cpts, input);
-
-//     // Iterate over all control points to detect boundary conditions
-//     for (size_t i = 0; i < cpts.size(); ++i) {
-//         // Only consider points at the boundary based on phi
-//         if (input[i] > 0.05f) {
-//             float currX = cpts[i].coor[0];
-//             float currY = cpts[i].coor[1];
-//             float currZ = cpts[i].coor[2];
-
-//             // Check each boundary direction in axis order (x, y, z)
-//             if (currX >= (max_x - bc_clearance + originX)) return 0; // Positive x boundary
-//             if (currX <= (bc_clearance + originX)) return 1; // Negative x boundary
-
-//             if (currY >= (max_y - bc_clearance + originY)) return 2; // Positive y boundary
-//             if (currY <= (bc_clearance + originY)) return 3; // Negative y boundary
-
-//             if (currZ >= (max_z - bc_clearance + originZ)) return 4; // Positive z boundary
-//             if (currZ <= (bc_clearance + originZ)) return 5; // Negative z boundary
-//         }
-//     }
-
-//     // No boundary condition met
-//     return 6;
-// }
 
 void NeuronGrowth::PopulateRandom(vector<float> &input) {
     for (float &value : input) {
@@ -2438,25 +2409,21 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 			cpts_fine[i], kdTree, cloud, phi, cpts, phi_fine[i], true);
 	}
 
-    CheckVar("../io3D/outputs/PHI_FINE_", cpts_fine, phi_fine);
+	if (n % var_save_invl == 0) CheckVar("PHI_FINE", cpts_fine, phi_fine);
 
-    const float threshold = 0.90f;    // Threshold for tip detection
+    const float threshold = 0.95f;    // Threshold for tip detection
     float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
 
-    // --------------------------------------
     // Precompute transformed phi values
-    // --------------------------------------
     vector<float> phiTransformed(phi_fine.size());
     for (size_t j = 0; j < phi_fine.size(); ++j) {
-        phiTransformed[j] = CellBoundary(phi_fine[j], 0.25f);
+        phiTransformed[j] = CellBoundary(phi_fine[j], 0.50f);
     }
 
     // Clear and resize tips to match the number of control points
     vector<float> tips_fine(cpts_fine.size(), 0.0f);
 	
-    // --------------------------------------
-    // Main loop: compute tip scores per vertex
-    // --------------------------------------
+    // compute tip intensity
     for (size_t i = 0; i < cpts_fine.size(); ++i) {
         const auto& center = cpts_fine[i];
         float localSum = 0.0f; // Sum of phi values within the box
@@ -2474,16 +2441,10 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
         } else {
             tips_fine[i] = 0.0f; // Avoid division by zero
         }
-
-        // Update the maximum tip value for normalization
     }
 
-    // --------------------------------------
     // Debugging and visualization
-    // --------------------------------------
-    CheckVar("../io3D/outputs/TIP_FINE_", cpts_fine, tips_fine);
-    // cout << "Max Tip Value: " << maxTipValue << endl;
-	// maxTipValue = 0.0008;
+    if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
 
     // Clear and resize tips to match the number of control points
     tips.clear();
@@ -2494,140 +2455,15 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 			cpts[i], kdTree_fine, cloud_fine, tips_fine, cpts_fine, tips[i], false);
 		maxTipValue = max(maxTipValue, tips[i]);
 	}
-	CheckVar("../io3D/outputs/TIP_", cpts, tips);
+	if (n % var_save_invl == 0) CheckVar("TIP_", cpts, tips);
 
-    // --------------------------------------
     // Thresholding and normalization
-    // --------------------------------------
     for (float& tip : tips) {
         tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
-        // tip = (tip > 0.006) ? 1.0f : 0.0f;
     }
-	CheckVar("../io3D/outputs/TIP_cutoff_", cpts, tips);
+	if (n % var_save_invl == 0) CheckVar("TIP_cutoff_", cpts, tips);
 
 }
-
-// void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts, 
-//                               const float& tip_I_sz, 
-//                               const KDTree& kdTree)
-// {
-//     tips.assign(cpts.size(), 0.0f);
-//     float maxTipValue = 0.0f;
-//     float threshold   = 0.85f;
-
-//     // For simplicity, assume phi[i] is in [0,1].
-//     // If you want "clamping" at 0.5, you can do that as well.
-//     vector<float> phiTransformed(phi.size());
-//     for (size_t i = 0; i < phi.size(); ++i) {
-//         phiTransformed[i] = phi[i];
-//     }
-
-//     auto GaussianWeight = [&](const Vertex3D& a, const Vertex3D& b, float sigma) {
-//         float dx = a.coor[0] - b.coor[0];
-//         float dy = a.coor[1] - b.coor[1];
-//         float dz = a.coor[2] - b.coor[2];
-//         float dist2 = dx*dx + dy*dy + dz*dz;
-//         return exp(-dist2 / (2.f * sigma * sigma));
-//     };
-//     float sigma = 0.5f * tip_I_sz;
-
-//     for (size_t i = 0; i < cpts.size(); ++i) {
-//         const auto& center = cpts[i];
-
-//         float sumWphi = 0.0f;
-//         float sumW    = 0.0f;
-
-//         // naive box neighbor search
-//         for (size_t j = 0; j < cpts.size(); ++j) {
-//             if (IsInBox(cpts[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
-//                 float w = GaussianWeight(center, cpts[j], sigma);
-//                 sumWphi += w * phiTransformed[j];
-//                 sumW    += w;
-//             }
-//         }
-
-//         float localAvg = 0.0f;
-//         if (sumW > 1e-9) {
-//             localAvg = sumWphi / sumW;
-//         }
-//         // tip score: ratio of phi[i] to local average
-//         // If phi[i] is bigger than localAvg, score > 1. If smaller, score < 1.
-//         float tipScore = 0.0f;
-//         if (localAvg > 1e-12f) {
-//             tipScore = phiTransformed[i] / localAvg; 
-//         }
-
-//         tips[i] = tipScore;
-//         maxTipValue = max(maxTipValue, tipScore);
-//     }
-	
-// 	// maxTipValue = 0.0018;
-//     CheckVar("../io3D/outputs/TIP_", cpts, tips);
-//     // threshold final tips
-//     for (auto & t : tips) {
-//         t = (t > threshold * maxTipValue) ? 1.0f : 0.0f;
-//     }
-// 	// CheckVar("../io3D/outputs/TIP_cutoff_", cpts, tips);
-// }
-
-// void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts, 
-//                               const float& tip_I_sz, 
-//                               const KDTree& kdTree)
-// {
-//     // Clear and resize tips to match the number of control points
-//     tips.clear();
-//     tips.resize(cpts.size(), 0.0f);
-
-//     const float threshold = 0.85f;    // Threshold for tip detection
-//     float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
-
-//     // --------------------------------------
-//     // Precompute transformed phi values
-//     // --------------------------------------
-//     vector<float> phiTransformed(phi.size());
-//     for (size_t j = 0; j < phi.size(); ++j) {
-//         phiTransformed[j] = CellBoundary(phi[j], 0.5f);
-//     }
-
-//     // --------------------------------------
-//     // Main loop: compute tip scores per vertex
-//     // --------------------------------------
-//     for (size_t i = 0; i < cpts.size(); ++i) {
-//         const auto& center = cpts[i];
-//         float localSum = 0.0f; // Sum of phi values within the box
-
-//         // Compute the sum of phi values for points within the vicinity
-//         for (size_t j = 0; j < phi.size(); ++j) {
-//             if (IsInBox(cpts[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
-//                 localSum += phiTransformed[j];
-//             }
-//         }
-
-//         // Compute the tip score for the current vertex
-//         if (localSum > 0.0f) {
-//             tips[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
-//         } else {
-//             tips[i] = 0.0f; // Avoid division by zero
-//         }
-
-//         // Update the maximum tip value for normalization
-//         maxTipValue = max(maxTipValue, tips[i]);
-//     }
-
-//     // --------------------------------------
-//     // Debugging and visualization
-//     // --------------------------------------
-//     CheckVar("../io3D/outputs/TIP_", cpts, tips);
-//     // cout << "Max Tip Value: " << maxTipValue << endl;
-
-//     // --------------------------------------
-//     // Thresholding and normalization
-//     // --------------------------------------
-//     for (float& tip : tips) {
-//         tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
-//     }
-// 	CheckVar("../io3D/outputs/TIP_cutoff_", cpts, tips);
-// }
 
 vector<pair<Vertex3D, int>> NeuronGrowth::FindClosestVerticesWithIndices(const vector<Vertex3D>& vertices, const Vertex3D& inputVertex, int k) {
 	// Custom comparator that prioritizes larger squared distances and considers the vertex index
@@ -2691,7 +2527,7 @@ vector<float> NeuronGrowth::ComputeRefine(
 	const int& originX, const int& originY, const int& originZ,
     const KDTree& kdTree, const Vertex3DCloud& cloud) 
 {
-	CheckVar("../io3D/outputs/PHI_", cpts, phi_in); // check control points phi for debugging
+	CheckVar("PHI_", cpts, phi_in); // check control points phi for debugging
 
     // Initialize the refined elements vector
     vector<float> ele_refine(NX * NY * NZ, 0.0);
@@ -3171,138 +3007,6 @@ PetscErrorCode ScatterVector(Vec src, vector<float>& target, PetscInt size,
     return ierr;
 }
 
-// // FormFunction for the phase-field equation
-// PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx) {
-//     PetscErrorCode ierr;
-
-//     // Create sequential vector for scatter and access its array
-//     Vec P_seq;
-//     PetscScalar *Parray;
-//     VecScatter scatter_ctx1;
-//     ierr = VecScatterCreateToAll(x, &scatter_ctx1, &P_seq); CHKERRQ(ierr);
-//     ierr = VecScatterBegin(scatter_ctx1, x, P_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
-//     ierr = VecScatterEnd(scatter_ctx1, x, P_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
-//     ierr = VecGetArray(P_seq, &Parray); CHKERRQ(ierr);
-
-//     // Initialize residual vector
-//     ierr = VecSet(F, 0.0); CHKERRQ(ierr);
-
-//     // Access user context
-//     NeuronGrowth *user = static_cast<NeuronGrowth *>(ctx);
-//     user->pre_mag_grad_phi0.clear(); // Clear precomputed gradient magnitudes
-
-//     int ind = 0; // Index for precomputed variables
-
-//     // Iterate through all elements in the process
-//     for (size_t e = 0; e < user->bzmesh_process.size(); e++) {
-//         const int nen = user->bzmesh_process[e].IEN.size(); // Number of control points
-
-//         // Element-level vectors and matrices
-//         vector<float> EVectorSolve(nen, 0.0f);
-//         vector<vector<float>> EMatrixSolve(nen, vector<float>(nen, 0.0f));
-
-//         // Initialize element-specific variables
-//         user->eleVal.clear();
-//         user->eleVal.resize(10, vector<float>(nen, 0.0f));
-
-//         // Extract control point values for the element
-//         for (int i = 0; i < nen; i++) {
-//             const int cpIdx = user->bzmesh_process[e].IEN[i];
-//             user->eleVal[0][i] = Parray[cpIdx];         // phi_guess
-//             user->eleVal[1][i] = user->phi[cpIdx];      // phi
-//             user->eleVal[2][i] = user->syn[cpIdx];      // synaptogenesis
-//             user->eleVal[3][i] = user->tub[cpIdx];      // tubulin
-//             user->eleVal[4][i] = user->theta[cpIdx];    // theta
-//             user->eleVal[5][i] = user->tips[cpIdx];     // tips
-//         }
-
-//         // Loop through Gaussian quadrature points
-//         for (size_t i = 0; i < user->Gpt.size(); i++) {
-//             for (size_t j = 0; j < user->Gpt.size(); j++) {
-//                 for (size_t k = 0; k < user->Gpt.size(); k++) {
-//                     float eleAniso = 0, dA_dPdx = 0, dA_dPdy = 0, dA_dPdz = 0;
-
-//                     // Evaluate orientation terms for non-initial steps
-//                     if (user->n > 0) {
-//                         user->EvaluateOrientation(
-//                             nen, user->pre_Nx[ind], user->pre_dNdx[ind],
-//                             user->eleVal[1], user->eleVal[4],
-//                             eleAniso, dA_dPdx, dA_dPdy, dA_dPdz
-//                         );
-//                     }
-
-//                     // Evaluate element contributions for phase-field
-//                     user->ElementEvaluationAll_phi(
-//                         nen, user->pre_Nx[ind], user->pre_dNdx[ind],
-//                         user->eleVal, user->vars
-//                     );
-
-//                     float eleMp = 1.0f; // Default mobility (can be extended as needed)
-
-
-//                     // Residual vector and stiffness matrix assembly
-//                     for (int m = 0; m < nen; m++) {
-//                         // Residual vector
-//                         EVectorSolve[m] += (
-//                             user->vars[2] * user->pre_Nx[ind][m] -
-//                             user->dt * eleMp * (
-//                                 (-eleAniso * eleAniso *
-//                                  (user->vars[3] * user->pre_dNdx[ind][m][0] +
-//                                   user->vars[4] * user->pre_dNdx[ind][m][1] +
-//                                   user->vars[18] * user->pre_dNdx[ind][m][2])) +
-//                                 (-user->vars[2] * user->vars[2] * user->vars[2] +
-//                                  (1 - user->vars[0]) * user->vars[2] * user->vars[2] +
-//                                  user->vars[0] * user->vars[2]) *
-//                                     user->pre_Nx[ind][m]) -
-//                             user->vars[5] * user->pre_Nx[ind][m]
-//                         ) * user->pre_detJ[ind];
-
-//                         // Stiffness matrix
-//                         for (int n = 0; n < nen; n++) {
-//                             EMatrixSolve[m][n] += (
-//                                 user->pre_Nx[ind][m] * user->pre_Nx[ind][n] -
-//                                 user->dt * eleMp * (
-//                                     (-eleAniso * eleAniso *
-//                                      (user->pre_dNdx[ind][m][0] * user->pre_dNdx[ind][n][0] +
-//                                       user->pre_dNdx[ind][m][1] * user->pre_dNdx[ind][n][1] +
-//                                       user->pre_dNdx[ind][m][2] * user->pre_dNdx[ind][n][2]))
-//                                 )
-//                             ) * user->pre_detJ[ind];
-//                         }
-//                     }
-
-//                     ind++; // Increment index for precomputed variables
-//                 }
-//             }
-//         }
-
-//         // Apply boundary conditions
-//         for (int i = 0; i < nen; i++) {
-//             int A = user->bzmesh_process[e].IEN[i];
-//             if (user->cpts[A].label == 1) { // Domain boundary
-//                 user->ApplyBoundaryCondition(0, i, 0, EMatrixSolve, EVectorSolve);
-//             }
-//         }
-
-//         // Assemble global residual vector and Jacobian matrix
-//         user->ResidualAssembly(EVectorSolve, user->bzmesh_process[e].IEN, F);
-//         user->MatrixAssembly(EMatrixSolve, user->bzmesh_process[e].IEN, user->J);
-//     }
-
-//     // Finalize assembly
-//     ierr = VecAssemblyBegin(F); CHKERRQ(ierr);
-//     ierr = VecAssemblyEnd(F); CHKERRQ(ierr);
-//     ierr = MatAssemblyBegin(user->J, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-//     ierr = MatAssemblyEnd(user->J, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-
-//     // Clean up
-//     ierr = VecRestoreArray(P_seq, &Parray); CHKERRQ(ierr);
-//     ierr = VecScatterDestroy(&scatter_ctx1); CHKERRQ(ierr);
-//     ierr = VecDestroy(&P_seq); CHKERRQ(ierr);
-
-//     return 0;
-// }
-
 PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
 {
     PetscErrorCode ierr;
@@ -3317,11 +3021,9 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
     ierr = VecScatterBegin(scatter_ctx1, x, P_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
     ierr = VecScatterEnd(scatter_ctx1, x, P_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
     ierr = VecGetArray(P_seq, &Parray); CHKERRQ(ierr);
-
     ierr = VecSet(F, 0.0); CHKERRQ(ierr);
 
     user->pre_mag_grad_phi0.clear();
-
     int ind = 0; 
     const size_t nel = user->bzmesh_process.size();
     const int gptSize = (int)user->Gpt.size();
@@ -3332,11 +3034,8 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
     // eleVal sized to 10 fields; reuse it by resizing once if nen changes?
     user->eleVal.resize(10);
 
-	// PetscPrintf(PETSC_COMM_WORLD, "Check 1 \n");
-
     for (e = 0; e < (int)nel; e++) {
         int nen = (int)user->bzmesh_process[e].IEN.size();
-		// PetscPrintf(PETSC_COMM_WORLD, "Check 2 %d\n", e);
 
 		EVectorSolve.assign(nen, 0.0f);
 		EMatrixSolve.assign(nen, vector<float>(nen, 0.0f));
@@ -3366,12 +3065,9 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
             user->eleVal[7][ii] = 0.0f;                       // epsilonP
         }
 
-		// PetscPrintf(PETSC_COMM_WORLD, "Check 3\n");
-
         for (i = 0; i < gptSize; i++) {
             for (j = 0; j < gptSize; j++) {
                 for (k = 0; k < gptSize; k++) {
-					// user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[4], user->eleVal[6], user->eleVal[7]);
 					float eleAniso(0), dA_dPdx(0), dA_dPdy(0), dA_dPdz(0);
 					if (user->n > 0)
 						user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[4], eleAniso, dA_dPdx, dA_dPdy, dA_dPdz);
@@ -3387,23 +3083,16 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
 						if (user->vars[9] > 0) {
 							user->vars[8] = user->alphaOverPi*atan(user->gamma * 1 * (1 - user->vars[6]));
 						} else {
-							user->vars[8] = user->alphaOverPi*atan(user->gamma * 0 * (1 - user->vars[6]));
-							// user->vars[8] = user->alphaOverPi*atan(user->gamma * 0.1 * (1 - user->vars[6]));
+							user->vars[8] = user->alphaOverPi*atan(user->gamma * 0.01 * (1 - user->vars[6]));
 						}
 					}
 
 					// calculate C1 variable for phase field energy term
 					user->vars[0] = user->vars[8] - user->pre_C0[ind];
-					
-					// PetscPrintf(PETSC_COMM_WORLD, "vars: %.2f | %.2f \n", user->vars[8], user->pre_C0[ind]);
-
 					// loop through control points
 					for (int m = 0; m < nen; m++) {
 						EVectorSolve[m] += (user->vars[2] * user->pre_Nx[ind][m] - user->dt * eleMp * (
 							(- eleAniso * eleAniso * (user->vars[3] * user->pre_dNdx[ind][m][0] + user->vars[4] * user->pre_dNdx[ind][m][1] + user->vars[18] * user->pre_dNdx[ind][m][2]))
-							// + (- user->pre_dNdx[ind][m][0] * eleAniso * dA_dPdx * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
-							// + (- user->pre_dNdx[ind][m][1] * eleAniso * dA_dPdy * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
-							// + (- user->pre_dNdx[ind][m][2] * eleAniso * dA_dPdz * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
 							+ (- user->pre_dNdx[ind][m][0] * eleAniso * dA_dPdx * ( user->vars[3] * user->vars[3] + user->vars[4] * user->vars[4] + user->vars[18] * user->vars[18] ) )
 							+ (- user->pre_dNdx[ind][m][1] * eleAniso * dA_dPdy * ( user->vars[3] * user->vars[3] + user->vars[4] * user->vars[4] + user->vars[18] * user->vars[18] ) )
 							+ (- user->pre_dNdx[ind][m][2] * eleAniso * dA_dPdz * ( user->vars[3] * user->vars[3] + user->vars[4] * user->vars[4] + user->vars[18] * user->vars[18] ) )
@@ -3456,214 +3145,6 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
 
     return 0;
 }
-
-// PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
-// {
-// 	PetscErrorCode ierr;
-// 	Vec P_seq;
-// 	PetscScalar *Parray;
-// 	VecScatter scatter_ctx1;
-// 	ierr = VecScatterCreateToAll(x, &scatter_ctx1, &P_seq); CHKERRQ(ierr);
-// 	ierr = VecScatterBegin(scatter_ctx1, x, P_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
-// 	ierr = VecScatterEnd(scatter_ctx1, x, P_seq, INSERT_VALUES, SCATTER_FORWARD); CHKERRQ(ierr);
-// 	ierr = VecGetArray(P_seq, &Parray); CHKERRQ(ierr);
-// 	ierr = VecSet(F, 0.0); CHKERRQ(ierr);
-
-// 	NeuronGrowth *user = (NeuronGrowth *)ctx;
-
-// 	user->pre_mag_grad_phi0.clear();
-
-// 	/*Build linear system in each process*/
-// 	int ind(0); // pre-calculated variable index
-// 	for (int e = 0; e < user->bzmesh_process.size(); e++) {
-// 		// cout << e << endl;
-// 		int nen = user->bzmesh_process[e].IEN.size(); // 64 supporting cp for 3D case
-
-// 		vector<float> eleMphi;
-// 		eleMphi.resize(nen);
-
-// 		vector<vector<float>> EMatrixSolve;	EMatrixSolve.clear();
-// 		vector<float> EVectorSolve;		EVectorSolve.clear();
-// 		EMatrixSolve.resize(nen);
-// 		EVectorSolve.resize(nen);
-
-// 		user->eleVal.clear();
-// 		user->eleVal.resize(10);
-// 		for (int i = 0; i < nen * 1; i++) {
-// 			EMatrixSolve[i].resize(nen);
-// 			if (i < 10)
-// 				user->eleVal[i].resize(nen);
-// 		}
-
-// 		// preparing element stiffness matrix and vector, extract values from control mesh
-// 		// if (user->n >= 50)
-// 		// 	cout << user->phi.size() << " " << user->syn.size() << " " << user->tub.size() << " " << user->theta.size() << " " << user->tips.size() << endl;
-
-// 		for (int i = 0; i < nen; i++) {
-
-// 			EVectorSolve[i] = 0.0;
-// 			for (int j = 0; j < nen; j++) {
-// 				EMatrixSolve[i][j] = 0.0;
-// 			}
-
-// 			user->eleVal[0][i] = Parray[user->bzmesh_process[e].IEN[i]];		// elePhiGuess
-// 			user->eleVal[1][i] = user->phi[user->bzmesh_process[e].IEN[i]];		// elePhi
-// 			user->eleVal[2][i] = user->syn[user->bzmesh_process[e].IEN[i]];		// eleSyn
-// 			user->eleVal[3][i] = user->tub[user->bzmesh_process[e].IEN[i]];		// eleTubulin
-// 			user->eleVal[4][i] = user->theta[user->bzmesh_process[e].IEN[i]];	// eleTheta
-// 			user->eleVal[5][i] = user->tips[user->bzmesh_process[e].IEN[i]];	// eleTips
-// 			user->eleVal[6][i] = 0;							// eleEpsilon
-// 			user->eleVal[7][i] = 0;							// eleEpsilonP
-// 			// user->eleVal[8][i] = user->polar[user->bzmesh_process[e].IEN[i]];	// elePolar
-// 			// user->eleVal[9][i] = user->azimuth[user->bzmesh_process[e].IEN[i]];	// eleAzimuth
-// 			// eleMphi[i] = user->Mphi[user->bzmesh_process[e].IEN[i]];
-// 		}
-		
-// 		// loop through gaussian quadrature points
-// 		for (int i = 0; i < user->Gpt.size(); i++) {
-// 			for (int j = 0; j < user->Gpt.size(); j++) {
-// 				for (int k = 0; k < user->Gpt.size(); k++) {
-// 					// user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[4], user->eleVal[6], user->eleVal[7]);
-// 					float eleAniso(0), dA_dPdx(0), dA_dPdy(0), dA_dPdz(0);
-// 					if (user->n > 0)
-// 						user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[4], eleAniso, dA_dPdx, dA_dPdy, dA_dPdz);
-
-// 					// float eleEp(0), dEdp(0), dEda(0);
-// 					// user->EvaluateOrientationSpherical(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[8], user->eleVal[9], eleEp, dEdp, dEda);
-
-// 					user->ElementEvaluationAll_phi(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal, user->vars);
-// 					//	 0   1    2     3      4      5     6     7      8     9      10      11      12     13    14    15      16     17   	18     19   20  
-// 					// float C1, C0, elePG, dPGdx, dPGdy, eleP, eleS, eleTb, eleE, eleTp, dThedx, dThedy, eleEP, dAdx, dAdy, eleEEP, dAPdx, dAPdy, dPGdz, dAdz, dAPdz
-					
-// 					float eleMp;
-// 					// user->ElementValue(user->pre_Nx[ind], eleMphi, eleMp);
-// 					eleMp = 1;
-
-// 					// float ck(0);
-// 					// if (user->n < 300) {
-// 					// 	ck = 0.2;
-// 					// } else {
-// 					// 	ck = 0;
-// 					// }
-
-// 					// adjust rg (assembly rate) and sg (disassembly rate) based on detected tips
-// 					if (user->n < 0) {
-// 						user->vars[8] = user->alphaOverPi*atan(user->gamma * (1 - user->vars[6]));
-// 					} else {
-// 						// if (user->vars[9] > ck) {
-// 						if (user->vars[9] > 0) {
-// 							// user->vars[8] = user->alphaOverPi*atan(user->gamma * user->Regular_Heiviside_fun(50 * user->vars[7] - 0) * (1 - user->vars[6]));
-// 							// user->vars[8] = user->alphaOverPi*atan(user->gamma * 1 * (1 - abs(user->vars[6])));
-// 							user->vars[8] = user->alphaOverPi*atan(user->gamma * 1 * (1 - user->vars[6]));
-// 						} else {
-// 							// user->vars[8] = user->alphaOverPi*atan(user->gamma * user->Regular_Heiviside_fun(user->r * user->vars[7] - user->g) * (1 - user->vars[6]));
-// 							// user->vars[8] = user->alphaOverPi*atan(user->gamma * 0 * (1 - abs(user->vars[6])));
-// 							user->vars[8] = user->alphaOverPi*atan(user->gamma * 0 * (1 - user->vars[6]));
-// 						}
-// 					}
-					
-// 					// if (user->n > 50) {
-// 					// 	cout << user->alphaOverPi*atan(user->gamma * (1 - user->vars[6])) << " " << endl;
-// 					// 	cout << user->alphaOverPi*atan(user->gamma * user->Regular_Heiviside_fun(50 * user->vars[7] - 0) * (1 - user->vars[6])) << " " << user->Regular_Heiviside_fun(50 * user->vars[7] - 0) << " " <<  user->vars[7] << endl;
-// 					// 	cout << user->alphaOverPi*atan(user->gamma * user->Regular_Heiviside_fun(5 * user->vars[7] - user->g) * (1 - user->vars[6])) << " " << user->Regular_Heiviside_fun(50 * user->vars[7] - 0) << " " <<  user->vars[7] << endl;
-// 					// }
-
-// 					// calculate C1 variable for phase field energy term
-// 					user->vars[0] = user->vars[8] - user->pre_C0[ind];
-
-// 					// if (user->n > 50) {
-// 					// 	cout << user->vars[0] << " " << user->vars[8] << " " << user->pre_C0[ind] << endl;
-
-// 					// user->vars[0] = user->vars[8] - user->pre_C0_sp[ind];
-// 					// float tau = sqrt(pow(user->vars[3],2) + pow(user->vars[4],2));
-// 					// float mode_grad_p_2 = pow(sqrt(pow(user->vars[3],2) + pow(user->vars[4],2) + pow(user->vars[18],2)), 2);
-// 					// loop through control points
-// 					for (int m = 0; m < nen; m++) {
-// 						// terma2 = - eleEP * eleEP * (dPGdx * dNdx[m][0] + dPGdy * dNdx[m][1]);
-// 						// termadx = dAdx * eleEEP * dPGdx * dNdx[m][0];
-// 						// termady = dAdy * eleEEP * dPGdy * dNdx[m][1];
-// 						// termadz = dAdz * eleEEP * dPGdz * dNdx[m][2];
-// 						// termdbl = (- elePG * elePG * elePG + (1 - C1) * elePG * elePG + C1 * elePG) * Nx[m];
-// 						// EVectorSolve[m] += (elePG * Nx[m] - user->dt * user->M_phi * (terma2 - termadx + termady + termdbl) - eleP * Nx[m]) * detJ;
-						
-// 						EVectorSolve[m] += (user->vars[2] * user->pre_Nx[ind][m] - user->dt * eleMp * (
-// 							(- eleAniso * eleAniso * (user->vars[3] * user->pre_dNdx[ind][m][0] + user->vars[4] * user->pre_dNdx[ind][m][1] + user->vars[18] * user->pre_dNdx[ind][m][2]))
-// 							+ (- user->pre_dNdx[ind][m][0] * eleAniso * dA_dPdx * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
-// 							+ (- user->pre_dNdx[ind][m][1] * eleAniso * dA_dPdy * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
-// 							+ (- user->pre_dNdx[ind][m][2] * eleAniso * dA_dPdz * ( pow(user->vars[3], 2) + pow(user->vars[4], 2) + pow(user->vars[18], 2)))
-// 							+ (- user->vars[2] * user->vars[2] * user->vars[2] + (1 - user->vars[0]) * user->vars[2] * user->vars[2] + user->vars[0] * user->vars[2]) * user->pre_Nx[ind][m]
-// 							// - ((6 * user->vars[2] - 6 * (user->vars[2] * user->vars[2])) * user->pre_C0[ind]) * user->pre_Nx[ind][m]
-// 							// - ((pow(user->vars[2], 2) - 2 * pow(user->vars[2], 3) + pow(user->vars[2], 4)) * user->pre_C0[ind]) * user->pre_Nx[ind][m]
-// 							) - user->vars[5] * user->pre_Nx[ind][m]
-// 							) * user->pre_detJ[ind];
-
-// 						// EVectorSolve[m] += (user->vars[2] * user->pre_Nx[ind][m] - user->dt * eleMp * (
-// 						// 	(- eleEp * eleEp * (user->vars[3] * user->pre_dNdx[ind][m][0] + user->vars[4] * user->pre_dNdx[ind][m][1] + user->vars[18] * user->pre_dNdx[ind][m][2])) -
-// 						// 	(- user->pre_dNdx[ind][m][0] * eleEp / tau * dEdp * user->pre_dNdx[ind][m][0] * user->pre_dNdx[ind][m][2] -
-// 						// 		eleEp / pow(tau, 2) * dEda * mode_grad_p_2 * user->pre_dNdx[ind][m][1]) + 
-// 						// 	(- user->pre_dNdx[ind][m][1] * eleEp / tau * dEdp * user->pre_dNdx[ind][m][1] * user->pre_dNdx[ind][m][2] +
-// 						// 		eleEp / pow(tau, 2) * dEda * mode_grad_p_2 * user->pre_dNdx[ind][m][1]) + 
-// 						// 	(eleEp * dEdp * tau) * user->pre_dNdx[ind][m][2] +
-// 						// 	(- user->vars[2] * user->vars[2] * user->vars[2] + (1 - user->vars[0]) * user->vars[2] * user->vars[2] + user->vars[0] * user->vars[2]) * user->pre_Nx[ind][m])
-// 						// 	- user->vars[5] * user->pre_Nx[ind][m]) * user->pre_detJ[ind];
-
-// 						// loop through 16 control points
-// 						for (int n = 0; n < nen; n++) {
-// 							// terma2 = - eleEP * eleEP * (dNdx[m][0] * dNdx[n][0] + dNdx[m][1] * dNdx[n][1]);
-// 							// termadx = - dAdx * eleEEP * dNdx[m][1] * dNdx[n][0];
-// 							// termady = - dAdy * eleEEP * dNdx[m][0] * dNdx[n][1];
-// 							// termdbl = (- 3 * elePG * elePG + 2 * (1 - C1) * elePG + C1 * Nx[m]) * Nx[n];
-// 							// EMatrixSolve[m][n] += (Nx[m] * Nx[n] - user->dt * user->M_phi * (terma2 - termadx + termady + termdbl)) * detJ;
-							
-// 							EMatrixSolve[m][n] += (user->pre_Nx[ind][m] * user->pre_Nx[ind][n] - user->dt * eleMp * (
-// 								(- eleAniso * eleAniso * (user->pre_dNdx[ind][m][0] * user->pre_dNdx[ind][n][0] + user->pre_dNdx[ind][m][1] * user->pre_dNdx[ind][n][1] + user->pre_dNdx[ind][m][2] * user->pre_dNdx[ind][n][2])) // terma2
-// 								+ (- user->pre_dNdx[ind][m][0] * eleAniso * dA_dPdx * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
-// 								+ (- user->pre_dNdx[ind][m][1] * eleAniso * dA_dPdy * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
-// 								+ (- user->pre_dNdx[ind][m][2] * eleAniso * dA_dPdz * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
-// 								+ (- 3 * user->vars[2] * user->vars[2] + 2 * (1 - user->vars[0]) * user->vars[2] + user->vars[0] * user->pre_Nx[ind][m]) * user->pre_Nx[ind][n] // termdbl
-// 								// - ((6 * user->pre_Nx[ind][m] - 12 * user->vars[2]) * user->pre_C0[ind]) * user->pre_Nx[ind][n]
-// 								// - ((2 * user->vars[2] - 6 * pow(user->vars[2], 2) + 4 * pow(user->vars[2], 3)) * user->pre_C0[ind]) * user->pre_Nx[ind][n])
-// 								)) * user->pre_detJ[ind];
-
-// 							// EMatrixSolve[m][n] += (user->pre_Nx[ind][m] * user->pre_Nx[ind][n] - user->dt * eleMp * (
-// 							// 	(- eleEp * eleEp * (user->vars[3] * user->pre_dNdx[ind][m][0] + user->vars[4] * user->pre_dNdx[ind][m][1] + user->vars[18] * user->pre_dNdx[ind][m][2])) -
-// 							// 	(- user->pre_dNdx[ind][m][0] * eleEp / tau * dEdp * user->vars[3] * user->vars[18] -
-// 							// 		eleEp / pow(tau, 2) * dEda * (2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]) * user->vars[4]) + 
-// 							// 	(- user->pre_dNdx[ind][m][1] * eleEp / tau * dEdp * user->vars[4] * user->vars[18] +
-// 							// 		eleEp / pow(tau, 2) * dEda * (2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]) * user->vars[3]) + 
-// 							// 	+ (- 3 * user->vars[2] * user->vars[2] + 2 * (1 - user->vars[0]) * user->vars[2] + user->vars[0] * user->pre_Nx[ind][m]) * user->pre_Nx[ind][n]) // termdbl
-// 							// 	) * user->pre_detJ[ind];
-// 						}
-// 					}
-// 					ind += 1; // incrementing index for extracting pre-calculated variables
-// 				}
-// 			}
-// 		}
-
-// 		/*Apply Boundary Condition*/
-// 		for (int i = 0; i < nen; i++) {
-// 			int A = user->bzmesh_process[e].IEN[i];
-// 			if (user->cpts[A].label == 1) {// domain boundary
-// 				user->ApplyBoundaryCondition(0, i, 0, EMatrixSolve, EVectorSolve);
-// 			}
-// 		}
-
-// 		user->ResidualAssembly(EVectorSolve, user->bzmesh_process[e].IEN, F);
-// 		user->MatrixAssembly(EMatrixSolve, user->bzmesh_process[e].IEN, user->J);
-// 	}
-
-// 	ierr = VecAssemblyBegin(F); CHKERRQ(ierr);
-// 	ierr = VecAssemblyEnd(F); CHKERRQ(ierr);
-
-// 	ierr = MatAssemblyBegin(user->J, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-// 	ierr = MatAssemblyEnd(user->J, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-
-// 	ierr = VecRestoreArray(P_seq, &Parray); CHKERRQ(ierr);
-// 	ierr = VecScatterDestroy(&scatter_ctx1); CHKERRQ(ierr);
-// 	ierr = VecDestroy(&P_seq); CHKERRQ(ierr);
-	
-// 	return 0;
-// }
 
 // FormJacobian for the phase-field equation
 PetscErrorCode FormJacobian_phi(SNES snes, Vec x, Mat J, Mat P, void *ctx) {
@@ -3747,6 +3228,7 @@ int RunNG(
 	/*========================================================*/
 	// Initializations
 	NeuronGrowth NG(phi_solver, iter, seed.size(), end_iter);
+	NG.path_out = path_out;
 	NG.SetVariables("simulation_parameters.txt"); // optional variable loading, for quick/batch simulation testing
 
 	// Initialize vertex clouds for the current, fine, and previous configurations
@@ -3787,7 +3269,7 @@ int RunNG(
 	// Write initial variables
 	string varName;	
 	if (NG.n == 0) {
-		NG.VisualizeVTK_PhysicalDomain_All(0, path_out);
+		NG.VisualizeVTK_PhysicalDomain_All(0, NG.path_out);
 		PetscPrintf(PETSC_COMM_WORLD, "Saving all variables!--------------------------------------------------------\n");		
 	}
 
@@ -3807,25 +3289,6 @@ int RunNG(
 		NG.n = iter;
 
 		/*========================================================*/
-		// Write physical domain results to file
-		if (NG.n % NG.var_save_invl == 0) {
-			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-			NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
-			PetscPrintf(PETSC_COMM_WORLD, 
-						"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
-						NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
-			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-		}
-		// Neuron identification and tip detection
-		if ((NG.n % NG.tip_detect_invl == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size()) || (NG.n == NG.end_iter)) {
-			// Detect tips and save intermediate results
-			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-			PetscPrintf(PETSC_COMM_WORLD, "Detecting tips\n");
-			float tip_intensity_sz = 8.0f; // box size for calculating tip intensity
-			// NG.DetectTips(cpts, tip_intensity_sz, kdTree);
-			NG.DetectTips(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree);
-			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-		}
 		/*--------------------------------------------------------*/
 		// Domain expansion and variable passing
 		if (NG.n % NG.expandCK_invl == 0 && NG.n >= 10) {
@@ -3846,7 +3309,7 @@ int RunNG(
 				// for (int i = 0; i < NG.tips.size(); i++) {
 				// 	tmp[i] = NG.CellBoundary(NG.tips[i], 0);
 				// }
-				// NG.CheckVar("../io3D/outputs/TMP_", cpts, tmp); // check control points phi for debugging
+				// NG.CheckVar("TMP_", cpts, tmp); // check control points phi for debugging
 				// vector<float> ele_refine = NG.ComputeRefine(tmp, NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
 				writeVectorToFile(ele_refine, path_in + "phi.txt", false);
 			}
@@ -3884,6 +3347,28 @@ int RunNG(
 				iter++;
 			}
 			return 1;
+		}
+
+		/*--------------------------------------------------------*/
+		// Neuron identification and tip detection
+		if ((NG.n % NG.tip_detect_invl == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size()) || (NG.n == NG.end_iter)) {
+			// Write physical domain results to file
+			if (NG.n % NG.var_save_invl == 0) {
+				PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+				NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
+				PetscPrintf(PETSC_COMM_WORLD, 
+							"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
+							NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
+				PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+			}
+			
+			// Detect tips and save intermediate results
+			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+			PetscPrintf(PETSC_COMM_WORLD, "Detecting tips\n");
+			float tip_intensity_sz = 8.0f; // box size for calculating tip intensity
+			// NG.DetectTips(cpts, tip_intensity_sz, kdTree);
+			NG.DetectTips(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree);
+			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 		}
 
 		UpdateSimulationTimers(t_collect, t_write, t_global);

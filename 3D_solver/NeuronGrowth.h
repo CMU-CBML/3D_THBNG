@@ -54,7 +54,8 @@ public:
     int comRank;               // MPI rank
     int comSize;               // Number of processes in communicator
     int nProcess;              // Total processes
-
+	string path_out;
+	
     // Spline Parameters
     int n_bzmesh;                      // Number of Bezier mesh elements
     vector<int> ele_process;           // Elements assigned to the process
