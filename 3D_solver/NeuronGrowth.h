@@ -99,6 +99,7 @@ public:
 	// Matrices and Vectors for Assembly
 	vector<vector<vector<float>>> pre_EMatrixSolve; // Pre-calculated element stiffness matrices
 	vector<vector<float>> pre_EVectorSolve;         // Pre-calculated element residual vectors
+    vector<vector<vector<float>>> pre_eleVal;      // Element values
 
     // Element Stiffness Matrix and Load Vector
     int nen;                         // Number of element nodes
@@ -398,6 +399,7 @@ public:
 	// Pre-computation to reduce redundant calculations
 	void PrepareBasis();              // Precompute basis functions and derivatives
 	void PreparePhaseField();         // Precompute variables specific to the phase field equation
+	void PreparePhaseField_SNES();
 	void PrepareTermSource();         // Precompute source term contributions
 
 	// Phase Field Equation Evaluations

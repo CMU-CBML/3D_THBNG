@@ -466,6 +466,12 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 
 	pre_EMatrixSolve.clear(); // Clear pre-solve matrix container
 	pre_EVectorSolve.clear(); // Clear pre-solve vector container
+    pre_eleVal.clear();      // Element values
+
+	int maxNen = 200; // estimated maximum nen in locally refined mesh - obtained from testing
+    EMatrixSolve.resize(maxNen, vector<float>(maxNen, 0.0f));
+    EVectorSolve.resize(maxNen, 0.0f);
+    eleVal.resize(8, vector<float>(maxNen, 0.0f)); // 8 fields, preallocated
 }
 
 // Function to interpolate or find exact phi values for a given point
@@ -1766,6 +1772,42 @@ void NeuronGrowth::PreparePhaseField()
     }
 }
 
+void NeuronGrowth::PreparePhaseField_SNES() 
+{
+    uint ind(0);
+
+    // Resize `pre_eleVal` to match the structure: [elements][fields][nodes]
+    size_t numElements = bzmesh_process.size();
+    size_t numFields = 8; // Number of fields as indicated by your code
+
+    // Determine maximum `nen` (number of nodes per element) dynamically
+    size_t maxNen = 0;
+    for (const auto& elem : bzmesh_process) {
+        maxNen = std::max(maxNen, elem.IEN.size());
+    }
+
+    pre_eleVal.resize(numElements, vector<vector<float>>(numFields, vector<float>(maxNen, 0.0f)));
+
+    // Loop over elements
+    for (size_t e = 0; e < numElements; e++) {
+        const auto& IEN = bzmesh_process[e].IEN;
+        size_t nen = IEN.size(); // Get number of nodes for the current element
+
+        for (size_t ii = 0; ii < nen; ii++) {
+            int A = IEN[ii];
+
+            pre_eleVal[e][1][ii] = phi[A];    // phi
+            pre_eleVal[e][2][ii] = syn[A];    // syn
+            pre_eleVal[e][3][ii] = tub[A];    // tub
+            pre_eleVal[e][4][ii] = theta[A];  // theta
+            pre_eleVal[e][5][ii] = tips[A];   // tips
+            pre_eleVal[e][6][ii] = 0.0f;      // epsilon
+            pre_eleVal[e][7][ii] = 0.0f;      // epsilonP
+        }
+    }
+}
+
+
 void NeuronGrowth::PrepareTermSource() {
     // Precompute values outside of loops for efficiency
     const size_t pointsPerElement = Gpt.size() * Gpt.size() * Gpt.size();
@@ -3013,7 +3055,6 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
     NeuronGrowth *user = (NeuronGrowth *)ctx;
     PetscInt e, i, j, k;
 
-    // Scatter only if needed; consider reusing scatter ctx outside this function
     Vec P_seq;
     VecScatter scatter_ctx1;
     PetscScalar *Parray;
@@ -3023,46 +3064,27 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
     ierr = VecGetArray(P_seq, &Parray); CHKERRQ(ierr);
     ierr = VecSet(F, 0.0); CHKERRQ(ierr);
 
-    user->pre_mag_grad_phi0.clear();
     int ind = 0; 
     const size_t nel = user->bzmesh_process.size();
     const int gptSize = (int)user->Gpt.size();
 
-    vector<vector<float>> EMatrixSolve;
-    vector<float> EVectorSolve;
-
-    // eleVal sized to 10 fields; reuse it by resizing once if nen changes?
-    user->eleVal.resize(10);
-
     for (e = 0; e < (int)nel; e++) {
         int nen = (int)user->bzmesh_process[e].IEN.size();
 
-		EVectorSolve.assign(nen, 0.0f);
-		EMatrixSolve.assign(nen, vector<float>(nen, 0.0f));
+		// Reset EVectorSolve and EMatrixSolve without resizing
+		for (int m = 0; m < nen; m++) {
+			user->EVectorSolve[m] = 0.0f; // Reset vector values
 
-        // Clear and resize without clearing memory each time
-        for (int m = 0; m < nen; m++) {
-            for (int n = 0; n < nen; n++)
-                EMatrixSolve[m][n] = 0.0f;
-            EVectorSolve[m] = 0.0f;
-        }
-
-        for (int f = 0; f < 8; f++) {
-            user->eleVal[f].resize(nen);
-        }
+			// Reset each row of the matrix up to nen
+			std::fill(user->EMatrixSolve[m].begin(), user->EMatrixSolve[m].begin() + nen, 0.0f);
+		}
+		std::fill(user->eleVal[0].begin(), user->eleVal[0].end(), 0.0f); // Reset values
 
         // Extract nodal values just once
         const auto &IEN = user->bzmesh_process[e].IEN;
         for (int ii = 0; ii < nen; ii++) {
             int A = IEN[ii];
-            user->eleVal[0][ii] = (float)Parray[A];           // phiGuess
-            user->eleVal[1][ii] = user->phi[A];               // phi
-            user->eleVal[2][ii] = user->syn[A];               // syn
-            user->eleVal[3][ii] = user->tub[A];               // tub
-            user->eleVal[4][ii] = user->theta[A];             // theta
-            user->eleVal[5][ii] = user->tips[A];              // tips
-            user->eleVal[6][ii] = 0.0f;                       // epsilon
-            user->eleVal[7][ii] = 0.0f;                       // epsilonP
+            user->pre_eleVal[e][0][ii] = (float)Parray[A];           // phiGuess
         }
 
         for (i = 0; i < gptSize; i++) {
@@ -3070,8 +3092,8 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
                 for (k = 0; k < gptSize; k++) {
 					float eleAniso(0), dA_dPdx(0), dA_dPdy(0), dA_dPdz(0);
 					if (user->n > 0)
-						user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal[1], user->eleVal[4], eleAniso, dA_dPdx, dA_dPdy, dA_dPdz);
-					user->ElementEvaluationAll_phi(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->eleVal, user->vars);
+						user->EvaluateOrientation(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->pre_eleVal[e][1], user->pre_eleVal[e][4], eleAniso, dA_dPdx, dA_dPdy, dA_dPdz);
+					user->ElementEvaluationAll_phi(nen, user->pre_Nx[ind], user->pre_dNdx[ind], user->pre_eleVal[e], user->vars);
 
 					float eleMp;
 					eleMp = 1;
@@ -3091,7 +3113,7 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
 					user->vars[0] = user->vars[8] - user->pre_C0[ind];
 					// loop through control points
 					for (int m = 0; m < nen; m++) {
-						EVectorSolve[m] += (user->vars[2] * user->pre_Nx[ind][m] - user->dt * eleMp * (
+						user->EVectorSolve[m] += (user->vars[2] * user->pre_Nx[ind][m] - user->dt * eleMp * (
 							(- eleAniso * eleAniso * (user->vars[3] * user->pre_dNdx[ind][m][0] + user->vars[4] * user->pre_dNdx[ind][m][1] + user->vars[18] * user->pre_dNdx[ind][m][2]))
 							+ (- user->pre_dNdx[ind][m][0] * eleAniso * dA_dPdx * ( user->vars[3] * user->vars[3] + user->vars[4] * user->vars[4] + user->vars[18] * user->vars[18] ) )
 							+ (- user->pre_dNdx[ind][m][1] * eleAniso * dA_dPdy * ( user->vars[3] * user->vars[3] + user->vars[4] * user->vars[4] + user->vars[18] * user->vars[18] ) )
@@ -3102,7 +3124,7 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
 
 						// loop through 16 control points
 						for (int n = 0; n < nen; n++) {
-							EMatrixSolve[m][n] += (user->pre_Nx[ind][m] * user->pre_Nx[ind][n] - user->dt * eleMp * (
+							user->EMatrixSolve[m][n] += (user->pre_Nx[ind][m] * user->pre_Nx[ind][n] - user->dt * eleMp * (
 								(- eleAniso * eleAniso * (user->pre_dNdx[ind][m][0] * user->pre_dNdx[ind][n][0] + user->pre_dNdx[ind][m][1] * user->pre_dNdx[ind][n][1] + user->pre_dNdx[ind][m][2] * user->pre_dNdx[ind][n][2])) // terma2
 								+ (- user->pre_dNdx[ind][m][0] * eleAniso * dA_dPdx * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
 								+ (- user->pre_dNdx[ind][m][1] * eleAniso * dA_dPdy * ( 2 * user->vars[3] + 2 * user->vars[4] + 2 * user->vars[18]))
@@ -3117,21 +3139,17 @@ PetscErrorCode FormFunction_phi(SNES snes, Vec x, Vec F, void *ctx)
             }
         }
 
-		// PetscPrintf(PETSC_COMM_WORLD, "Check 4 \n");
-
         // Apply Boundary Condition
         for (int ii = 0; ii < nen; ii++) {
             int A = user->bzmesh_process[e].IEN[ii];
             if (user->cpts[A].label == 1) {
-                user->ApplyBoundaryCondition(0, ii, 0, EMatrixSolve, EVectorSolve);
+                user->ApplyBoundaryCondition(0, ii, 0, user->EMatrixSolve, user->EVectorSolve);
             }
         }
 
-        user->ResidualAssembly(EVectorSolve, user->bzmesh_process[e].IEN, F);
-        user->MatrixAssembly(EMatrixSolve, user->bzmesh_process[e].IEN, user->J);
+        user->ResidualAssembly(user->EVectorSolve, user->bzmesh_process[e].IEN, F);
+        user->MatrixAssembly(user->EMatrixSolve, user->bzmesh_process[e].IEN, user->J);
     }
-
-	// PetscPrintf(PETSC_COMM_WORLD, "Check 5 \n");
 
     ierr = VecAssemblyBegin(F); CHKERRQ(ierr);
     ierr = VecAssemblyEnd(F); CHKERRQ(ierr);
@@ -3496,6 +3514,7 @@ int RunNG(
 		/*--------------------------------------------------------*/
 			/*Implcit Non-liear SNES solver for Phase field equation*/
 			NG.phi_prev = NG.phi;		
+			NG.PreparePhaseField_SNES();
 			// Phase Field Equation Solver (SNES)
 			if (NG.judge_phi == 0) {
 				SetupSNES(NG.snes_phi, SNESNEWTONLS, &NG, FormFunction_phi, FormJacobian_phi);
