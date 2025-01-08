@@ -281,7 +281,7 @@ void InitializeSoma(int numNeuron, vector<array<float, 3>>& seed, int& NX, int& 
     // Initialize neuron soma based on the number of neurons
     switch (numNeuron) {
         case 1:
-            // // Single neuron case
+            // Single neuron case
             // NX = 10;
             // NY = 10;
             // NZ = 10;  // Assumes 3D initialization
