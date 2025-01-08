@@ -55,7 +55,7 @@ public:
     int comSize;               // Number of processes in communicator
     int nProcess;              // Total processes
 	string path_out;
-	
+
     // Spline Parameters
     int n_bzmesh;                      // Number of Bezier mesh elements
     vector<int> ele_process;           // Elements assigned to the process
@@ -142,12 +142,11 @@ public:
     int gamma;                  // Growth factor
     int seed_radius;            // Radius for neuron seeding
 
-	float tip_threshold;		// tip thresold in formfunction
     float expand_sz;          	// Domain expansion size
     float kappa;                // Diffusion coefficient
     float dt;                   // Time step
     float Dc;                   // Diffusion constant
-    float kp75, k2;             // NDDs parameters
+    float kp75, k2;             // Material-specific parameters
     float c_opt;                // Optimization parameter
     float alpha;                // Growth rate
     float alphaOverPi;          // Normalized growth rate
@@ -401,7 +400,7 @@ public:
 
 	// Pre-computation to reduce redundant calculations
 	void PrepareBasis();              // Precompute basis functions and derivatives
-	void PreparePhaseField();         // Precompute variables specific to the phase field equation
+	void PreparePhaseField_KSP();         // Precompute variables specific to the phase field equation
 	void PreparePhaseField_SNES();
 	void PreparePhaseField_SNES_preComputed();
 	void PrepareTermSource();         // Precompute source term contributions
@@ -636,11 +635,13 @@ PetscErrorCode ScatterVector(
     Vec src, vector<float>& target, PetscInt size, bool applyBoundary, NeuronGrowth* NG
 ); // Scatters a PETSc vector into a local float vector, optionally applying boundary conditions.
 
-PetscErrorCode FormFunction_phi(
+PetscErrorCode FormFunction_phi_preComputed(
     SNES snes, Vec x, Vec F, void *ctx
 ); // Defines the nonlinear residual function for the phase field equation.
 
-PetscErrorCode FormFunction_phi_preComputed(SNES snes, Vec x, Vec F, void *ctx);
+PetscErrorCode FormFunction_phi(
+    SNES snes, Vec x, Vec F, void *ctx
+); // Defines the nonlinear residual function for the phase field equation.
 
 PetscErrorCode FormJacobian_phi(
     SNES snes, Vec x, Mat J, Mat P, void *ctx
