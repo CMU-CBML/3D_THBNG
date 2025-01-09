@@ -3647,10 +3647,20 @@ int RunNG(
 		NG.n = iter;
 
 		/*========================================================*/
+		// Write physical domain results to file
+		if (NG.n != 0 && NG.n % NG.var_save_invl == 0) {
+			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+			NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
+			PetscPrintf(PETSC_COMM_WORLD, 
+						"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
+						NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
+			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+		}
+		
 		/*--------------------------------------------------------*/
 		// Domain expansion and variable passing
 		if (NG.n % NG.expandCK_invl == 0 && NG.n >= 10) {
-			localRefine = true;
+			// localRefine = true;
 
 			NG.HandleExpansion(NG.phi, NX, NY, NZ, originX, originY, originZ);
 			// Store NG variables
@@ -3658,7 +3668,7 @@ int RunNG(
 
 			// Clean up solvers and synchronize processes
 			CHKERRQ(CleanUpSolvers(NG));
-			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+			// CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
 
 			if (NG.comRank == 0) {
 				// Compute refinement values and save to file
@@ -3709,17 +3719,7 @@ int RunNG(
 
 		/*--------------------------------------------------------*/
 		// Neuron identification and tip detection
-		if ((NG.n % NG.tip_detect_invl == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size()) || (NG.n == NG.end_iter)) {
-			// Write physical domain results to file
-			if (NG.n % NG.var_save_invl == 0) {
-				PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-				NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
-				PetscPrintf(PETSC_COMM_WORLD, 
-							"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
-							NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
-				PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-			}
-			
+		if ((NG.n % NG.tip_detect_invl == 0) || (NG.n == 0) || (NG.tips.size() != NG.phi.size()) || (NG.n == NG.end_iter)) {			
 			// Detect tips and save intermediate results
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			PetscPrintf(PETSC_COMM_WORLD, "Detecting tips\n");
@@ -3965,6 +3965,16 @@ int RunNG(
             reason_syn, reason_tub, its_syn, its_tub, t_syn_tub, 
             n_bzmesh);
 
+		// // Write physical domain results to file
+		// if (NG.n != 0 && NG.n % NG.var_save_invl == 0) {
+		// 	PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+		// 	NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
+		// 	PetscPrintf(PETSC_COMM_WORLD, 
+		// 				"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
+		// 				NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
+		// 	PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+		// }
+		
 		// Increment iteration counter if no expansion
 		iter++;
 	}
