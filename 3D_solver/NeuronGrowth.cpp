@@ -1928,10 +1928,10 @@ void NeuronGrowth::PreparePhaseField_SNES_preComputed()
                         // positive n logic: check tips
                         if (vars[9] > tip_threshold) {
                             eleE = alphaOverPi * atan(gamma * 1.0f * (1 - vars[6]));
-                            pre_eleMp[ind] = M_axon;
-                            // pre_eleMp[ind] = M_neurite;
+                            // pre_eleMp[ind] = M_axon;
+                            pre_eleMp[ind] = M_neurite;
                         } else {
-                            eleE = alphaOverPi * atan(gamma * 0.01f * (1 - vars[6]));
+                            eleE = alphaOverPi * atan(gamma * 0.05f * (1 - vars[6]));
                             pre_eleMp[ind] = M_phi;
                         }
                     }
@@ -2636,6 +2636,8 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 			cpts[i], kdTree_fine, cloud_fine, tips_fine, cpts_fine, tips[i], false);
 		maxTipValue = max(maxTipValue, tips[i]);
 	}
+	// cout << maxTipValue << endl;
+	maxTipValue = 0.006;
 	if (n % var_save_invl == 0) CheckVar("TIP_", cpts, tips);
 
     // Thresholding and normalization
