@@ -2637,7 +2637,7 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 		maxTipValue = max(maxTipValue, tips[i]);
 	}
 	// cout << maxTipValue << endl;
-	maxTipValue = 0.006;
+	maxTipValue = 0.0065;
 	if (n % var_save_invl == 0) CheckVar("TIP_", cpts, tips);
 
     // Thresholding and normalization
