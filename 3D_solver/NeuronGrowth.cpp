@@ -2765,15 +2765,12 @@ vector<float> NeuronGrowth::ComputeRefine(
 
                 // Apply refinement criteria based on phi thresholds
                 const float phi_detected_threshold = 0.001f;
-				// if (phi_average > phi_detected_threshold) {
 				if (phi_max > phi_detected_threshold) {
-                // if ((phi_average < phi_ceil) && (phi_average > phi_floor)) {
-                // if ((phi_max < phi_ceil) && (phi_max > phi_floor)) {
 					ele_refine[index_out] = 1.0f;
 				} else {
                     ele_refine[index_out] = 0.0f; // No refinement
-                    // ele_refine[index_out] = 1.0f; // for debugging
                 }
+				ele_refine[index_out] = 0.0f; // No refinement
             }
         }
     }
