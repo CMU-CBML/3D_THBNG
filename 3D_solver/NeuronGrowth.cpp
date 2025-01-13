@@ -2769,8 +2769,8 @@ vector<float> NeuronGrowth::ComputeRefine(
 					ele_refine[index_out] = 1.0f;
 				} else {
                     ele_refine[index_out] = 0.0f; // No refinement
+                    // ele_refine[index_out] = 1.0f; // for debugging
                 }
-				ele_refine[index_out] = 0.0f; // No refinement
             }
         }
     }
