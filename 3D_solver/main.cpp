@@ -8,33 +8,171 @@
 
 using namespace std;
 
-static char help[] = "Solve 3DNG\n";
+static int printUsageAndExit(){
+    PetscPrintf(PETSC_COMM_WORLD,
+        "\nUsage:\n"
+        "  mpirun -np <N> ./3DNG \\\n"
+        "    --numNeuron=<int> \\\n"
+        "    --end_iter=<int> \\\n"
+        "    --solver=<snes|ksp> \\\n"
+        "    --path_in=<dir> \\\n"
+        "    [--restart=<yes|no|true|false|1|0>]\n\n"
+        "Example:\n"
+        "/xxx/xxx/xxx/mpirun -np 14 ./3DNG --numNeuron=1 --end_iter=20000 --solver=snes "
+        "--path_in=../io3D/ --restart=yes\n\n"
+    );
+    PetscFinalize();
+    return EXIT_FAILURE;
+}
 
-int main(int argc, char** argv) {
-    int rank, nProcs;
+PetscErrorCode initializeMPI(int &rank, int &nProcs, int argc, char** argv, const char help[] = "");
+
+int main(int argc, char** argv)
+{
+    int rank = 0, nProcs = 1;
+    const char help[] = "3D Neuron Growth Solver.\n";
+    // If using PETSc initialization:
     CHKERRQ(initializeMPI(rank, nProcs, argc, argv, help));
 
-    // Validate input arguments
-    if (argc < 4) {
-        cerr << "Usage: <numNeuron> <end_iter> <solver> <path_in>" << endl;
-        return 1;
+    //--------------------------------------------------------------------------
+    // 1) Defaults (set them, or leave them uninitialized if you want them required)
+    //--------------------------------------------------------------------------
+    bool haveNumNeuron = false;
+    bool haveEndIter   = false;
+    bool haveSolver    = false;
+    bool havePathIn    = false;
+
+    int numNeuron  = 0;
+    int end_iter   = 0;
+    string solver;
+    string path_in;
+    bool restart   = false; // optional, default = false
+
+    //--------------------------------------------------------------------------
+    // 2) Parse arguments of the form: --key=value
+    //    We skip argv[0], which is the program name ./3DNG
+    //--------------------------------------------------------------------------
+    if (argc == 1) {
+        // No arguments provided
+        cerr << "Error: No arguments provided.\n";
+        return printUsageAndExit();
     }
 
-    // User inputs
-    int numNeuron = atoi(argv[1]);   // Number of neurons
-    int end_iter = atoi(argv[2]);   // Number of iterations
-    string phi_solver = string(argv[3]);
-    if (phi_solver != "ksp" && phi_solver != "snes") {
-        PetscPrintf(PETSC_COMM_WORLD, "Please specify phi solver type: snes or ksp.\n");
-        return 0;
+    for (int i = 1; i < argc; ++i) {
+        string arg = argv[i];
+        if (arg.rfind("--", 0) != 0) {
+            // Doesn't start with '--', error
+            cerr << "Error: Argument '" << arg << "' must start with '--'.\n";
+            return printUsageAndExit();
+        }
+
+        // Remove the leading '--'
+        arg.erase(0, 2); // now arg is "key=value"
+
+        // Find '='
+        size_t eqPos = arg.find('=');
+        if (eqPos == string::npos) {
+            // No '=' found
+            cerr << "Error: Argument '--" << arg
+                      << "' is missing '=value'.\n";
+            return printUsageAndExit();
+        }
+
+        // Split key and value
+        string key   = arg.substr(0, eqPos);
+        string value = arg.substr(eqPos + 1);
+
+        // Convert key to lowercase if you want case-insensitivity
+        transform(key.begin(), key.end(), key.begin(),
+                       [](unsigned char c){ return tolower(c); });
+
+        //--------------------------------------------------------------------------
+        // 3) Match recognized keys and parse values
+        //--------------------------------------------------------------------------
+        if (key == "numneuron") {
+            numNeuron = atoi(value.c_str());
+            haveNumNeuron = true;
+        }
+        else if (key == "end_iter") {
+            end_iter = atoi(value.c_str());
+            haveEndIter = true;
+        }
+        else if (key == "solver") {
+            solver = value;
+            // Validate
+            if (solver != "snes" && solver != "ksp") {
+                cerr << "Error: solver must be 'snes' or 'ksp'.\n";
+                return printUsageAndExit();
+            }
+            haveSolver = true;
+        }
+        else if (key == "path_in") {
+            path_in = value;
+            havePathIn = true;
+        }
+        else if (key == "restart") {
+            // Accept "yes", "true", "1" => true; else false
+            string valLower = value;
+            transform(valLower.begin(), valLower.end(), valLower.begin(),
+                           [](unsigned char c){ return tolower(c); });
+            if (valLower == "yes" || valLower == "true" || valLower == "1") {
+                restart = true;
+            } else {
+                restart = false;
+            }
+        }
+        else {
+            // Unknown key => warn or error out
+            cerr << "Warning: Unrecognized argument key '--" << key << "'. Ignored.\n";
+        }
     }
-    string path_in = argv[4];       // Working directory path
+
+    //--------------------------------------------------------------------------
+    // 4) Check if all required options were specified
+    //--------------------------------------------------------------------------
+    if (!haveNumNeuron || !haveEndIter || !haveSolver || !havePathIn) {
+        cerr << "Error: Missing one or more required arguments.\n\n";
+        return printUsageAndExit();
+    }
+
+    // Path out could be derived from path_in, e.g.:
     string path_out = path_in + "outputs/";
 
+    //--------------------------------------------------------------------------
+    // 5) Print final configuration (optional)
+    //--------------------------------------------------------------------------
+    PetscPrintf(PETSC_COMM_WORLD,
+                "Configuration:\n"
+                "  numNeuron  = %d\n"
+                "  end_iter   = %d\n"
+                "  solver     = %s\n"
+                "  path_in    = %s\n"
+                "  path_out   = %s\n"
+                "  restart    = %s\n",
+                numNeuron, end_iter, solver.c_str(),
+                path_in.c_str(), path_out.c_str(),
+                restart ? "true" : "false");
+                
     // Simulation parameters
+    bool localRefine = false; // Flag for local refinement
+    int iter = 0, state = 1;  // Simulation state: 0-end, 1-running, 2-expanding, 3-diverging
     int NX, NY, NZ, originX(0), originY(0), originZ(0);
     vector<array<float, 3>> seed;
-    InitializeSoma(numNeuron, seed, NX, NY, NZ);
+    if (restart == false) {
+        InitializeSoma(numNeuron, seed, NX, NY, NZ);
+    } else {
+        localRefine = true;
+        vector<float> domain_size = readVectorFromFile(path_in + "domain_size.txt", false);
+        NX = (int)domain_size[0];
+        NY = (int)domain_size[1];
+        NZ = (int)domain_size[2];
+        originX = (int)domain_size[3];
+        originY = (int)domain_size[4];
+        originZ = (int)domain_size[5];
+        
+        string latestVTK = FindLatestVTK(path_out);
+        iter = getStepFromVTK(latestVTK.substr(path_out.size(), latestVTK.size() - path_out.size()));
+    }
 
     // Data structures for mesh and simulation
     int n_bzmesh;
@@ -42,9 +180,7 @@ int main(int argc, char** argv) {
     vector<vector<int>> elements, ele_process(nProcs);
     vector<Vertex3D> cpts_initial, cpts, prev_cpts, cpts_fine;
     vector<vector<float>> NGvars(6); // Stores neuron growth variables
-
-    bool localRefine = false; // Flag for local refinement
-    int iter = 0, state = 1;  // Simulation state: 0-end, 1-running, 2-expanding, 3-diverging
+    // vector<Element3D> mesh;
 
     PetscPrintf(PETSC_COMM_WORLD, "Starting Simulation\n");
     double t_global = 0;
@@ -75,6 +211,8 @@ int main(int argc, char** argv) {
         // Read control points and assign processors
         ReadControlPoints(fn_mesh_initial, cpts_initial);
         ReadControlPoints(fn_mesh, cpts);
+        // ReadMesh(fn_mesh, cpts, mesh);
+        // cout << "Finishing reading -===================" << endl;
         ReadControlPoints(fn_mesh_fine, cpts_fine);
         AssignProcessor(fn_bz, n_bzmesh, ele_process);
 
@@ -91,8 +229,9 @@ int main(int argc, char** argv) {
             seed,
             originX, originY, originZ,
             localRefine,
-            phi_solver,
-            t_global);
+            solver,
+            t_global,
+            restart);
 
         // Exit if simulation diverges
         if (state == 3) {

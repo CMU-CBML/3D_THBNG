@@ -63,4 +63,13 @@ float ComputeDistance(const Vertex3D& a, const Vertex3D& b);
 void THS3D(const string& path_in, int level);
 // void THS3D(const string& path_in);
 
+bool getVTKBoundingBox(const std::string &filename,
+    float &minX, float &maxX,
+    float &minY, float &maxY,
+    float &minZ, float &maxZ);
+
+string FindLatestVTK(const std::string &folder);
+
+int getStepFromVTK(const std::string &filename);
+
 #endif // UTILS_H

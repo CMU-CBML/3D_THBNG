@@ -4,6 +4,10 @@
 #include "BasicDataStructure.h"
 #include <cmath>
 
+#include <filesystem>
+namespace fs = filesystem;
+using namespace std;
+
 // Removes a list of files from the filesystem
 void removeFiles(const vector<string>& files) {
     for (const auto& file : files) {
@@ -282,14 +286,14 @@ void InitializeSoma(int numNeuron, vector<array<float, 3>>& seed, int& NX, int& 
     switch (numNeuron) {
         case 1:
             // // Single neuron case
-            NX = 10;
-            NY = 10;
-            NZ = 10;  // Assumes 3D initialization
-            seed[0] = {20.0f, 20.0f, 20.0f};
-            // NX = 5;
-            // NY = 5;
-            // NZ = 5;  // Assumes 3D initialization
-            // seed[0] = {10.0f, 10.0f, 10.0f};
+            // NX = 10;
+            // NY = 10;
+            // NZ = 10;  // Assumes 3D initialization
+            // seed[0] = {20.0f, 20.0f, 20.0f};
+            NX = 5;
+            NY = 5;
+            NZ = 5;  // Assumes 3D initialization
+            seed[0] = {10.0f, 10.0f, 10.0f};
             break;
 
         case 2:
@@ -370,8 +374,8 @@ void ReadMesh(string fn, vector<Vertex3D>& pts, vector<Element3D>& mesh)//need v
 			}
 
 		}
-		for (int i = 0; i < neles + 5; i++) getline(fin, stmp);//skip lines
-		for (int i = 0; i < npts; i++)	fin >> pts[i].label;
+		// for (int i = 0; i < neles + 5; i++) getline(fin, stmp);//skip lines
+		// for (int i = 0; i < npts; i++)	fin >> pts[i].label;
 		fin.close();
 		PetscPrintf(PETSC_COMM_WORLD, "Mesh Loaded!\n");
 	}
@@ -682,4 +686,142 @@ void THS3D(const string &path_in, int level) {
     } else {
         cout << "THS3D completed successfully." << endl;
     }
+}
+
+bool getVTKBoundingBox(const string &filename,
+                       float &minX, float &maxX,
+                       float &minY, float &maxY,
+                       float &minZ, float &maxZ)
+{
+    ifstream fin(filename);
+    if (!fin.is_open()) {
+        cerr << "Error: Cannot open " << filename << "\n";
+        return false;
+    }
+
+    // Initialize min/max with extreme values
+    minX = numeric_limits<float>::max();
+    maxX = numeric_limits<float>::lowest();
+    minY = numeric_limits<float>::max();
+    maxY = numeric_limits<float>::lowest();
+    minZ = numeric_limits<float>::max();
+    maxZ = numeric_limits<float>::lowest();
+
+    string line;
+    bool foundPoints = false;
+    size_t numPoints = 0;
+
+    // Search line by line for "POINTS <numPoints> float"
+    while (getline(fin, line)) {
+        // e.g. line might be "POINTS 100 float"
+        if (line.rfind("POINTS ", 0) == 0) {
+            // Parse number of points from the line
+            stringstream ss(line);
+            string keyword; // "POINTS"
+            ss >> keyword;       // consume "POINTS"
+            ss >> numPoints;     // read the integer numPoints
+
+            // skip the word "float"
+            foundPoints = true;
+
+            // Read numPoints lines of x, y, z
+            for (size_t i = 0; i < numPoints; i++) {
+                if (!getline(fin, line)) {
+                    cerr << "Error: Unexpected EOF while reading points.\n";
+                    fin.close();
+                    return false;
+                }
+                stringstream pts(line);
+                float x, y, z;
+                pts >> x >> y >> z;
+
+                // Update bounding box
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+                if (z < minZ) minZ = z;
+                if (z > maxZ) maxZ = z;
+            }
+            // Done reading points, can break out if you want:
+            break;
+        }
+    }
+
+    fin.close();
+
+    if (!foundPoints) {
+        cerr << "Error: No \"POINTS\" section found in " << filename << "\n";
+        return false;
+    }
+
+    return true;
+}
+
+string FindLatestVTK(const string &folder)
+{
+    // Initialize tracking variables for the largest step
+    int largestStep = -1;
+    string largestFilename;
+
+    error_code ec; // To avoid exceptions during directory iteration
+    for (const auto &entry : fs::directory_iterator(folder, ec)) {
+        if (ec) {
+            cerr << "Error accessing folder '" << folder << "': " << ec.message() << "\n";
+            return ""; // Return empty if folder can't be accessed
+        }
+        if (!entry.is_regular_file()) continue; // Skip non-regular files
+
+        string fname = entry.path().filename().string();
+
+        // Define prefix and suffix
+        const string prefix = "controlmesh_";
+        const string suffix = ".vtk";
+
+        // Check if filename starts with prefix and ends with suffix
+        if (fname.rfind(prefix, 0) == 0 && // Starts with "physics_allparticle_"
+            fname.size() > prefix.size() + suffix.size() && // Long enough for a number
+            fname.compare(fname.size() - suffix.size(), suffix.size(), suffix) == 0) // Ends with ".vtk"
+        {
+            // Extract the numeric part of the filename
+            string stepStr = fname.substr(
+                prefix.size(),
+                fname.size() - prefix.size() - suffix.size()
+            );
+
+            try {
+                int stepNum = stoi(stepStr); // Convert the number
+                if (stepNum > largestStep) {
+                    largestStep = stepNum;
+                    largestFilename = entry.path().string(); // Full path of the file
+                }
+            } catch (const exception &e) {
+                cerr << "Warning: Skipping invalid file '" << fname
+                          << "' (non-numeric step).\n";
+                continue; // Skip invalid filenames
+            }
+        }
+    }
+
+    // If no matching file found
+    if (largestStep < 0 || largestFilename.empty()) {
+        cerr << "No matching VTK files found in folder '" << folder << "'\n";
+        return "";
+    }
+
+    // Return the file with the largest step
+    return largestFilename;
+}
+
+int getStepFromVTK(const string &filename)
+{
+    static const string prefix = "controlmesh_";
+    static const string suffix = ".vtk";
+    // Substring out only the numeric part
+    string stepStr = filename.substr(
+        prefix.size(),
+        filename.size() - prefix.size() - suffix.size()
+    );
+    // Convert to int
+    return stoi(stepStr);
 }

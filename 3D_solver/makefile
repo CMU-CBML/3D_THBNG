@@ -44,3 +44,11 @@ clean:
 	rm -f ../io3D/outputs/*         
 
 rebuild: clean all
+
+# To run the program
+# make rebuild
+# /Users/kuanrenqian/petsc/arch-darwin-c-opt/bin/mpirun -np 14 ./3DNG --numNeuron=1 --end_iter=350000 --solver=snes --path_in=../io3D/ --restart=yes | tee -a ../io3D/log.txt
+# Or to restart/continue a simulation
+# /Users/kuanrenqian/petsc/arch-darwin-c-opt/bin/mpirun -np 14 ./3DNG --numNeuron=1 --end_iter=350000 --solver=snes --path_in=../io3D/ --restart=no | tee -a ../io3D/log_restart.txt
+# *restart can only start based on available controlmesh_xxxxx.vtk
+

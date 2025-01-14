@@ -258,11 +258,8 @@ public:
 	// Visualize control mesh and save as VTK file
 	void VisualizeVTK_ControlMesh(
 		const vector<Vertex3D>& spt,          // Control points
-		const vector<Element3D>& mesh,        // Mesh elements
 		int step,                             // Time step for output
-		string fn,                            // File name
-		vector<float> var,                    // Variable values to visualize
-		string varName                        // Variable name
+		string fn                            // File name
 	);
 
 	// Compute concentration and coupling in Bezier elements
@@ -306,12 +303,19 @@ public:
 
 	// Write VTK file for all variables with points, displacements, and elements
 	void WriteVTK_ALL(
-		const vector<array<float, 3>> spt,    // Spatial points
-		const vector<vector<float>> sdisp,    // Displacement values for multiple variables
-		const vector<array<int, 8>> sele,     // Element connectivity
-		int step,                             // Time step for output
-		string fn                      // File name
+		// const vector<array<float, 3>> spt,    // Spatial points
+		// const vector<vector<float>> sdisp,    // Displacement values for multiple variables
+		// const vector<array<int, 8>> sele,     // Element connectivity
+		// int step,                             // Time step for output
+		// string fn                      // File name
+		const std::vector<std::array<float, 3>> &spt,
+		const std::vector<std::vector<float>> &sdisp,
+		const std::vector<std::array<int, 8>> &sele,
+		int step,
+		const std::string &fn
 	);
+
+	bool ReadVTK(const std::string &filename);
 
 	// Evaluate the value of a field at a point using basis functions
 	void PointFormValue(
@@ -512,6 +516,16 @@ public:
 	float CellBoundary(float phi, float threshold);
 		// Determine cell boundary based on a given threshold value
 
+	vector<int> GetBoxNeighbors(
+		int idx,
+		const vector<Vertex3D> &cpts_fine,
+		float dx, float dy, float dz);
+
+	void FindLocalMaximaClusters_box(    
+		vector<float> &tips_fine,
+		const vector<Vertex3D> &cpts_fine,
+		float dx, float dy, float dz);
+
 	void DetectTipsMulti3D(
 		vector<float> id,                // Input neuron IDs
 		int numNeuron,                   // Total number of neurons
@@ -665,7 +679,8 @@ int RunNG(
 	int &originX, int &originY, int &originZ,
     bool &localRefine,
 	const string& phi_solver,
-	double& t_global
+	double& t_global,
+	bool& restart
 ); // Runs the Neuron Growth simulation for the specified input parameters.
 
 #endif

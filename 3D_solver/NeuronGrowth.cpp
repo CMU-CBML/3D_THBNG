@@ -389,6 +389,8 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 		tub_0.assign(cpt_sz, 0.0f);
 
 // #pragma omp parallel for
+		PetscPrintf(PETSC_COMM_WORLD, "Vector Sizes: phi: %zu, syn: %zu, tub: %zu, theta: %zu, phi_0: %zu, tub_0: %zu\n", phi.size(), syn.size(), tub.size(), theta.size(), phi_0.size(), tub_0.size());
+		PetscPrintf(PETSC_COMM_WORLD, "cpt Sizes: phi: %d\n", cpt_sz);
 		for (size_t i = 0; i < cpt_sz; ++i) {
 			const auto& cpt = cpts[i];
 			const auto& [x, y, z] = cpt.coor;
@@ -404,10 +406,11 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 									z > min_z_prev && z < max_z_prev);
 
 			if (withinBounds) {
+				
 				// Interpolate or find exact match for current point
 				InterpolateOrFindExact(
 					cpt, kdTree_prev, cloud_prev, NGvars, prev_cpts, 
-					phi[i], syn[i], tub[i], theta[i], phi_0[i], tub_0[i]);
+					phi[i], syn[i], tub[i], theta[i], phi_0[i], tub_0[i]);	
 			} else {
 				// Out-of-bounds handling (defaults)
 				phi[i] = syn[i] = tub[i] = phi_0[i] = tub_0[i] = 0.0f;
@@ -415,7 +418,6 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 			}
 		}
 	}
-
 	// Assign control points for further processing
 	this->cpts = cpts;
 
@@ -509,7 +511,7 @@ void NeuronGrowth::InterpolateOrFindExact(
             phi   += NGvars[0][idx] * weight;
             syn   += NGvars[1][idx] * weight;
             tub   += NGvars[2][idx] * weight;
-            theta += NGvars[3][idx] * weight;
+            // theta += NGvars[3][idx] * weight;
             phi_0 += NGvars[4][idx] * weight;
             tub_0 += NGvars[5][idx] * weight;
             totalWeight += weight;
@@ -519,7 +521,8 @@ void NeuronGrowth::InterpolateOrFindExact(
         phi   /= totalWeight;
         syn   /= totalWeight;
         tub   /= totalWeight;
-        theta /= totalWeight;
+        // theta /= totalWeight;
+		theta = static_cast<float>(rand() % 100) / 100.0f;
         phi_0 /= totalWeight;
         tub_0 /= totalWeight;
     }
@@ -866,14 +869,14 @@ void NeuronGrowth::ResidualAssembly(vector<float> &EVectorSolve, const vector<in
 	delete tmpGR;
 }
 
-void NeuronGrowth::VisualizeVTK_ControlMesh(const vector<Vertex3D> &spt, const vector<Element3D> &mesh, int step, string fn, vector<float> var, string varName)
+void NeuronGrowth::VisualizeVTK_ControlMesh(const vector<Vertex3D>& spt, int step, string fn)
 {
 	string fname;
 	stringstream ss;
 	ss << setw(6) << setfill('0') << step;
 	ofstream fout;
 	unsigned int i;
-	fname = fn + "/controlmesh_" + varName + ss.str() + ".vtk";
+	fname = fn + "/controlmesh_" + ss.str() + ".vtk";
 	fout.open(fname.c_str());
 	if (fout.is_open())
 	{
@@ -883,22 +886,51 @@ void NeuronGrowth::VisualizeVTK_ControlMesh(const vector<Vertex3D> &spt, const v
 		{
 			fout << spt[i].coor[0] << " " << spt[i].coor[1] << " " << spt[i].coor[2] << "\n";
 		}
-		fout << "\nCELLS " << mesh.size() << " " << 9 * mesh.size() << '\n';
-		for (i = 0; i < mesh.size(); i++)
+		// fout << "\nCELLS " << mesh.size() << " " << 9 * mesh.size() << '\n';
+		// for (i = 0; i < mesh.size(); i++)
+		// {
+		// 	fout << "8 " << mesh[i].IEN[0] << " " << mesh[i].IEN[1] << " " << mesh[i].IEN[2] << " " << mesh[i].IEN[3]
+		// 	     << " " << mesh[i].IEN[4] << " " << mesh[i].IEN[5] << " " << mesh[i].IEN[6] << " " << mesh[i].IEN[7] << '\n';
+		// }
+		// fout << "\nCELL_TYPES " << mesh.size() << '\n';
+		// for (i = 0; i < mesh.size(); i++)
+		// {
+		// 	fout << "12\n";
+		// }
+		fout << "\nPOINT_DATA " << phi.size() << "\nSCALARS phi float 1\nLOOKUP_TABLE default\n";
+		for (uint i = 0; i < phi.size(); i++)
 		{
-			fout << "8 " << mesh[i].IEN[0] << " " << mesh[i].IEN[1] << " " << mesh[i].IEN[2] << " " << mesh[i].IEN[3]
-			     << " " << mesh[i].IEN[4] << " " << mesh[i].IEN[5] << " " << mesh[i].IEN[6] << " " << mesh[i].IEN[7] << '\n';
+			fout << phi[i] /* +N_plus[i]+N_minus[i] */ << "\n";
 		}
-		fout << "\nCELL_TYPES " << mesh.size() << '\n';
-		for (i = 0; i < mesh.size(); i++)
+		fout << "\nSCALARS synaptogenesis float 1\nLOOKUP_TABLE default\n";
+		for (uint i = 0; i < syn.size(); i++)
 		{
-			fout << "12\n";
+			fout << syn[i] /* +N_plus[i]+N_minus[i] */ << "\n";
 		}
-		fout << "POINT_DATA " << var.size() << "\nSCALARS AllParticles float 1\nLOOKUP_TABLE default\n";
-		for (uint i = 0; i < var.size(); i++)
+		fout << "\nSCALARS tips float 1\nLOOKUP_TABLE default\n";
+		for (uint i = 0; i < tips.size(); i++)
 		{
-			fout << var[i] /* +N_plus[i]+N_minus[i] */ << "\n";
-			// fout << spt[i].label /* +N_plus[i]+N_minus[i] */ << "\n";
+			fout << tips[i] /* +N_plus[i]+N_minus[i] */ << "\n";
+		}
+		fout << "\nSCALARS tubulin float 1\nLOOKUP_TABLE default\n";
+		for (uint i = 0; i < tub.size(); i++)
+		{
+			fout << tub[i] /* +N_plus[i]+N_minus[i] */ << "\n";
+		}
+		fout << "\nSCALARS theta float 1\nLOOKUP_TABLE default\n";
+		for (uint i = 0; i < theta.size(); i++)
+		{
+			fout << theta[i] /* +N_plus[i]+N_minus[i] */ << "\n";
+		}
+		fout << "\nSCALARS tub_0 float 1\nLOOKUP_TABLE default\n";
+		for (uint i = 0; i < tub_0.size(); i++)
+		{
+			fout << tub_0[i] /* +N_plus[i]+N_minus[i] */ << "\n";
+		}
+		fout << "\nSCALARS phi_0 float 1\nLOOKUP_TABLE default\n";
+		for (uint i = 0; i < phi_0.size(); i++)
+		{
+			fout << phi_0[i] /* +N_plus[i]+N_minus[i] */ << "\n";
 		}
 		fout.close();
 	}
@@ -1258,75 +1290,364 @@ void NeuronGrowth::CalculateVarsForOutput(vector<array<float, 3>> &spt_all, vect
 
 void NeuronGrowth::VisualizeVTK_PhysicalDomain_All(int step, string fn) {
 	// Initialize containers for sample points, simulation results, and element connectivity for all variables
-	vector<vector<array<float, 3>>> spt_all_4var(4); // Sample points for all 4 variables
-	vector<vector<float>> sresult_all_4var(4); // Simulation results for all 4 variables
-	vector<vector<array<int, 8>>> sele_all_4var(4); // Element connectivity for all 4 variables
+	vector<vector<array<float, 3>>> spt_all_5var(5); // Sample points for all 5 variables
+	vector<vector<float>> sresult_all_5var(5); // Simulation results for all 5 variables
+	vector<vector<array<int, 8>>> sele_all_5var(5); // Element connectivity for all 4 variables
 
 	// Set current variable to phi and calculate its output variables
 	N_0 = phi;
-	CalculateVarsForOutput(spt_all_4var[0], sresult_all_4var[0], sele_all_4var[0]);
+	CalculateVarsForOutput(spt_all_5var[0], sresult_all_5var[0], sele_all_5var[0]);
 
 	// Set current variable to syn and calculate its output variables
 	N_0 = syn;
-	CalculateVarsForOutput(spt_all_4var[1], sresult_all_4var[1], sele_all_4var[1]);
+	CalculateVarsForOutput(spt_all_5var[1], sresult_all_5var[1], sele_all_5var[1]);
 
 	// Set current variable to tub and calculate its output variables
 	N_0 = tub;
-	CalculateVarsForOutput(spt_all_4var[2], sresult_all_4var[2], sele_all_4var[2]);
+	CalculateVarsForOutput(spt_all_5var[2], sresult_all_5var[2], sele_all_5var[2]);
 
 	// Set current variable to tips and calculate its output variables
 	N_0 = tips;
-	CalculateVarsForOutput(spt_all_4var[3], sresult_all_4var[3], sele_all_4var[3]);
+	CalculateVarsForOutput(spt_all_5var[3], sresult_all_5var[3], sele_all_5var[3]);
+
+	N_0 = theta;
+	CalculateVarsForOutput(spt_all_5var[4], sresult_all_5var[4], sele_all_5var[4]);
 
 	// If running on the master process (comRank == 0), write the VTK file for visualization
 	if (comRank == 0) {
-		WriteVTK_ALL(spt_all_4var[0], sresult_all_4var, sele_all_4var[0], step, fn);
+		WriteVTK_ALL(spt_all_5var[0], sresult_all_5var, sele_all_5var[0], step, fn);
 	}
 }
 
-void NeuronGrowth::WriteVTK_ALL(const vector<array<float, 3>> spt, const vector<vector<float>> sdisp, const vector<array<int, 8>> sele, int step, string fn) {
-	stringstream ss;
-	ss << step;
-	string fname = fn + "/physics_allparticle_" + ss.str() + ".vtk";
-	ofstream fout(fname.c_str());
+/**
+ * @brief Writes an unstructured-grid VTK file with hexahedral cells and scalar fields.
+ *
+ * @param[in]  spt   A vector of 3D points (size = number of points).
+ * @param[in]  sdisp A vector of scalar fields, each of size = number of points.
+ *                   E.g., sdisp[0] is phi, sdisp[1] is synaptogenesis, etc.
+ * @param[in]  sele  A vector of elements (each is an array<int,8> for a HEX),
+ *                   specifying the 8 node indices of each cell.
+ * @param[in]  step  Current timestep or iteration number, used in the filename.
+ * @param[in]  fn    Base directory or filename prefix to which we append the VTK file name.
+ *
+ * This function produces an ASCII VTK file containing:
+ *   - Unstructured grid with "POINTS", "CELLS", "CELL_TYPES"
+ *   - Point-based scalar data ("POINT_DATA")
+ *
+ * The file is named:  "<fn>/physics_allparticle_<step>.vtk"
+ *
+ * @note If you need additional cell data or vector fields, you can extend this function accordingly.
+ */
+void NeuronGrowth::WriteVTK_ALL(const vector<array<float, 3>> &spt,
+                                const vector<vector<float>> &sdisp,
+                                const vector<array<int, 8>> &sele,
+                                int step,
+                                const string &fn)
+{
+    //--------------------------------------------------------------------------
+    // 1) Construct the output file name
+    //--------------------------------------------------------------------------
+    stringstream ss;
+    ss << step;  // Convert the step to string
+    string fname = fn + "/physics_allparticle_" + ss.str() + ".vtk";
 
-	if (fout.is_open()) {
-		// Write the VTK file header
-		fout << "# vtk DataFile Version 2.0\nHex test\nASCII\nDATASET UNSTRUCTURED_GRID\n";
+    //--------------------------------------------------------------------------
+    // 2) Open the file for writing
+    //--------------------------------------------------------------------------
+    ofstream fout(fname);
+    if (!fout.is_open()) {
+        cerr << "Cannot open " << fname << " for writing!\n";
+        return;
+    }
 
-		// Write the points
-		fout << "POINTS " << spt.size() << " float\n";
-		for (unsigned int i = 0; i < spt.size(); i++) {
-			fout << spt[i][0] << " " << spt[i][1] << " " << spt[i][2] << "\n";
-		}
+    //--------------------------------------------------------------------------
+    // 3) Preliminary checks to avoid mismatched data
+    //--------------------------------------------------------------------------
+    // Ensure we have at least one scalar field
+    if (sdisp.empty()) {
+        cerr << "Warning: sdisp is empty. No scalar fields will be written.\n";
+    }
 
-		// Write the cells
-		fout << "\nCELLS " << sele.size() << " " << 9 * sele.size() << '\n';
-		for (unsigned int i = 0; i < sele.size(); i++) {
-			fout << "8 " << sele[i][0] << " " << sele[i][1] << " " << sele[i][2] << " " << sele[i][3]
-				<< " " << sele[i][4] << " " << sele[i][5] << " " << sele[i][6] << " " << sele[i][7] << '\n';
-		}
+    // Check that all scalar fields have the same size as the number of points
+    for (size_t varIndex = 0; varIndex < sdisp.size(); ++varIndex) {
+        if (sdisp[varIndex].size() != spt.size()) {
+            cerr << "Warning: sdisp[" << varIndex << "] has size "
+                      << sdisp[varIndex].size() << " != " << spt.size()
+                      << " (number of points). The output may be inconsistent.\n";
+        }
+    }
 
-		// Write the cell types
-		fout << "\nCELL_TYPES " << sele.size() << '\n';
-		for (unsigned int i = 0; i < sele.size(); i++) {
-			fout << "12\n"; // 12 corresponds to VTK_HEXAHEDRON
-		}
+    //--------------------------------------------------------------------------
+    // 4) Write the VTK file header
+    //--------------------------------------------------------------------------
+    fout << "# vtk DataFile Version 2.0\n";
+    fout << "Hex test\n";
+    fout << "ASCII\n";
+    fout << "DATASET UNSTRUCTURED_GRID\n";
 
-		// Write scalar fields
-		fout << "POINT_DATA " << sdisp[0].size() << "\n";
-		const char* scalarNames[] = {"phi", "synaptogenesis", "tubulin", "tips"};
-		for (size_t varIndex = 0; varIndex < sdisp.size(); ++varIndex) {
-			fout << "\nSCALARS " << scalarNames[varIndex] << " float 1\nLOOKUP_TABLE default\n";
-			for (size_t i = 0; i < sdisp[varIndex].size(); i++) {
-				fout << sdisp[varIndex][i] << "\n";
-			}
-		}
+    //--------------------------------------------------------------------------
+    // 5) Write the points
+    //--------------------------------------------------------------------------
+    fout << "POINTS " << spt.size() << " float\n";
+    for (size_t i = 0; i < spt.size(); i++) {
+        fout << spt[i][0] << " " << spt[i][1] << " " << spt[i][2] << "\n";
+    }
 
-		fout.close();
-	} else {
-		cout << "Cannot open " << fname << "!\n";
-	}
+    //--------------------------------------------------------------------------
+    // 6) Write the cells (VTK requires "numCells" followed by "9*numCells" for HEX)
+    //--------------------------------------------------------------------------
+    fout << "\nCELLS " << sele.size() << " " << sele.size() * 9 << "\n";
+    for (size_t i = 0; i < sele.size(); i++) {
+        fout << "8 "     // each cell has 8 vertices
+             << sele[i][0] << " " << sele[i][1] << " " << sele[i][2] << " " << sele[i][3] << " "
+             << sele[i][4] << " " << sele[i][5] << " " << sele[i][6] << " " << sele[i][7] << "\n";
+    }
+
+    //--------------------------------------------------------------------------
+    // 7) Write the cell types (12 corresponds to VTK_HEXAHEDRON)
+    //--------------------------------------------------------------------------
+    fout << "\nCELL_TYPES " << sele.size() << "\n";
+    for (size_t i = 0; i < sele.size(); i++) {
+        fout << "12\n";
+    }
+
+    //--------------------------------------------------------------------------
+    // 8) Write scalar fields: "POINT_DATA" indicates data attached to each point
+    //--------------------------------------------------------------------------
+    // We'll map each sub-vector in sdisp to a named scalar field.
+    // Adjust or extend if you have more or fewer than 5 scalars.
+    static const char *scalarNames[] = {"phi", "synaptogenesis", "tubulin", "tips", "theta"};
+
+    // Only write POINT_DATA if there's at least one scalar
+    if (!sdisp.empty()) {
+        fout << "\nPOINT_DATA " << spt.size() << "\n";
+
+        // Write each field. If sdisp.size() > 5, you'll need more names or a dynamic approach.
+        size_t numScalars = min(sdisp.size(), static_cast<size_t>(5));
+        for (size_t varIndex = 0; varIndex < numScalars; ++varIndex) {
+            fout << "\nSCALARS " << scalarNames[varIndex] << " float 1\n";
+            fout << "LOOKUP_TABLE default\n";
+            for (size_t i = 0; i < sdisp[varIndex].size(); i++) {
+                fout << sdisp[varIndex][i] << "\n";
+            }
+        }
+    }
+
+    //--------------------------------------------------------------------------
+    // 9) Clean up and close
+    //--------------------------------------------------------------------------
+    fout.close();
+}
+// void NeuronGrowth::WriteVTK_ALL(const vector<array<float, 3>> spt, const vector<vector<float>> sdisp, const vector<array<int, 8>> sele, int step, string fn) {
+// 	stringstream ss;
+// 	ss << step;
+// 	string fname = fn + "/physics_allparticle_" + ss.str() + ".vtk";
+// 	ofstream fout(fname.c_str());
+
+// 	if (fout.is_open()) {
+// 		// Write the VTK file header
+// 		fout << "# vtk DataFile Version 2.0\nHex test\nASCII\nDATASET UNSTRUCTURED_GRID\n";
+
+// 		// Write the points
+// 		fout << "POINTS " << spt.size() << " float\n";
+// 		for (unsigned int i = 0; i < spt.size(); i++) {
+// 			fout << spt[i][0] << " " << spt[i][1] << " " << spt[i][2] << "\n";
+// 		}
+
+// 		// Write the cells
+// 		fout << "\nCELLS " << sele.size() << " " << 9 * sele.size() << '\n';
+// 		for (unsigned int i = 0; i < sele.size(); i++) {
+// 			fout << "8 " << sele[i][0] << " " << sele[i][1] << " " << sele[i][2] << " " << sele[i][3]
+// 				<< " " << sele[i][4] << " " << sele[i][5] << " " << sele[i][6] << " " << sele[i][7] << '\n';
+// 		}
+
+// 		// Write the cell types
+// 		fout << "\nCELL_TYPES " << sele.size() << '\n';
+// 		for (unsigned int i = 0; i < sele.size(); i++) {
+// 			fout << "12\n"; // 12 corresponds to VTK_HEXAHEDRON
+// 		}
+
+// 		// Write scalar fields
+// 		fout << "POINT_DATA " << sdisp[0].size() << "\n";
+// 		const char* scalarNames[] = {"phi", "synaptogenesis", "tubulin", "tips", "theta"};
+// 		for (size_t varIndex = 0; varIndex < sdisp.size(); ++varIndex) {
+// 			fout << "\nSCALARS " << scalarNames[varIndex] << " float 1\nLOOKUP_TABLE default\n";
+// 			for (size_t i = 0; i < sdisp[varIndex].size(); i++) {
+// 				fout << sdisp[varIndex][i] << "\n";
+// 			}
+// 		}
+
+// 		fout.close();
+// 	} else {
+// 		cout << "Cannot open " << fname << "!\n";
+// 	}
+// }
+
+// #include <iostream>
+// #include <fstream>
+// #include <string>
+// #include <vector>
+// #include <array>
+// #include <sstream>
+// #include <algorithm> // for find, etc.
+
+/**
+ * @brief Reads a VTK file in ASCII format, extracting 3D points (cpts)
+ *        and up to five scalar fields (phi, syn, tub, tips, theta).
+ */
+bool NeuronGrowth::ReadVTK(const string &filename)
+{
+    ifstream fin(filename);
+    if (!fin.is_open()) {
+        cerr << "Cannot open VTK file: " << filename << endl;
+        return false;
+    }
+
+    cpts.clear();
+    phi.clear();
+    syn.clear();
+    tub.clear();
+    tips.clear();
+    theta.clear();
+	phi_0.clear();
+	tub_0.clear();
+
+    string line;
+    bool foundPoints = false;
+    size_t numPoints = 0;
+
+    // We'll store the names in the order we expect them
+    const vector<string> scalarNames = {
+        "phi", "synaptogenesis", "tubulin", "tips", "theta", "phi_0", "tub_0"
+    };
+    // We'll keep references in an array so we can fill them in by index
+    vector<vector<float>*> scalarArrays = {
+        &phi, &syn, &tub, &tips, &theta, &phi_0, &tub_0
+    };
+
+    //--------------------------------------------------------------------------
+    // 1) Parse lines until we find "POINTS <N> float"
+    //--------------------------------------------------------------------------
+    while (getline(fin, line)) {
+        // e.g. "POINTS 123 float"
+        if (line.rfind("POINTS ", 0) == 0) {
+            // Parse the number of points
+            stringstream ss(line);
+            string dummy;
+            ss >> dummy;            // "POINTS"
+            ss >> numPoints;        // e.g. 123
+            // skip "float"
+            foundPoints = true;
+
+            // read the points
+            cpts.resize(numPoints);
+            for (size_t i = 0; i < numPoints; i++) {
+                if (!getline(fin, line)) {
+                    cerr << "Error reading points (EOF encountered)\n";
+                    return false;
+                }
+                stringstream ssp(line);
+                float x, y, z;
+                ssp >> x >> y >> z;
+				cpts[i].coor[0] = x;
+				cpts[i].coor[1] = y;
+				cpts[i].coor[2] = z;
+            }
+            break; // done reading points
+        }
+    }
+
+    if (!foundPoints || numPoints == 0) {
+        cerr << "No POINTS section found or zero points.\n";
+        return false;
+    }
+
+    //--------------------------------------------------------------------------
+    // 2) Now look for "POINT_DATA <numPoints>"
+    //--------------------------------------------------------------------------
+    bool foundPointData = false;
+    while (getline(fin, line)) {
+        if (line.rfind("POINT_DATA ", 0) == 0) {
+            // parse how many
+            stringstream ss(line);
+            string dummy;
+            size_t checkN;
+            ss >> dummy;      // "POINT_DATA"
+            ss >> checkN;     // e.g. 123
+
+            if (checkN != numPoints) {
+                cerr << "Warning: POINT_DATA " << checkN
+                          << " != #points (" << numPoints << ")\n";
+            }
+            foundPointData = true;
+            break;
+        }
+    }
+    if (!foundPointData) {
+        cerr << "No POINT_DATA section found.\n";
+        return false;
+    }
+
+    //--------------------------------------------------------------------------
+    // 3) Read the scalars in the known order (phi, syn, tub, tips, theta, phi_0, tub_0)
+    //    For each scalar: 
+    //         SCALARS <name> float 1
+    //         LOOKUP_TABLE default
+    //         <numPoints> lines
+    //--------------------------------------------------------------------------
+    size_t foundScalarsCount = 0;
+    while (foundScalarsCount < scalarNames.size()) {
+        if (!getline(fin, line)) break; // no more lines
+
+        // We expect: "SCALARS phi float 1"
+        if (line.rfind("SCALARS ", 0) == 0) {
+            // parse the name
+            stringstream ss(line);
+            string dummy, scalarName, type;
+            int components = 0;
+            ss >> dummy;       // "SCALARS"
+            ss >> scalarName;  // e.g. "phi"
+            ss >> type;        // e.g. "float"
+            ss >> components;  // e.g. 1
+
+            // next line should be "LOOKUP_TABLE default"
+            if (!getline(fin, line)) {
+                cerr << "EOF reading SCALARS " << scalarName << endl;
+                return false;
+            }
+            // ignore the "LOOKUP_TABLE" line
+
+            // Find which scalar index we have
+            auto it = find(scalarNames.begin(), scalarNames.end(), scalarName);
+            if (it == scalarNames.end()) {
+                // Unrecognized scalar; skip lines anyway
+                for (size_t i = 0; i < numPoints; i++) {
+                    if (!getline(fin, line)) {
+                        cerr << "EOF skipping unknown scalar data.\n";
+                        return false;
+                    }
+                }
+            } else {
+                size_t index = distance(scalarNames.begin(), it);
+                scalarArrays[index]->resize(numPoints);
+
+                // read numPoints lines
+                for (size_t i = 0; i < numPoints; i++) {
+                    if (!getline(fin, line)) {
+                        cerr << "EOF reading scalar " << scalarName << "\n";
+                        return false;
+                    }
+                    float val = stof(line);
+                    (*scalarArrays[index])[i] = val;
+                }
+                foundScalarsCount++;
+            }
+        }
+        // else skip lines that are not "SCALARS ..."
+    }
+
+    fin.close();
+    return true;
 }
 
 void NeuronGrowth::PointFormValue(vector<float>& Nx,
@@ -1920,7 +2241,7 @@ void NeuronGrowth::PreparePhaseField_SNES_preComputed()
 
                     // iii. Decide assembly rate based on tips (vars[9]) & syn (vars[6])
                     float eleE = 0.0f;
-                    if (n < 0) {
+                    if (n < 2500) {
                         // negative n logic
                         eleE = alphaOverPi * atan(gamma * (1 - vars[6]));
 						pre_eleMp[ind] = M_phi;
@@ -2384,7 +2705,6 @@ void NeuronGrowth::HandleExpansion(const vector<float>& phi_in,
     // Determine expansion direction on rank 0
     if (comRank == 0) {
         expd_dir_global = CheckExpansion3D(phi_in, cpts, originX, originY, originZ);
-        // expd_dir_global = CheckExpansion3D(phi_in, cpts, originX, originY, originZ) == 6 ? 6 : 7;
 	}
 
     // Broadcast expansion direction to all ranks
@@ -2457,7 +2777,7 @@ int NeuronGrowth::CheckExpansion3D(const vector<float>& input,
     constexpr float epsilon = 1e-5f;    // Small value to account for floating-point precision
 
     // Debugging: Print grid bounds
-    CheckVar("CheckExp", cpts, input);
+    // CheckVar("CheckExp", cpts, input);
     PetscPrintf(PETSC_COMM_WORLD, "Grid bounds: max_x: %.2f, max_y: %.2f, max_z: %.2f\n", 
                 max_x, max_y, max_z);
 
@@ -2575,6 +2895,101 @@ bool NeuronGrowth::IsInBox(const Vertex3D& point, const Vertex3D& center, float 
     return true;
 }
 
+vector<int> NeuronGrowth::GetBoxNeighbors(
+    int idx,
+    const vector<Vertex3D> &cpts_fine,
+    float dx, float dy, float dz)
+{
+    vector<int> neighbors;
+    const Vertex3D &center = cpts_fine[idx];
+
+    // Naive approach: check every point to see if it's "in box"
+    for (int j = 0; j < (int)cpts_fine.size(); j++) {
+        if (j == idx) continue; // skip self
+        if (IsInBox(cpts_fine[j], center, dx, dy, dz)) {
+            neighbors.push_back(j);
+        }
+    }
+    return neighbors;
+}
+
+/**
+ * @brief For each connected cluster in tips_fine (non-zero values),
+ *        find the index with the highest tips_fine[...] value and set that point to 1,
+ *        while setting all other cluster points to 0.
+ *
+ * @param[in,out] tips_fine  A float array the same size as cpts_fine. 
+ *                           Non-zero => part of a cluster. On output, only
+ *                           one point per cluster remains 1, others become 0.
+ * @param[in]     cpts_fine  A vector of 3D coordinates corresponding to tips_fine.
+ * @param[in]     dx,dy,dz   Half-widths of the "neighbor" bounding box.
+ * @note The function uses the IsInBox(...) method to define "connectedness."
+ */
+void NeuronGrowth::FindLocalMaximaClusters_box(
+    vector<float> &tips_fine,
+    const vector<Vertex3D> &cpts_fine,
+    float dx, float dy, float dz)
+{
+    const size_t nPoints = cpts_fine.size();
+    if (nPoints == 0) return;
+
+    // Keep track of which points have been visited
+    vector<bool> visited(nPoints, false);
+
+    // We'll define a comparison lambda for picking
+    // the local maximum based on tips_fine values:
+    auto compareTips = [&](int a, int b) {
+        return (tips_fine[a] < tips_fine[b]);
+    };
+
+    // Loop over each point to find clusters
+    for (size_t startIdx = 0; startIdx < nPoints; ++startIdx) {
+        // Only proceed if tips_fine[startIdx] != 0 (part of a cluster)
+        // and we haven't already visited it.
+        if (tips_fine[startIdx] != 0.0f && !visited[startIdx]) {
+            // We'll gather all points in this cluster
+            queue<int> Q;
+            vector<int> clusterIndices;
+
+            // Start BFS
+            Q.push((int)startIdx);
+            visited[startIdx] = true;
+            clusterIndices.push_back((int)startIdx);
+
+            while (!Q.empty()) {
+                int current = Q.front();
+                Q.pop();
+
+                // 1) Get neighbors within the bounding box around cpts_fine[current]
+                auto neighbors = GetBoxNeighbors(current, cpts_fine, dx, dy, dz);
+
+                // 2) For each neighbor, if it's part of tips_fine (non-zero) and unvisited,
+                //    add it to BFS.
+                for (int nb : neighbors) {
+                    if (tips_fine[nb] != 0.0f && !visited[nb]) {
+                        visited[nb] = true;
+                        Q.push(nb);
+                        clusterIndices.push_back(nb);
+                    }
+                }
+            }
+
+            // Now clusterIndices contains all points of this connected component
+            // => find the local maximum by tips_fine value
+            auto maxIt = max_element(clusterIndices.begin(),
+                                          clusterIndices.end(),
+                                          compareTips);
+            int localMaxIdx = *maxIt;  // index with highest tips_fine value
+
+            // => label only that local max as 1, set all other indices to 0
+            for (int idx : clusterIndices) {
+                tips_fine[idx] = 0.0f; 
+            }
+            tips_fine[localMaxIdx] = 1.0f; 
+        }
+    }
+}
+
 void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine, 
 							const Vertex3DCloud& cloud_fine,
 							const KDTree& kdTree_fine,
@@ -2590,7 +3005,7 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 			cpts_fine[i], kdTree, cloud, phi, cpts, phi_fine[i], true);
 	}
 
-	if (n % var_save_invl == 0) CheckVar("PHI_FINE", cpts_fine, phi_fine);
+	// if (n % var_save_invl == 0) CheckVar("PHI_FINE", cpts_fine, phi_fine);
 
     const float threshold = 0.95f;    // Threshold for tip detection
     float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
@@ -2624,8 +3039,10 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
         }
     }
 
+	// FindLocalMaximaClusters_box(tips_fine, cpts_fine, 2, 2, 2);
+
     // Debugging and visualization
-    if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
+    // if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
 
     // Clear and resize tips to match the number of control points
     tips.clear();
@@ -2638,13 +3055,13 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 	}
 	// cout << maxTipValue << endl;
 	maxTipValue = 0.0065;
-	if (n % var_save_invl == 0) CheckVar("TIP_", cpts, tips);
+	// if (n % var_save_invl == 0) CheckVar("TIP_", cpts, tips);
 
     // Thresholding and normalization
     for (float& tip : tips) {
         tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
     }
-	if (n % var_save_invl == 0) CheckVar("TIP_cutoff_", cpts, tips);
+	// if (n % var_save_invl == 0) CheckVar("TIP_cutoff_", cpts, tips);
 
 }
 
@@ -2710,7 +3127,7 @@ vector<float> NeuronGrowth::ComputeRefine(
 	const int& originX, const int& originY, const int& originZ,
     const KDTree& kdTree, const Vertex3DCloud& cloud) 
 {
-	CheckVar("PHI_", cpts, phi_in); // check control points phi for debugging
+	// CheckVar("PHI_", cpts, phi_in); // check control points phi for debugging
 
     // Initialize the refined elements vector
     vector<float> ele_refine(NX * NY * NZ, 0.0);
@@ -3580,7 +3997,8 @@ int RunNG(
 	int &originX, int &originY, int &originZ,
     bool &localRefine,
 	const string& phi_solver,
-	double& t_global)
+	double& t_global,
+	bool& restart)
 {
 	/*========================================================*/
 	// Initializations
@@ -3625,7 +4043,7 @@ int RunNG(
 	/*========================================================*/
 	// Write initial variables
 	string varName;	
-	if (NG.n == 0) {
+	if (NG.n == 0 && restart == false) {
 		NG.VisualizeVTK_PhysicalDomain_All(0, NG.path_out);
 		PetscPrintf(PETSC_COMM_WORLD, "Saving all variables!--------------------------------------------------------\n");		
 	}
@@ -3645,11 +4063,39 @@ int RunNG(
 	while (iter <= NG.end_iter) {
 		NG.n = iter;
 
+		// if we want to restart the simulation
+		if (restart == true) {
+			restart = false;
+			string restartVTK = FindLatestVTK(path_out);
+			if (restartVTK == "") {
+				cerr << "Failed to read the latest VTK file.\n";
+			} else {
+				cout << "Read " << cpts.size() << " points from the largest-step file.\n";
+			}
+			NG.ReadVTK(restartVTK);
+			NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
+			// Clean up solvers and synchronize processes
+			// CHKERRQ(CleanUpSolvers(NG));
+
+			// if (NG.comRank == 0) {
+			// 	// Vertex3DCloud cloud(cpts); 					// Cloud for current points
+			// 	// KDTree kdTree(3 /* dim */, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
+			// 	// kdTree.buildIndex();
+			// 	// Compute refinement values and save to file
+			// 	vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
+			// 	writeVectorToFile(ele_refine, path_in + "phi.txt", false);
+			// }
+
+			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+			return 2;
+		}
+		
 		/*========================================================*/
 		// Write physical domain results to file
 		if (NG.n != 0 && NG.n % NG.var_save_invl == 0) {
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
+			NG.VisualizeVTK_ControlMesh(cpts, iter, path_out);
 			PetscPrintf(PETSC_COMM_WORLD, 
 						"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
 						NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
@@ -3667,7 +4113,7 @@ int RunNG(
 
 			// Clean up solvers and synchronize processes
 			CHKERRQ(CleanUpSolvers(NG));
-			// CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+			NG.VisualizeVTK_ControlMesh(cpts, iter, path_out);
 
 			if (NG.comRank == 0) {
 				// Compute refinement values and save to file
@@ -3679,6 +4125,8 @@ int RunNG(
 				// NG.CheckVar("TMP_", cpts, tmp); // check control points phi for debugging
 				// vector<float> ele_refine = NG.ComputeRefine(tmp, NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
 				writeVectorToFile(ele_refine, path_in + "phi.txt", false);
+				vector<float> tmp = {NX, NY, NZ, originX, originY, originZ};
+				writeVectorToFile(tmp, path_in + "domain_size.txt", false);
 			}
 			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
 
