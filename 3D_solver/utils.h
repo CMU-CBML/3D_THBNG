@@ -45,6 +45,12 @@ void AssignProcessor(const string& fn, int& n_bzmesh, vector<vector<int>>& ele_p
 // 3D Vector Conversion
 vector<float> Convert3DIntTo1DFloatVector(const vector<vector<vector<int>>>& input);
 vector<float> Convert3DFloatTo1DFloatVector(const vector<vector<vector<float>>>& input);
+vector<vector<vector<int>>> ConvertTo3DIntVector(
+    const vector<float>& input, int NX, int NY, int NZ
+); // Convert a 1D float vector to a 3D integer vector.
+vector<vector<vector<float>>> ConvertTo3DFloatVector(
+    const vector<float>& input, int NX, int NY, int NZ
+); // Convert a 1D float vector to a 3D float vector.
 
 // Search and Interpolation
 bool SearchVertex(const vector<Vertex3D>& vertices, float targetX, float targetY, float targetZ, int& ind);

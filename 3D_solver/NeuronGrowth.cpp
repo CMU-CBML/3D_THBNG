@@ -2241,10 +2241,10 @@ void NeuronGrowth::PreparePhaseField_SNES_preComputed()
 
                     // iii. Decide assembly rate based on tips (vars[9]) & syn (vars[6])
                     float eleE = 0.0f;
-                    if (n < 2500) {
+                    if (n < 0) {
                         // negative n logic
                         eleE = alphaOverPi * atan(gamma * (1 - vars[6]));
-						pre_eleMp[ind] = M_phi;
+						pre_eleMp[ind] = M_neurite;
                     } else {
                         // positive n logic: check tips
                         if (vars[9] > tip_threshold) {
@@ -2895,6 +2895,15 @@ bool NeuronGrowth::IsInBox(const Vertex3D& point, const Vertex3D& center, float 
     return true;
 }
 
+bool NeuronGrowth::IsWithinRadius(const Vertex3D& point, const Vertex3D& center, float radius) {
+    float dx = point.coor[0] - center.coor[0];
+    float dy = point.coor[1] - center.coor[1];
+    float dz = point.coor[2] - center.coor[2];
+    float distanceSquared = dx * dx + dy * dy + dz * dz;
+
+    return distanceSquared <= (radius * radius); // Compare squared distances to avoid sqrt
+}
+
 vector<int> NeuronGrowth::GetBoxNeighbors(
     int idx,
     const vector<Vertex3D> &cpts_fine,
@@ -2996,7 +3005,11 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 							const float& tip_I_sz,
 							const vector<Vertex3D>& cpts,
 							const Vertex3DCloud& cloud,
-							const KDTree& kdTree)
+							const KDTree& kdTree,
+							vector<array<float, 3>>& seed,
+							const int NX, const int NY, const int NZ,
+							const int originX, const int originY, const int originZ
+)
 {
 	vector<float> phi_fine(cpts_fine.size(), 0.0f);
 
@@ -3005,7 +3018,7 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 			cpts_fine[i], kdTree, cloud, phi, cpts, phi_fine[i], true);
 	}
 
-	// if (n % var_save_invl == 0) CheckVar("PHI_FINE", cpts_fine, phi_fine);
+	if (n % var_save_invl == 0) CheckVar("PHI_FINE", cpts_fine, phi_fine);
 
     const float threshold = 0.95f;    // Threshold for tip detection
     float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
@@ -3019,30 +3032,45 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
     // Clear and resize tips to match the number of control points
     vector<float> tips_fine(cpts_fine.size(), 0.0f);
 	
+	// // Initialize neurons
+	// vector<vector<vector<int>>> neurons;
+	// IdentifyNeurons3DWithKDTree(phi_fine, neurons, seed, NX, NY, NZ, originX, originY, originZ, kdTree_fine, cloud_fine);
+	// auto neurons_flattern = Convert3DIntTo1DFloatVector(neurons);
+	// CheckVar("NEURONS_", cpts_fine, neurons_flattern);
+	// vector<vector<vector<int>>> geoDist = CalculateGeodesicDistanceFromPoint3D(neurons, seed, originX, originY, originZ);
+	// auto geoDist_flattern = Convert3DIntTo1DFloatVector(geoDist);
+	// CheckVar("DIST_", cpts_fine, geoDist_flattern);
+
     // compute tip intensity
-    for (size_t i = 0; i < cpts_fine.size(); ++i) {
-        const auto& center = cpts_fine[i];
-        float localSum = 0.0f; // Sum of phi values within the box
+    for (size_t id = 0; id < seed.size(); ++id) {
+		for (size_t i = 0; i < cpts_fine.size(); ++i) {
+			const auto& center = cpts_fine[i];
+			float localSum = 0.0f; // Sum of phi values within the box
 
-        // Compute the sum of phi values for points within the vicinity
-        for (size_t j = 0; j < phi_fine.size(); ++j) {
-            if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
-                localSum += phiTransformed[j];
-            }
-        }
+			// Compute the sum of phi values for points within the vicinity
+			for (size_t j = 0; j < phi_fine.size(); ++j) {
+				// if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz) && neurons_flattern[i] == id) {
+				if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
+				// if (IsWithinRadius(cpts_fine[j], center, tip_I_sz)) {
+					localSum += phiTransformed[j];
+				}
+			}
 
-        // Compute the tip score for the current vertex
-        if (localSum > 0.0f) {
-            tips_fine[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
-        } else {
-            tips_fine[i] = 0.0f; // Avoid division by zero
-        }
-    }
+			// Compute the tip score for the current vertex
+			// if (localSum > 0.0f && tmp[i] < INF) {
+			if (localSum > 0.0f) {
+				tips_fine[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
+				//  * tmp[i];
+			} else {
+				tips_fine[i] = 0.0f; // Avoid division by zero
+			}
+		}
+	}
 
 	// FindLocalMaximaClusters_box(tips_fine, cpts_fine, 2, 2, 2);
 
     // Debugging and visualization
-    // if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
+    if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
 
     // Clear and resize tips to match the number of control points
     tips.clear();
@@ -3054,14 +3082,20 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 		maxTipValue = max(maxTipValue, tips[i]);
 	}
 	// cout << maxTipValue << endl;
-	maxTipValue = 0.0065;
-	// if (n % var_save_invl == 0) CheckVar("TIP_", cpts, tips);
+	// maxTipValue = min(maxTipValue, 0.0070f);
+	// maxTipValue = 0.0009; // large radius
+	// maxTipValue = min(maxTipValue * threshold, 0.00086)
+	// maxTipValue = 0.006;
+	// maxTipValue = min(maxTipValue * threshold, 0.006f);
+	
+	if (n % var_save_invl == 0) CheckVar("TIP_", cpts, tips);
 
     // Thresholding and normalization
     for (float& tip : tips) {
         tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
+        // tip = (tip > maxTipValue) ? 1.0f : 0.0f;
     }
-	// if (n % var_save_invl == 0) CheckVar("TIP_cutoff_", cpts, tips);
+	if (n % var_save_invl == 0) CheckVar("TIP_cutoff_", cpts, tips);
 
 }
 
@@ -3291,99 +3325,150 @@ vector<float> NeuronGrowth::FindLocalMaximaInClusters3D(const vector<float>& mat
 	return localMaxima;
 }
 
-// Converts a 1D vector of floats to a 3D vector of integers, applying a boundary condition
-vector<vector<vector<int>>> NeuronGrowth::ConvertTo3DIntVector(const vector<float>& input, int NX, int NY, int NZ) {
-    vector<vector<vector<int>>> output(NX + 1, vector<vector<int>>(NY + 1, vector<int>(NZ + 1)));
-
-    int k = 0;
-    for (int x = 0; x <= NX; ++x) {
-        for (int y = 0; y <= NY; ++y) {
-            for (int z = 0; z <= NZ; ++z) {
-                output[x][y][z] = CellBoundary(input[k++], 0);
-            }
-        }
-    }
-
-    return output;
-}
-
-// Converts a 1D vector of floats to a 3D vector of floats
-vector<vector<vector<float>>> NeuronGrowth::ConvertTo3DFloatVector(const vector<float>& input, int NX, int NY, int NZ) {
-    vector<vector<vector<float>>> output(NX, vector<vector<float>>(NY, vector<float>(NZ)));
-
-    int k = 0;
-    for (int x = 0; x < NX; ++x) {
-        for (int y = 0; y < NY; ++y) {
-            for (int z = 0; z < NZ; ++z) {
-                output[x][y][z] = input[k++];
-            }
-        }
-    }
-
-    return output;
-}
-
 void NeuronGrowth::FloodFill3DWithKDTree(vector<vector<vector<int>>>& image,
                                          int x, int y, int z, int newColor, int originalColor,
                                          const KDTree& kdTree, const Vertex3DCloud& cloud) 
 {
-    if (x < 0 || x >= image.size() || 
-        y < 0 || y >= image[0].size() || 
-        z < 0 || z >= image[0][0].size() || 
-        image[x][y][z] != originalColor || 
-        image[x][y][z] == newColor) {
-        return;
-    }
+    std::stack<array<int, 3>> stack;
+    stack.push({x, y, z});
 
-    image[x][y][z] = newColor;
+    while (!stack.empty()) {
+        auto [cx, cy, cz] = stack.top();
+        stack.pop();
 
-    // Search for neighbors using KD_SearchPair in six possible directions
-    int dx[] = {0, 0, -1, 1, 0, 0};
-    int dy[] = {-1, 1, 0, 0, 0, 0};
-    int dz[] = {0, 0, 0, 0, -1, 1};
+        if (cx < 0 || cx >= image.size() || 
+            cy < 0 || cy >= image[0].size() || 
+            cz < 0 || cz >= image[0][0].size() || 
+            image[cx][cy][cz] != originalColor || 
+            image[cx][cy][cz] == newColor) {
+            continue;
+        }
 
-    for (int i = 0; i < 6; ++i) {
-        int nx = x + dx[i];
-        int ny = y + dy[i];
-        int nz = z + dz[i];
+        image[cx][cy][cz] = newColor;
 
-        // Validate bounds
-        if (nx >= 0 && nx < image.size() && ny >= 0 && ny < image[0].size() && nz >= 0 && nz < image[0][0].size()) {
-            int index;
-            if (KD_SearchPair(cloud.pts, kdTree, nx, ny, nz, index)) {
-                FloodFill3DWithKDTree(image, nx, ny, nz, newColor, originalColor, kdTree, cloud);
+        int dx[] = {0, 0, -1, 1, 0, 0};
+        int dy[] = {-1, 1, 0, 0, 0, 0};
+        int dz[] = {0, 0, 0, 0, -1, 1};
+
+        for (int i = 0; i < 6; ++i) {
+            int nx = cx + dx[i];
+            int ny = cy + dy[i];
+            int nz = cz + dz[i];
+
+            if (nx >= 0 && nx < image.size() &&
+                ny >= 0 && ny < image[0].size() &&
+                nz >= 0 && nz < image[0][0].size()) {
+                stack.push({nx, ny, nz});
             }
         }
     }
 }
 
-void NeuronGrowth::IdentifyNeurons3DWithKDTree(vector<vector<vector<int>>>& neurons, 
-                                               const vector<array<int, 3>>& seed,
+void NeuronGrowth::IdentifyNeurons3DWithKDTree(vector<float> phi_fine,
+                                               vector<vector<vector<int>>>& neurons, 
+                                               const vector<array<float, 3>>& seed,
                                                int NX, int NY, int NZ, 
                                                int originX, int originY, int originZ,
                                                const KDTree& kdTree, const Vertex3DCloud& cloud) 
 {
-    // Convert `phi` into a 3D binary matrix representing neurons
-    neurons = ConvertTo3DIntVector(phi, NX, NY, NZ);
+    neurons = ConvertTo3DIntVector(phi_fine, (NX+1) * 4, (NY+1) * 4, (NZ+1) * 4);
+	PetscPrintf(PETSC_COMM_WORLD, "phi_fine %d, %d %d %d\n", phi_fine.size(), NX, NY, NZ);
 
     for (size_t i = 0; i < seed.size(); ++i) {
-        int startX = seed[i][0] - originX;
-        int startY = seed[i][1] - originY;
-        int startZ = seed[i][2] - originZ;
+        int startX = static_cast<int>((seed[i][0] - originX));
+        int startY = static_cast<int>((seed[i][1] - originY));
+        int startZ = static_cast<int>((seed[i][2] - originZ));
 
-        if (startX < 0 || startX >= NX || 
-            startY < 0 || startY >= NY || 
-            startZ < 0 || startZ >= NZ) {
+        PetscPrintf(PETSC_COMM_WORLD, "Cluster %zu:\n", i + 1);
+        PetscPrintf(PETSC_COMM_WORLD, "Seed: (%f, %f, %f)\n", seed[i][0], seed[i][1], seed[i][2]);
+        PetscPrintf(PETSC_COMM_WORLD, "Origin: (%d, %d, %d)\n", originX, originY, originZ);
+        PetscPrintf(PETSC_COMM_WORLD, "Start: (%d, %d, %d)\n", startX, startY, startZ);
+
+        if (startX < 0 || startX >= neurons.size() || 
+            startY < 0 || startY >= neurons[0].size() || 
+            startZ < 0 || startZ >= neurons[0][0].size()) {
             continue;
         }
 
         int newColor = static_cast<int>(i + 1);
         int originalColor = neurons[startX][startY][startZ];
+        PetscPrintf(PETSC_COMM_WORLD, "Colors - Original: %d, New: %d\n", originalColor, newColor);
+
         if (originalColor != newColor) {
             FloodFill3DWithKDTree(neurons, startX, startY, startZ, newColor, originalColor, kdTree, cloud);
         }
     }
 }
+
+// void NeuronGrowth::FloodFill3DWithKDTree(vector<vector<vector<int>>>& image,
+//                                          int x, int y, int z, int newColor, int originalColor,
+//                                          const KDTree& kdTree, const Vertex3DCloud& cloud) 
+// {
+//     if (x < 0 || x >= image.size() || 
+//         y < 0 || y >= image[0].size() || 
+//         z < 0 || z >= image[0][0].size() || 
+//         image[x][y][z] != originalColor || 
+//         image[x][y][z] == newColor) {
+//         return;
+//     }
+
+//     image[x][y][z] = newColor;
+
+//     // Search for neighbors using KD_SearchPair in six possible directions
+//     int dx[] = {0, 0, -1, 1, 0, 0};
+//     int dy[] = {-1, 1, 0, 0, 0, 0};
+//     int dz[] = {0, 0, 0, 0, -1, 1};
+
+//     for (int i = 0; i < 6; ++i) {
+//         int nx = x + dx[i];
+//         int ny = y + dy[i];
+//         int nz = z + dz[i];
+
+//         // Validate bounds
+//         if (nx >= 0 && nx < image.size() && ny >= 0 && ny < image[0].size() && nz >= 0 && nz < image[0][0].size()) {
+//             int index;
+//             if (KD_SearchPair(cloud.pts, kdTree, nx, ny, nz, index)) {
+//                 FloodFill3DWithKDTree(image, nx, ny, nz, newColor, originalColor, kdTree, cloud);
+//             }
+//         }
+//     }
+// }
+
+// void NeuronGrowth::IdentifyNeurons3DWithKDTree(vector<float> phi_fine,
+// 											vector<vector<vector<int>>>& neurons, 
+// 											const vector<array<float, 3>>& seed,
+// 											int NX, int NY, int NZ, 
+// 											int originX, int originY, int originZ,
+// 											const KDTree& kdTree, const Vertex3DCloud& cloud) 
+// {
+//     // Convert `phi` into a 3D binary matrix representing neurons
+//     neurons = ConvertTo3DIntVector(phi_fine, NX*4, NY*4, NZ*4);
+
+//     for (size_t i = 0; i < seed.size(); ++i) {
+// 		// cout << i << endl<< endl<< endl<< endl<< endl;
+// 		int startX = static_cast<int>((seed[i][0] - originX) * 4);
+// 		int startY = static_cast<int>((seed[i][1] - originY) * 4);
+// 		int startZ = static_cast<int>((seed[i][2] - originZ) * 4);
+
+// 		cout << seed[i][0] << " " << seed[i][1] << " " << seed[i][2] << endl;
+// 		cout << originX << " " << originY << " " << originZ << endl;
+// 		cout << startX << " " << startY << " " << startZ << " " << endl;
+// 		// cout << neurons.size() << endl;
+// 		if (startX < 0 || startX >= neurons.size() || 
+// 			startY < 0 || startY >= neurons[0].size() || 
+// 			startZ < 0 || startZ >= neurons[0][0].size()) {
+// 			continue; // Skip invalid seeds
+// 		}
+
+// 		int newColor = static_cast<int>(i + 1); // Assign unique color
+// 		int originalColor = neurons[startX][startY][startZ]; // Color at the seed point
+// 		cout << originalColor << " " << newColor << endl;
+		
+//         if (originalColor == newColor) {
+//             FloodFill3DWithKDTree(neurons, startX, startY, startZ, newColor, originalColor, kdTree, cloud);
+//         }
+//     }
+// }
 
 bool NeuronGrowth::IsValid(const int& x, const int& y, const int& z, 
 						const int& rows, const int& cols, 
@@ -3393,7 +3478,7 @@ bool NeuronGrowth::IsValid(const int& x, const int& y, const int& z,
 }
 
 vector<vector<vector<int>>> NeuronGrowth::CalculateGeodesicDistanceFromPoint3D(
-    vector<vector<vector<int>>> neurons, const vector<array<int, 3>>& seed,
+    vector<vector<vector<int>>> neurons, const vector<array<float, 3>>& seed,
     int originX, int originY, int originZ) 
 {
     int rows = neurons.size();
@@ -4063,6 +4148,7 @@ int RunNG(
 	while (iter <= NG.end_iter) {
 		NG.n = iter;
 
+		/*========================================================*/
 		// if we want to restart the simulation
 		if (restart == true) {
 			restart = false;
@@ -4088,18 +4174,6 @@ int RunNG(
 
 			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
 			return 2;
-		}
-		
-		/*========================================================*/
-		// Write physical domain results to file
-		if (NG.n != 0 && NG.n % NG.var_save_invl == 0) {
-			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-			NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
-			NG.VisualizeVTK_ControlMesh(cpts, iter, path_out);
-			PetscPrintf(PETSC_COMM_WORLD, 
-						"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
-						NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
-			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 		}
 		
 		/*--------------------------------------------------------*/
@@ -4138,6 +4212,7 @@ int RunNG(
 		// Update local refinement information (2 scenarios, initial local refinement and later interval based local refinements)
 		// if ((NG.n == 10 && !localRefine) || (NG.n % NG.refine_invl == 0 && NG.n != 0)) {
 		if (NG.n == 10 && !localRefine) {
+		// if (!localRefine) {
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			PetscPrintf(PETSC_COMM_WORLD, "Checking and compuing local refinement information\n");
 			// Store NG variables
@@ -4170,9 +4245,21 @@ int RunNG(
 			// Detect tips and save intermediate results
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			PetscPrintf(PETSC_COMM_WORLD, "Detecting tips\n");
-			float tip_intensity_sz = 8.0f; // box size for calculating tip intensity
-			// NG.DetectTips(cpts, tip_intensity_sz, kdTree);
-			NG.DetectTips(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree);
+
+			float tip_intensity_sz = 16.0f; // box size for calculating tip intensity
+			NG.DetectTips(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree, seed, NX, NY, NZ, originX, originY, originZ);
+			// NG.DetectTips(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree);
+			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+		}
+
+		// Write physical domain results to file
+		if (NG.n != 0 && NG.n % NG.var_save_invl == 0) {
+			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
+			NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
+			NG.VisualizeVTK_ControlMesh(cpts, iter, path_out);
+			PetscPrintf(PETSC_COMM_WORLD, 
+						"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
+						NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 		}
 

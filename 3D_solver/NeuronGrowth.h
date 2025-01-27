@@ -540,13 +540,22 @@ public:
 		float dx, float dy, float dz     // Half-dimensions of the box
 	); // Check if a given point is within a specified 3D box centered at 'center'
 
+	bool IsWithinRadius(
+		const Vertex3D& point, 
+		const Vertex3D& center, 
+		float radius
+	);
+
 	void DetectTips(const vector<Vertex3D>& cpts_fine, 
 		const Vertex3DCloud& cloud_fine,
 		const KDTree& kdTree_fine,
 		const float& tip_I_sz,
 		const vector<Vertex3D>& cpts,
 		const Vertex3DCloud& cloud,
-		const KDTree& kdTree
+		const KDTree& kdTree,
+		vector<array<float, 3>>& seed,
+		const int NX, const int NY, const int NZ,
+		const int originX, const int originY, const int originZ
 	);
 
 	// // Sum Calculation for Phi within a Specified Box
@@ -587,15 +596,6 @@ public:
 		const vector<float>& matrix, int depth, int rows, int cols
 	); // Locate local maxima in identified 3D clusters.
 
-	// Neuron Detection and Processing
-	vector<vector<vector<int>>> ConvertTo3DIntVector(
-		const vector<float>& input, int NX, int NY, int NZ
-	); // Convert a 1D float vector to a 3D integer vector.
-
-	vector<vector<vector<float>>> ConvertTo3DFloatVector(
-		const vector<float>& input, int NX, int NY, int NZ
-	); // Convert a 1D float vector to a 3D float vector.
-
 	void FloodFill3DWithKDTree(
 		vector<vector<vector<int>>>& image, int x, int y, int z, 
 		int newColor, int originalColor, const KDTree& kdTree, 
@@ -603,8 +603,11 @@ public:
 	); // Perform 3D flood fill with KDTree for spatial connectivity.
 
 	void IdentifyNeurons3DWithKDTree(
-		vector<vector<vector<int>>>& neurons, const vector<array<int, 3>>& seed,
-		int NX, int NY, int NZ, int originX, int originY, int originZ,
+		vector<float> phi_fine,
+		vector<vector<vector<int>>>& neurons,
+		const vector<array<float, 3>>& seed,
+		int NX, int NY, int NZ,
+		int originX, int originY, int originZ,
 		const KDTree& kdTree, const Vertex3DCloud& cloud
 	); // Identify neurons in a 3D grid using KDTree and seed points.
 
@@ -614,7 +617,8 @@ public:
 	); // Check if a 3D point is valid within specified bounds.
 
 	vector<vector<vector<int>>> CalculateGeodesicDistanceFromPoint3D(
-		vector<vector<vector<int>>> neurons, const vector<array<int, 3>>& seed, 
+		vector<vector<vector<int>>> neurons,
+		const vector<array<float, 3>>& seed,
 		int originX, int originY, int originZ
 	); // Calculate geodesic distances from a given seed point in 3D.
 

@@ -285,24 +285,24 @@ void InitializeSoma(int numNeuron, vector<array<float, 3>>& seed, int& NX, int& 
     // Initialize neuron soma based on the number of neurons
     switch (numNeuron) {
         case 1:
-            // // Single neuron case
-            // NX = 10;
-            // NY = 10;
-            // NZ = 10;  // Assumes 3D initialization
-            // seed[0] = {20.0f, 20.0f, 20.0f};
-            NX = 5;
-            NY = 5;
-            NZ = 5;  // Assumes 3D initialization
-            seed[0] = {10.0f, 10.0f, 10.0f};
+            // Single neuron case
+            NX = 10;
+            NY = 10;
+            NZ = 10;  // Assumes 3D initialization
+            seed[0] = {20.0f, 20.0f, 20.0f};
+            // NX = 5;
+            // NY = 5;
+            // NZ = 5;  // Assumes 3D initialization
+            // seed[0] = {10.0f, 10.0f, 10.0f};
             break;
 
         case 2:
             // Two neurons in a 2D plane
-            NX = 140;
-            NY = 70;
-            NZ = 1;  // Flat plane
-            seed[0] = {35.0f, 35.0f, 0.0f};
-            seed[1] = {105.0f, 35.0f, 0.0f};
+            NX = 10;
+            NY = 10;
+            NZ = 10;  // Flat plane
+            seed[0] = {20.0f, 20.0f, 10.0f};
+            seed[1] = {20.0f, 20.0f, 30.0f};
             break;
 
         case 3:
@@ -477,6 +477,54 @@ vector<float> Convert3DFloatTo1DFloatVector(const vector<vector<vector<float>>>&
         for (const auto& row : matrix) {
             for (float value : row) {
                 output.emplace_back(value); // Store float value in the 1D vector
+            }
+        }
+    }
+
+    return output;
+}
+
+
+// Converts a 1D vector of floats to a 3D vector of integers, applying a boundary condition
+vector<vector<vector<int>>> ConvertTo3DIntVector(const vector<float>& phi_fine, int NX, int NY, int NZ) {
+    vector<vector<vector<int>>> grid(NX, vector<vector<int>>(NY, vector<int>(NZ, 0)));
+
+    for (int x = 0; x < NX; ++x) {
+        for (int y = 0; y < NY; ++y) {
+            for (int z = 0; z < NZ; ++z) {
+                int index = x * NY * NZ + y * NZ + z;
+                if (index < phi_fine.size()) {
+                    grid[x][y][z] = (phi_fine[index] > 0.5) ? 1 : 0; // Threshold
+                }
+            }
+        }
+    }
+    return grid;
+}
+// vector<vector<vector<int>>> ConvertTo3DIntVector(const vector<float>& input, int NX, int NY, int NZ) {
+//     vector<vector<vector<int>>> output(NX + 1, vector<vector<int>>(NY + 1, vector<int>(NZ + 1)));
+
+//     int k = 0;
+//     for (int x = 0; x <= NX; ++x) {
+//         for (int y = 0; y <= NY; ++y) {
+//             for (int z = 0; z <= NZ; ++z) {
+//                 output[x][y][z] = input[k++];
+//             }
+//         }
+//     }
+
+//     return output;
+// }
+
+// Converts a 1D vector of floats to a 3D vector of floats
+vector<vector<vector<float>>> ConvertTo3DFloatVector(const vector<float>& input, int NX, int NY, int NZ){
+    vector<vector<vector<float>>> output(NX, vector<vector<float>>(NY, vector<float>(NZ)));
+
+    int k = 0;
+    for (int x = 0; x < NX; ++x) {
+        for (int y = 0; y < NY; ++y) {
+            for (int z = 0; z < NZ; ++z) {
+                output[x][y][z] = input[k++];
             }
         }
     }

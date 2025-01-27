@@ -13,7 +13,7 @@ mkdir ../io3D/
 mkdir ../io3D/outputs/
 
 module load openmpi/5.0.3-gcc13.2.1
-/ocean/projects/eng170006p/ussqww/petsc/arch-linux-c-opt/bin/mpiexec -np 128 ./3DNG 1 350000 snes ../io3D/
+/ocean/projects/eng170006p/ussqww/petsc/arch-linux-c-opt/bin/mpiexec -np 128 ./3DNG --numNeuron=1 --end_iter=500000 --solver=snes --path_in=../io3D/ --restart=no | tee -a ../io3D/log.txt
 
 #-- exit
 #

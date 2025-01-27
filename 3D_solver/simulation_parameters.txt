@@ -1,10 +1,10 @@
-var_save_invl = 100
-expandCK_invl = 500
+var_save_invl = 10
+expandCK_invl = 50
 tip_detect_invl = 25
-tip_threshold = 0.1
+tip_threshold = 0.2
 expand_sz = 1
 numNeuron = 1
-seed_radius = 4
+seed_radius = 6
 dt = 0.001
 aniso = 6
 gamma = 10
