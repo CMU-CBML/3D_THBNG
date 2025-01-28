@@ -1,7 +1,7 @@
 var_save_invl = 10
 expandCK_invl = 50
 tip_detect_invl = 25
-tip_threshold = 0.2
+tip_threshold = 0.1
 expand_sz = 1
 numNeuron = 1
 seed_radius = 6
