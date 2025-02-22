@@ -1544,7 +1544,6 @@ bool NeuronGrowth::ReadVTK(const string &filename)
             string dummy;
             ss >> dummy;            // "POINTS"
             ss >> numPoints;        // e.g. 123
-			std::cout << "numPoints read: " << numPoints << endl << endl << endl;
             // skip "float"
             foundPoints = true;
 
@@ -1624,11 +1623,7 @@ bool NeuronGrowth::ReadVTK(const string &filename)
                 cerr << "EOF reading SCALARS " << scalarName << endl;
                 return false;
             }
-			// ignore the "LOOKUP_TABLE" line
-			if (line.rfind("LOOKUP_TABLE default", 0) != 0) {
-				cerr << "LOOKUP_TABLE expected, but not found\n";
-				return false;
-			}
+            // ignore the "LOOKUP_TABLE" line
 
             // Find which scalar index we have
             auto it = find(scalarNames.begin(), scalarNames.end(), scalarName);
@@ -3269,7 +3264,7 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 	}
 
 	// if (n % var_save_invl == 0) CheckVar("PHI_FINE", cpts_fine, phi_fine);
-	CheckVar("PHI_FINE", cpts_fine, phi_fine);
+	// CheckVar("PHI_FINE", cpts_fine, phi_fine);
 
     const float threshold = 0.95f;    // Threshold for tip detection
     float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
@@ -3319,7 +3314,7 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 		}
 	}
 
-    CheckVar("TIP_FINE_", cpts_fine, tips_fine);
+    // CheckVar("TIP_FINE_", cpts_fine, tips_fine);
 
 	maxTipValue = min(maxTipValue, 0.00130f);
 	// maxTipValue = 0.00133;
@@ -3328,13 +3323,13 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
     for (float& tip : tips_fine) {
         tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
     }
-	CheckVar("TIP_FINE_cutoff_", cpts_fine, tips_fine);
+	// CheckVar("TIP_FINE_cutoff_", cpts_fine, tips_fine);
 
 	FindLocalMaximaClusters_box(tips_fine, cpts_fine, 4, 4, 4);
 
     // Debugging and visualization
     // if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
-    CheckVar("TIP_local_FINE_", cpts_fine, tips_fine);
+    // CheckVar("TIP_local_FINE_", cpts_fine, tips_fine);
 
     // Clear and resize tips to match the number of control points
     tips.clear();
@@ -3344,7 +3339,7 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 		InterpolateOrFindExact_singleVar(
 			cpts[i], kdTree_fine, cloud_fine, tips_fine, cpts_fine, tips[i], false);
 	}
-	CheckVar("TIP_FINAL", cpts, tips);
+	// CheckVar("TIP_FINAL", cpts, tips);
 
 	// float m_2std = RmOutlier(tips);
 	// cout << maxTipValue << " " << m_2std << endl;
@@ -4376,62 +4371,6 @@ PetscErrorCode MySNESMonitor(SNES snes, PetscInt its, PetscReal fnorm, PetscView
     PetscFunctionReturn(PETSC_SUCCESS); // Indicate successful execution
 }
 
-// PetscErrorCode CleanUpSolvers(NeuronGrowth &NG) {
-//     if (NG.phi_solver == "snes") {
-//         // Safely destroy SNES solver for phi
-//         if (NG.snes_phi) { // Check if snes_phi is not NULL before destroying
-//             CHKERRQ(SNESDestroy(&NG.snes_phi));
-//         }
-//         if (NG.J) { // Check if J is not NULL before destroying
-//             CHKERRQ(MatDestroy(&NG.J));
-//         }
-//     } else {
-//         // Safely destroy KSP solver and resources for phi
-//         if (NG.ksp_phi) { // Check if ksp_phi is not NULL before destroying
-//             CHKERRQ(KSPDestroy(&NG.ksp_phi));
-//         }
-//         if (NG.GK_phi) { // Check if GK_phi is not NULL before destroying
-//             CHKERRQ(MatDestroy(&NG.GK_phi));
-//         }
-//         if (NG.GR_phi) { // Check if GR_phi is not NULL before destroying
-//             CHKERRQ(VecDestroy(&NG.GR_phi));
-//         }
-//     }
-//     if (NG.temp_phi) { // Check if temp_phi is not NULL before destroying
-//         CHKERRQ(VecDestroy(&NG.temp_phi));
-//     }
-
-//     // Safely destroy KSP solver and resources for synaptogenesis (syn)
-//     if (NG.ksp_syn) { // Check if ksp_syn is not NULL before destroying
-//         CHKERRQ(KSPDestroy(&NG.ksp_syn));
-//     }
-//     if (NG.GK_syn) { // Check if GK_syn is not NULL before destroying
-//         CHKERRQ(MatDestroy(&NG.GK_syn));
-//     }
-//     if (NG.GR_syn) { // Check if GR_syn is not NULL before destroying
-//         CHKERRQ(VecDestroy(&NG.GR_syn));
-//     }
-//     if (NG.temp_syn) { // Check if temp_syn is not NULL before destroying
-//         CHKERRQ(VecDestroy(&NG.temp_syn));
-//     }
-
-//     // Safely destroy KSP solver and resources for tubules (tub)
-//     if (NG.ksp_tub) { // Check if ksp_tub is not NULL before destroying
-//         CHKERRQ(KSPDestroy(&NG.ksp_tub));
-//     }
-//     if (NG.GK_tub) { // Check if GK_tub is not NULL before destroying
-//         CHKERRQ(MatDestroy(&NG.GK_tub));
-//     }
-//     if (NG.GR_tub) { // Check if GR_tub is not NULL before destroying
-//         CHKERRQ(VecDestroy(&NG.GR_tub));
-//     }
-//     if (NG.temp_tub) { // Check if temp_tub is not NULL before destroying
-//         CHKERRQ(VecDestroy(&NG.temp_tub));
-//     }
-
-//     PetscFunctionReturn(PETSC_SUCCESS); // Indicate successful execution
-// }
-
 // Cleans up solvers and associated resources in the NeuronGrowth object
 PetscErrorCode CleanUpSolvers(NeuronGrowth &NG) {
 	if (NG.phi_solver == "snes") {
@@ -4515,8 +4454,6 @@ int RunNG(
 	NG.ReadBezierElementProcess(path_in);
 	PetscPrintf(PETSC_COMM_WORLD, "Read bzmesh!-----------------------------------------------------------------\n");	
 
-	NG.VisualizeVTK_PhysicalDomain_All(99999, NG.path_out);
-	// return 3;
 	/*========================================================*/
 	// Write initial variables
 	string varName;	
@@ -4561,8 +4498,8 @@ int RunNG(
 			// Clean up solvers and synchronize processes
 			// CHKERRQ(CleanUpSolvers(NG));
 
-			NG.CheckVar("CheckExp_phi_reading", NG.cpts, NG.phi);
-			NG.CheckVar("CheckExp_syn_reading", NG.cpts, NG.syn);
+			// NG.CheckVar("CheckExp_phi_reading", NG.cpts, NG.phi);
+			// NG.CheckVar("CheckExp_syn_reading", NG.cpts, NG.syn);
 
 			// NG.VisualizeVTK_PhysicalDomain_All(99999, NG.path_out);
 
@@ -4579,6 +4516,33 @@ int RunNG(
 			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
 			return 2;
 		}
+		// /*========================================================*/
+		// // if we want to restart the simulation
+		// if (restart == true) {
+		// 	restart = false;
+		// 	string restartVTK = FindLatestVTK(path_out);
+		// 	if (restartVTK == "") {
+		// 		cerr << "Failed to read the latest VTK file.\n";
+		// 	} else {
+		// 		cout << "Read " << cpts.size() << " points from the largest-step file.\n";
+		// 	}
+		// 	NG.ReadVTK(restartVTK);
+		// 	NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
+		// 	// Clean up solvers and synchronize processes
+		// 	// CHKERRQ(CleanUpSolvers(NG));
+
+		// 	// if (NG.comRank == 0) {
+		// 	// 	// Vertex3DCloud cloud(cpts); 					// Cloud for current points
+		// 	// 	// KDTree kdTree(3 /* dim */, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
+		// 	// 	// kdTree.buildIndex();
+		// 	// 	// Compute refinement values and save to file
+		// 	// 	vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
+		// 	// 	writeVectorToFile(ele_refine, path_in + "phi.txt", false);
+		// 	// }
+
+		// 	CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+		// 	return 2;
+		// }
 		
 		/*--------------------------------------------------------*/
 		// Domain expansion and variable passing
@@ -4586,30 +4550,17 @@ int RunNG(
 			// localRefine = true;
 
 			NG.HandleExpansion(NG.phi, NX, NY, NZ, originX, originY, originZ);
-			PetscPrintf(PETSC_COMM_WORLD, "Memcheck 1 ... \n");	
-			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
-
 			// Store NG variables
 			NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
-			PetscPrintf(PETSC_COMM_WORLD, "Memcheck 2 ... \n");	
-			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
-
-			std::cout << "restart: " << restart << endl;
-			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
 
 			// Clean up solvers and synchronize processes
 			if (restart == false && tmp_restart_check == 1) {
-
 			} else {
 				CHKERRQ(CleanUpSolvers(NG));
 			}
-			PetscPrintf(PETSC_COMM_WORLD, "Memcheck 2.5 ... \n");	
-			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
-
+			// // Clean up solvers and synchronize processes
+			// CHKERRQ(CleanUpSolvers(NG));
 			NG.VisualizeVTK_ControlMesh(cpts, iter, path_out);
-			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
-
-			PetscPrintf(PETSC_COMM_WORLD, "Memcheck 3 ... \n");	
 
 			if (NG.comRank == 0) {
 				// Compute refinement values and save to file
