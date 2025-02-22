@@ -506,7 +506,7 @@ public:
 		const KDTree& kdTree,              				// KDTree for spatial indexing
 		float targetX, float targetY, float targetZ, 	// Target coordinates to search
 		int& ind,                          				// Output: index of the closest match
-		float tolerance = 1.0f             				// Tolerance for pair matching
+		float tolerance = 0.25f             				// Tolerance for pair matching
 	); // Search for a pair in KDTree within a tolerance
 	
 	// Tip Detection Functions
@@ -558,6 +558,14 @@ public:
 		const int originX, const int originY, const int originZ
 	);
 
+	void DetectTips_old(const vector<Vertex3D>& cpts_fine, 
+		const Vertex3DCloud& cloud_fine,
+		const KDTree& kdTree_fine,
+		const float& tip_I_sz,
+		const vector<Vertex3D>& cpts,
+		const Vertex3DCloud& cloud,
+		const KDTree& kdTree);
+	
 	// // Sum Calculation for Phi within a Specified Box
 	// void DetectTips(
 	// 	const vector<Vertex3D>& cpts,    // Control points representing center points
@@ -598,7 +606,7 @@ public:
 
 	void FloodFill3DWithKDTree(
 		vector<vector<vector<int>>>& image, int x, int y, int z, 
-		int newColor, int originalColor, const KDTree& kdTree, 
+		float newColor, float originalColor, const KDTree& kdTree, 
 		const Vertex3DCloud& cloud
 	); // Perform 3D flood fill with KDTree for spatial connectivity.
 
@@ -684,7 +692,7 @@ int RunNG(
     bool &localRefine,
 	const string& phi_solver,
 	double& t_global,
-	bool& restart
+	bool& restart, int& tmp_restart_check
 ); // Runs the Neuron Growth simulation for the specified input parameters.
 
 #endif

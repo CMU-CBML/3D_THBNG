@@ -169,6 +169,7 @@ int main(int argc, char** argv)
         originX = (int)domain_size[3];
         originY = (int)domain_size[4];
         originZ = (int)domain_size[5];
+        cout << "Read origin: " << originX << " " << originY << " " << originZ << endl;
         
         string latestVTK = FindLatestVTK(path_out);
         iter = getStepFromVTK(latestVTK.substr(path_out.size(), latestVTK.size() - path_out.size()));
@@ -185,6 +186,7 @@ int main(int argc, char** argv)
     PetscPrintf(PETSC_COMM_WORLD, "Starting Simulation\n");
     double t_global = 0;
 
+    int tmp_restart_check = 0;
     // Main simulation loop
     while (iter <= end_iter) {
         // Reset simulation state
@@ -231,7 +233,7 @@ int main(int argc, char** argv)
             localRefine,
             solver,
             t_global,
-            restart);
+            restart, tmp_restart_check);
 
         // Exit if simulation diverges
         if (state == 3) {

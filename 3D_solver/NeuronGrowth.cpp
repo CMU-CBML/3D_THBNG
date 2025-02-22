@@ -369,6 +369,7 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 				if (r <= seed_radius) {  // Inside seed radius
 					phi[i] = 1.0f;  // Initial phi
 					tub[i] = 0.5f + 0.5f * tanh((sqrt(seed_radius) - r) / 2.0f);  // Based on literature equation
+					// cpts[i].label = 1;
 				}
 			}
 
@@ -399,6 +400,14 @@ void NeuronGrowth::InitializeProblemNG(const int n_bz,
 			cpts[i].label = (x == min_x || x == max_x ||
 								y == min_y || y == max_y ||
 								z == min_z || z == max_z) ? 1 : 0;
+
+			// // Check for initial soma placement around seeds
+			// for (const auto& seed_point : seed) {
+			// 	r = sqrt(pow(x - seed_point[0], 2) + pow(y - seed_point[1], 2) + pow(z - seed_point[2], 2));
+			// 	if (r <= seed_radius) {  // Inside seed radius
+			// 		cpts[i].label = 1;
+			// 	}
+			// }
 
 			// Check if the point is within bounds
 			bool withinBounds = (x > min_x_prev && x < max_x_prev &&
@@ -527,7 +536,6 @@ void NeuronGrowth::InterpolateOrFindExact(
         tub_0 /= totalWeight;
     }
 }
-
 
 void NeuronGrowth::InterpolateOrFindExact_singleVar(
     const Vertex3D& cpt, 
@@ -1536,6 +1544,7 @@ bool NeuronGrowth::ReadVTK(const string &filename)
             string dummy;
             ss >> dummy;            // "POINTS"
             ss >> numPoints;        // e.g. 123
+			std::cout << "numPoints read: " << numPoints << endl << endl << endl;
             // skip "float"
             foundPoints = true;
 
@@ -1615,7 +1624,11 @@ bool NeuronGrowth::ReadVTK(const string &filename)
                 cerr << "EOF reading SCALARS " << scalarName << endl;
                 return false;
             }
-            // ignore the "LOOKUP_TABLE" line
+			// ignore the "LOOKUP_TABLE" line
+			if (line.rfind("LOOKUP_TABLE default", 0) != 0) {
+				cerr << "LOOKUP_TABLE expected, but not found\n";
+				return false;
+			}
 
             // Find which scalar index we have
             auto it = find(scalarNames.begin(), scalarNames.end(), scalarName);
@@ -2862,27 +2875,153 @@ bool NeuronGrowth::KD_SearchPair(const vector<Vertex3D>& cpts,
 }
 
 float NeuronGrowth::RmOutlier(vector<float> &data) {
-    // Calculate the mean of the data
-    float sum = accumulate(data.begin(), data.end(), 0.0f);
-    float mean = sum / data.size();
+	if (data.empty()) {
+        return 0.0f; // Handle empty input
+    }
 
-    // Calculate the standard deviation
-    float sq_sum = inner_product(data.begin(), data.end(), data.begin(), 0.0f,
-                                 [](float acc, float val) { return acc + val; },
-                                 [mean](float a, float b) { return pow(a - mean, 2) + b; });
-    float standardDeviation = sqrt(sq_sum / data.size());
+    // 1. Filter out zeros and create a new vector
+    std::vector<float> non_zero_data;
+    for (float value : data) {
+        if (value != 0.0f) {
+            non_zero_data.push_back(value);
+        }
+    }
 
-    // Define the threshold as mean + 3 * standard deviation
+    if (non_zero_data.empty()) {
+        return 0.0f; // Or handle the case where all values were zero.
+    }
+
+
+    // 2. Calculate mean and standard deviation using non-zero data
+    float sum = std::accumulate(non_zero_data.begin(), non_zero_data.end(), 0.0f);
+    float mean = sum / non_zero_data.size();
+
+    float sq_sum = std::inner_product(non_zero_data.begin(), non_zero_data.end(), non_zero_data.begin(), 0.0f,
+                               [](float acc, float val) { return acc + val; },
+                               [mean](float a, float b) { return std::pow(a - mean, 2) + b; });
+    float standardDeviation = std::sqrt(sq_sum / non_zero_data.size());
+
+    // 3. Define the threshold
     float threshold = mean + 3 * standardDeviation;
 
-    // Clamp values that exceed the threshold to the threshold value
-    transform(data.begin(), data.end(), data.begin(), [threshold](float value) {
-        return min(value, threshold);
+    // 4. Clamp values in the ORIGINAL data vector (not the filtered one)
+    std::transform(data.begin(), data.end(), data.begin(), [threshold](float value) {
+        if (value != 0.0f) { // Only clamp non-zero values
+          return std::min(value, threshold);
+        }
+        return value; // Leave zeros unchanged
     });
 
-    // Return an adjusted threshold for potential further use
+    // 5. Return the adjusted threshold (based on non-zero data)
     return mean + 2 * standardDeviation;
 }
+//     // Calculate the mean of the data
+//     float sum = accumulate(data.begin(), data.end(), 0.0f);
+//     float mean = sum / data.size();
+
+//     // Calculate the standard deviation
+//     float sq_sum = inner_product(data.begin(), data.end(), data.begin(), 0.0f,
+//                                  [](float acc, float val) { return acc + val; },
+//                                  [mean](float a, float b) { return pow(a - mean, 2) + b; });
+//     float standardDeviation = sqrt(sq_sum / data.size());
+
+//     // Define the threshold as mean + 3 * standard deviation
+//     float threshold = mean + 3 * standardDeviation;
+
+//     // Clamp values that exceed the threshold to the threshold value
+//     transform(data.begin(), data.end(), data.begin(), [threshold](float value) {
+//         return min(value, threshold);
+//     });
+
+//     // Return an adjusted threshold for potential further use
+//     return mean + 2 * standardDeviation;
+// }
+//     if (data.empty()) {
+//         return 0.0f; // Handle empty input
+//     }
+
+//     // Calculate the mean
+//     float sum = std::accumulate(data.begin(), data.end(), 0.0f);
+//     float mean = sum / data.size();
+
+//     // Calculate the standard deviation
+//     float sq_sum = std::inner_product(data.begin(), data.end(), data.begin(), 0.0f,
+//                                [](float acc, float val) { return acc + val; },
+//                                [mean](float a, float b) { return std::pow(a - mean, 2) + b; });
+//     float standardDeviation = std::sqrt(sq_sum / data.size());
+
+//     // Define the threshold (e.g., 3 standard deviations)
+//     float threshold = mean + 3 * standardDeviation;
+//     float lower_threshold = mean - 3 * standardDeviation; // For lower bound
+
+//     // Remove outliers (both above and below the threshold)
+//     data.erase(std::remove_if(data.begin(), data.end(), 
+//                              [threshold, lower_threshold](float value) {
+//                                  return value > threshold || value < lower_threshold; 
+//                              }), 
+//                data.end());
+
+//     // Recalculate mean and standard deviation after removing outliers (Important!)
+//     if (!data.empty()) { //Check if data is not empty after outlier removal
+//         sum = std::accumulate(data.begin(), data.end(), 0.0f);
+//         mean = sum / data.size();
+
+//         sq_sum = std::inner_product(data.begin(), data.end(), data.begin(), 0.0f,
+//                                    [](float acc, float val) { return acc + val; },
+//                                    [mean](float a, float b) { return std::pow(a - mean, 2) + b; });
+//         standardDeviation = std::sqrt(sq_sum / data.size());
+//     }
+
+//     return mean + 2 * standardDeviation; // Or whatever you need to return
+// }
+//     if (data.empty()) {
+//         return 0.0f; // Handle empty input
+//     }
+
+//     // Calculate the mean
+//     float mean = std::accumulate(data.begin(), data.end(), 0.0f) / data.size();
+
+//     // Create a copy of the data containing only the top half
+//     std::vector<float> top_half_data;
+//     for (float value : data) {
+//         if (value >= mean) {
+//             top_half_data.push_back(value);
+//         }
+//     }
+
+//     if (top_half_data.empty()) {
+//       return mean; //Or some other default value
+//     }
+
+//     // Calculate the standard deviation of the top half
+//     float std_dev_top_half = std::sqrt(std::inner_product(top_half_data.begin(), top_half_data.end(), top_half_data.begin(), 0.0f,
+//                                [](float acc, float val) { return acc + val; },
+//                                [mean](float a, float b) { return std::pow(a - mean, 2) + b; }) / top_half_data.size());
+
+//     // Define the threshold (e.g., 3 standard deviations above the mean)
+//     float threshold = mean + 3 * std_dev_top_half;
+
+//     // Remove outliers from the original data (above the calculated threshold)
+//     data.erase(std::remove_if(data.begin(), data.end(),
+//                              [threshold](float value) { return value > threshold; }),
+//                data.end());
+
+//     // *** CORRECTED: Recalculate based on TOP HALF AFTER REMOVAL ***
+//     top_half_data.clear(); // Clear previous top_half data
+//     for (float value : data) { // Re-populate top half with the new data
+//         if (value >= mean) {
+//             top_half_data.push_back(value);
+//         }
+//     }
+//     if (!top_half_data.empty()){ // Check if top_half_data is not empty
+//         mean = std::accumulate(top_half_data.begin(), top_half_data.end(), 0.0f) / top_half_data.size();
+//         std_dev_top_half = std::sqrt(std::inner_product(top_half_data.begin(), top_half_data.end(), top_half_data.begin(), 0.0f,
+//                                    [](float acc, float val) { return acc + val; },
+//                                    [mean](float a, float b) { return std::pow(a - mean, 2) + b; }) / top_half_data.size());
+//     }
+
+//     return mean + 2 * std_dev_top_half; // Return based on the top half
+// }
 
 float NeuronGrowth::CellBoundary(float phi, float threshold) {
     return (phi > threshold) ? 1.0f : 0.0f;
@@ -2922,18 +3061,6 @@ vector<int> NeuronGrowth::GetBoxNeighbors(
     return neighbors;
 }
 
-/**
- * @brief For each connected cluster in tips_fine (non-zero values),
- *        find the index with the highest tips_fine[...] value and set that point to 1,
- *        while setting all other cluster points to 0.
- *
- * @param[in,out] tips_fine  A float array the same size as cpts_fine. 
- *                           Non-zero => part of a cluster. On output, only
- *                           one point per cluster remains 1, others become 0.
- * @param[in]     cpts_fine  A vector of 3D coordinates corresponding to tips_fine.
- * @param[in]     dx,dy,dz   Half-widths of the "neighbor" bounding box.
- * @note The function uses the IsInBox(...) method to define "connectedness."
- */
 void NeuronGrowth::FindLocalMaximaClusters_box(
     vector<float> &tips_fine,
     const vector<Vertex3D> &cpts_fine,
@@ -2951,11 +3078,14 @@ void NeuronGrowth::FindLocalMaximaClusters_box(
         return (tips_fine[a] < tips_fine[b]);
     };
 
+	int numClusters(0);
+	
     // Loop over each point to find clusters
     for (size_t startIdx = 0; startIdx < nPoints; ++startIdx) {
         // Only proceed if tips_fine[startIdx] != 0 (part of a cluster)
         // and we haven't already visited it.
         if (tips_fine[startIdx] != 0.0f && !visited[startIdx]) {
+			numClusters++;
             // We'll gather all points in this cluster
             queue<int> Q;
             vector<int> clusterIndices;
@@ -2997,8 +3127,128 @@ void NeuronGrowth::FindLocalMaximaClusters_box(
             tips_fine[localMaxIdx] = 1.0f; 
         }
     }
+
+    // Print the number of clusters using PetscPrintf
+    PetscPrintf(PETSC_COMM_WORLD, "Number of clusters identified: %d\n", numClusters);
 }
 
+// void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine, 
+// 							const Vertex3DCloud& cloud_fine,
+// 							const KDTree& kdTree_fine,
+// 							const float& tip_I_sz,
+// 							const vector<Vertex3D>& cpts,
+// 							const Vertex3DCloud& cloud,
+// 							const KDTree& kdTree,
+// 							vector<array<float, 3>>& seed,
+// 							const int NX, const int NY, const int NZ,
+// 							const int originX, const int originY, const int originZ
+// )
+// {
+// 	vector<float> phi_fine(cpts_fine.size(), 0.0f);
+
+// 	for (size_t i = 0; i < cpts_fine.size(); ++i) {
+// 		InterpolateOrFindExact_singleVar(
+// 			cpts_fine[i], kdTree, cloud, phi, cpts, phi_fine[i], true);
+// 	}
+
+// 	// if (n % var_save_invl == 0) CheckVar("PHI_FINE", cpts_fine, phi_fine);
+// 	CheckVar("PHI_FINE", cpts_fine, phi_fine);
+
+//     const float threshold = 0.95f;    // Threshold for tip detection
+//     float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
+
+//     // Precompute transformed phi values
+//     vector<float> phiTransformed(phi_fine.size());
+//     for (size_t j = 0; j < phi_fine.size(); ++j) {
+//         phiTransformed[j] = CellBoundary(phi_fine[j], 0.50f);
+//     }
+
+//     // Clear and resize tips to match the number of control points
+//     vector<float> tips_fine(cpts_fine.size(), 0.0f);
+	
+// 	// // Initialize neurons
+// 	// vector<vector<vector<int>>> neurons;
+// 	// IdentifyNeurons3DWithKDTree(phi_fine, neurons, seed, NX, NY, NZ, originX, originY, originZ, kdTree_fine, cloud_fine);
+// 	// auto neurons_flattern = Convert3DIntTo1DFloatVector(neurons);
+// 	// CheckVar("NEURONS_", cpts_fine, neurons_flattern);
+// 	// vector<vector<vector<int>>> geoDist = CalculateGeodesicDistanceFromPoint3D(neurons, seed, originX, originY, originZ);
+// 	// auto geoDist_flattern = Convert3DIntTo1DFloatVector(geoDist);
+// 	// CheckVar("DIST_", cpts_fine, geoDist_flattern);
+
+//     // compute tip intensity
+//     for (size_t id = 0; id < seed.size(); ++id) {
+// 		for (size_t i = 0; i < cpts_fine.size(); ++i) {
+// 			const auto& center = cpts_fine[i];
+// 			float localSum = 0.0f; // Sum of phi values within the box
+
+// 			// Compute the sum of phi values for points within the vicinity
+// 			for (size_t j = 0; j < phi_fine.size(); ++j) {
+// 				// if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz) && neurons_flattern[i] == id) {
+// 				if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
+// 				// if (IsWithinRadius(cpts_fine[j], center, tip_I_sz)) {
+// 					localSum += phiTransformed[j];
+// 				}
+// 			}
+
+// 			// Compute the tip score for the current vertex
+// 			// if (localSum > 0.0f && tmp[i] < INF) {
+// 			if (localSum > 0.0f) {
+// 				tips_fine[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
+// 				//  * tmp[i];
+// 			} else {
+// 				tips_fine[i] = 0.0f; // Avoid division by zero
+// 			}
+// 		}
+// 	}
+
+//     CheckVar("TIP_FINE_", cpts_fine, tips_fine);
+
+// 	FindLocalMaximaClusters_box(tips_fine, cpts_fine, 4, 4, 4);
+
+//     // Debugging and visualization
+//     // if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
+//     CheckVar("TIP_local_FINE_", cpts_fine, tips_fine);
+
+//     // Clear and resize tips to match the number of control points
+//     tips.clear();
+//     tips.resize(cpts.size(), 0.0f);
+
+// 	for (size_t i = 0; i < cpts.size(); ++i) {
+// 		InterpolateOrFindExact_singleVar(
+// 			cpts[i], kdTree_fine, cloud_fine, tips_fine, cpts_fine, tips[i], false);
+// 		maxTipValue = max(maxTipValue, tips[i]);
+// 	}
+// 	// float m_2std = RmOutlier(tips);
+// 	// cout << maxTipValue << " " << m_2std << endl;
+// 	// cout << "test test" << endl << endl;
+// 	// cout << maxTipValue << endl;
+// 	// maxTipValue = min(maxTipValue, 0.0070f);
+// 	// if (n > 100) {
+// 	// 	maxTipValue = 0.001;
+// 	// }
+// 	maxTipValue = min(maxTipValue, 0.00133f);
+// 	// maxTipValue = 0.00133;
+
+// 	// maxTipValue = 0.0009; // large radius
+// 	// maxTipValue = min(maxTipValue * threshold, 0.00086)
+// 	// maxTipValue = 0.006;
+// 	// maxTipValue = min(maxTipValue * threshold, 0.006f);
+	
+// 	// float check_val = min(m_2std, maxTipValue);
+// 	// if (n % var_save_invl == 0) CheckVar("TIP_", cpts, tips);
+// 	CheckVar("TIP_", cpts, tips);
+
+//     // Thresholding and normalization
+//     for (float& tip : tips) {
+//         tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
+//         // tip = (tip > maxTipValue) ? 1.0f : 0.0f;
+//         // tip = (tip > threshold * check_val) ? 1.0f : 0.0f;
+//         // tip = (tip > threshold * m_2std) ? 1.0f : 0.0f;
+//     }
+// 	// if (n % var_save_invl == 0) CheckVar("TIP_cutoff_", cpts, tips);
+// 	CheckVar("TIP_cutoff_", cpts, tips);
+
+// }
 void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine, 
 							const Vertex3DCloud& cloud_fine,
 							const KDTree& kdTree_fine,
@@ -3018,7 +3268,8 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 			cpts_fine[i], kdTree, cloud, phi, cpts, phi_fine[i], true);
 	}
 
-	if (n % var_save_invl == 0) CheckVar("PHI_FINE", cpts_fine, phi_fine);
+	// if (n % var_save_invl == 0) CheckVar("PHI_FINE", cpts_fine, phi_fine);
+	CheckVar("PHI_FINE", cpts_fine, phi_fine);
 
     const float threshold = 0.95f;    // Threshold for tip detection
     float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
@@ -3064,13 +3315,26 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 			} else {
 				tips_fine[i] = 0.0f; // Avoid division by zero
 			}
+			maxTipValue = max(maxTipValue, tips_fine[i]);
 		}
 	}
 
-	// FindLocalMaximaClusters_box(tips_fine, cpts_fine, 2, 2, 2);
+    CheckVar("TIP_FINE_", cpts_fine, tips_fine);
+
+	maxTipValue = min(maxTipValue, 0.00130f);
+	// maxTipValue = 0.00133;
+
+    // Thresholding and normalization
+    for (float& tip : tips_fine) {
+        tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
+    }
+	CheckVar("TIP_FINE_cutoff_", cpts_fine, tips_fine);
+
+	FindLocalMaximaClusters_box(tips_fine, cpts_fine, 4, 4, 4);
 
     // Debugging and visualization
-    if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
+    // if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
+    CheckVar("TIP_local_FINE_", cpts_fine, tips_fine);
 
     // Clear and resize tips to match the number of control points
     tips.clear();
@@ -3079,22 +3343,85 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 	for (size_t i = 0; i < cpts.size(); ++i) {
 		InterpolateOrFindExact_singleVar(
 			cpts[i], kdTree_fine, cloud_fine, tips_fine, cpts_fine, tips[i], false);
+	}
+	CheckVar("TIP_FINAL", cpts, tips);
+
+	// float m_2std = RmOutlier(tips);
+	// cout << maxTipValue << " " << m_2std << endl;
+	// cout << "test test" << endl << endl;
+	// cout << maxTipValue << endl;
+}
+
+
+void NeuronGrowth::DetectTips_old(const vector<Vertex3D>& cpts_fine, 
+	const Vertex3DCloud& cloud_fine,
+	const KDTree& kdTree_fine,
+	const float& tip_I_sz,
+	const vector<Vertex3D>& cpts,
+	const Vertex3DCloud& cloud,
+	const KDTree& kdTree)
+{
+	vector<float> phi_fine(cpts_fine.size(), 0.0f);
+
+	for (size_t i = 0; i < cpts_fine.size(); ++i) {
+		InterpolateOrFindExact_singleVar(
+		cpts_fine[i], kdTree, cloud, phi, cpts, phi_fine[i], true);
+	}
+
+	if (n % var_save_invl == 0) CheckVar("PHI_FINE", cpts_fine, phi_fine);
+
+	const float threshold = 0.95f;    // Threshold for tip detection
+	float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
+
+	// Precompute transformed phi values
+	vector<float> phiTransformed(phi_fine.size());
+	for (size_t j = 0; j < phi_fine.size(); ++j) {
+		phiTransformed[j] = CellBoundary(phi_fine[j], 0.50f);
+	}
+
+	// Clear and resize tips to match the number of control points
+	vector<float> tips_fine(cpts_fine.size(), 0.0f);
+
+	// compute tip intensity
+	for (size_t i = 0; i < cpts_fine.size(); ++i) {
+		const auto& center = cpts_fine[i];
+		float localSum = 0.0f; // Sum of phi values within the box
+
+		// Compute the sum of phi values for points within the vicinity
+		for (size_t j = 0; j < phi_fine.size(); ++j) {
+			if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
+				localSum += phiTransformed[j];
+			}
+		}
+
+		// Compute the tip score for the current vertex
+		if (localSum > 0.0f) {
+			tips_fine[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
+		} else {
+			tips_fine[i] = 0.0f; // Avoid division by zero
+		}
+	}
+
+	// Debugging and visualization
+	if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
+
+	// Clear and resize tips to match the number of control points
+	tips.clear();
+	tips.resize(cpts.size(), 0.0f);
+
+	for (size_t i = 0; i < cpts.size(); ++i) {
+		InterpolateOrFindExact_singleVar(
+		cpts[i], kdTree_fine, cloud_fine, tips_fine, cpts_fine, tips[i], false);
 		maxTipValue = max(maxTipValue, tips[i]);
 	}
 	// cout << maxTipValue << endl;
-	// maxTipValue = min(maxTipValue, 0.0070f);
-	// maxTipValue = 0.0009; // large radius
-	// maxTipValue = min(maxTipValue * threshold, 0.00086)
-	// maxTipValue = 0.006;
-	// maxTipValue = min(maxTipValue * threshold, 0.006f);
-	
+	maxTipValue = 0.0065;
 	if (n % var_save_invl == 0) CheckVar("TIP_", cpts, tips);
 
-    // Thresholding and normalization
-    for (float& tip : tips) {
-        tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
-        // tip = (tip > maxTipValue) ? 1.0f : 0.0f;
-    }
+	// Thresholding and normalization
+	for (float& tip : tips) {
+		tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
+	}
 	if (n % var_save_invl == 0) CheckVar("TIP_cutoff_", cpts, tips);
 
 }
@@ -3325,81 +3652,6 @@ vector<float> NeuronGrowth::FindLocalMaximaInClusters3D(const vector<float>& mat
 	return localMaxima;
 }
 
-void NeuronGrowth::FloodFill3DWithKDTree(vector<vector<vector<int>>>& image,
-                                         int x, int y, int z, int newColor, int originalColor,
-                                         const KDTree& kdTree, const Vertex3DCloud& cloud) 
-{
-    std::stack<array<int, 3>> stack;
-    stack.push({x, y, z});
-
-    while (!stack.empty()) {
-        auto [cx, cy, cz] = stack.top();
-        stack.pop();
-
-        if (cx < 0 || cx >= image.size() || 
-            cy < 0 || cy >= image[0].size() || 
-            cz < 0 || cz >= image[0][0].size() || 
-            image[cx][cy][cz] != originalColor || 
-            image[cx][cy][cz] == newColor) {
-            continue;
-        }
-
-        image[cx][cy][cz] = newColor;
-
-        int dx[] = {0, 0, -1, 1, 0, 0};
-        int dy[] = {-1, 1, 0, 0, 0, 0};
-        int dz[] = {0, 0, 0, 0, -1, 1};
-
-        for (int i = 0; i < 6; ++i) {
-            int nx = cx + dx[i];
-            int ny = cy + dy[i];
-            int nz = cz + dz[i];
-
-            if (nx >= 0 && nx < image.size() &&
-                ny >= 0 && ny < image[0].size() &&
-                nz >= 0 && nz < image[0][0].size()) {
-                stack.push({nx, ny, nz});
-            }
-        }
-    }
-}
-
-void NeuronGrowth::IdentifyNeurons3DWithKDTree(vector<float> phi_fine,
-                                               vector<vector<vector<int>>>& neurons, 
-                                               const vector<array<float, 3>>& seed,
-                                               int NX, int NY, int NZ, 
-                                               int originX, int originY, int originZ,
-                                               const KDTree& kdTree, const Vertex3DCloud& cloud) 
-{
-    neurons = ConvertTo3DIntVector(phi_fine, (NX+1) * 4, (NY+1) * 4, (NZ+1) * 4);
-	PetscPrintf(PETSC_COMM_WORLD, "phi_fine %d, %d %d %d\n", phi_fine.size(), NX, NY, NZ);
-
-    for (size_t i = 0; i < seed.size(); ++i) {
-        int startX = static_cast<int>((seed[i][0] - originX));
-        int startY = static_cast<int>((seed[i][1] - originY));
-        int startZ = static_cast<int>((seed[i][2] - originZ));
-
-        PetscPrintf(PETSC_COMM_WORLD, "Cluster %zu:\n", i + 1);
-        PetscPrintf(PETSC_COMM_WORLD, "Seed: (%f, %f, %f)\n", seed[i][0], seed[i][1], seed[i][2]);
-        PetscPrintf(PETSC_COMM_WORLD, "Origin: (%d, %d, %d)\n", originX, originY, originZ);
-        PetscPrintf(PETSC_COMM_WORLD, "Start: (%d, %d, %d)\n", startX, startY, startZ);
-
-        if (startX < 0 || startX >= neurons.size() || 
-            startY < 0 || startY >= neurons[0].size() || 
-            startZ < 0 || startZ >= neurons[0][0].size()) {
-            continue;
-        }
-
-        int newColor = static_cast<int>(i + 1);
-        int originalColor = neurons[startX][startY][startZ];
-        PetscPrintf(PETSC_COMM_WORLD, "Colors - Original: %d, New: %d\n", originalColor, newColor);
-
-        if (originalColor != newColor) {
-            FloodFill3DWithKDTree(neurons, startX, startY, startZ, newColor, originalColor, kdTree, cloud);
-        }
-    }
-}
-
 // void NeuronGrowth::FloodFill3DWithKDTree(vector<vector<vector<int>>>& image,
 //                                          int x, int y, int z, int newColor, int originalColor,
 //                                          const KDTree& kdTree, const Vertex3DCloud& cloud) 
@@ -3434,41 +3686,123 @@ void NeuronGrowth::IdentifyNeurons3DWithKDTree(vector<float> phi_fine,
 //     }
 // }
 
-// void NeuronGrowth::IdentifyNeurons3DWithKDTree(vector<float> phi_fine,
-// 											vector<vector<vector<int>>>& neurons, 
-// 											const vector<array<float, 3>>& seed,
-// 											int NX, int NY, int NZ, 
-// 											int originX, int originY, int originZ,
-// 											const KDTree& kdTree, const Vertex3DCloud& cloud) 
-// {
-//     // Convert `phi` into a 3D binary matrix representing neurons
-//     neurons = ConvertTo3DIntVector(phi_fine, NX*4, NY*4, NZ*4);
+void NeuronGrowth::FloodFill3DWithKDTree(vector<vector<vector<int>>>& image,
+                                         int x, int y, int z, float newColor, float originalColor,
+                                         const KDTree& kdTree, const Vertex3DCloud& cloud) 
+{
+//     std::stack<array<int, 3>> stack;
+//     stack.push({x, y, z});
 
-//     for (size_t i = 0; i < seed.size(); ++i) {
-// 		// cout << i << endl<< endl<< endl<< endl<< endl;
-// 		int startX = static_cast<int>((seed[i][0] - originX) * 4);
-// 		int startY = static_cast<int>((seed[i][1] - originY) * 4);
-// 		int startZ = static_cast<int>((seed[i][2] - originZ) * 4);
+//     while (!stack.empty()) {
+//         auto [cx, cy, cz] = stack.top();
+//         stack.pop();
 
-// 		cout << seed[i][0] << " " << seed[i][1] << " " << seed[i][2] << endl;
-// 		cout << originX << " " << originY << " " << originZ << endl;
-// 		cout << startX << " " << startY << " " << startZ << " " << endl;
-// 		// cout << neurons.size() << endl;
-// 		if (startX < 0 || startX >= neurons.size() || 
-// 			startY < 0 || startY >= neurons[0].size() || 
-// 			startZ < 0 || startZ >= neurons[0][0].size()) {
-// 			continue; // Skip invalid seeds
-// 		}
+//         if (cx < 0 || cx >= image.size() || 
+//             cy < 0 || cy >= image[0].size() || 
+//             cz < 0 || cz >= image[0][0].size() || 
+//             image[cx][cy][cz] != originalColor || 
+//             image[cx][cy][cz] == newColor) {
+//             continue;
+//         }
 
-// 		int newColor = static_cast<int>(i + 1); // Assign unique color
-// 		int originalColor = neurons[startX][startY][startZ]; // Color at the seed point
-// 		cout << originalColor << " " << newColor << endl;
-		
-//         if (originalColor == newColor) {
-//             FloodFill3DWithKDTree(neurons, startX, startY, startZ, newColor, originalColor, kdTree, cloud);
+//         image[cx][cy][cz] = newColor;
+
+//         int dx[] = {0, 0, -1, 1, 0, 0};
+//         int dy[] = {-1, 1, 0, 0, 0, 0};
+//         int dz[] = {0, 0, 0, 0, -1, 1};
+
+//         for (int i = 0; i < 6; ++i) {
+//             int nx = cx + dx[i];
+//             int ny = cy + dy[i];
+//             int nz = cz + dz[i];
+
+//             if (nx >= 0 && nx < image.size() &&
+//                 ny >= 0 && ny < image[0].size() &&
+//                 nz >= 0 && nz < image[0][0].size()) {
+//                 stack.push({nx, ny, nz});
+//             }
 //         }
 //     }
 // }
+// void NeuronGrowth::FloodFill3DWithKDTree(std::vector<std::vector<std::vector<int>>>& image,
+//                                          int x, int y, int z, int newColor,
+//                                          const KDTree& kdTree, const Vertex3DCloud& cloud) 
+// {
+    std::stack<std::array<int, 3>> stack;
+    stack.push({x, y, z});
+
+    while (!stack.empty()) {
+        auto [cx, cy, cz] = stack.top();
+        stack.pop();
+
+        if (cx < 0 || cx >= image[0].size() || 
+            cy < 0 || cy >= image[1].size() || 
+            cz < 0 || cz >= image[2].size() || 
+            image[cx][cy][cz] != 1) { // Check for 1 explicitly
+            continue;
+        }
+
+        image[cx][cy][cz] = newColor;
+
+        int dx[] = {0, 0, -1, 1, 0, 0};
+        int dy[] = {-1, 1, 0, 0, 0, 0};
+        int dz[] = {0, 0, 0, 0, -1, 1};
+
+        for (int i = 0; i < 6; ++i) {
+            int nx = cx + dx[i];
+            int ny = cy + dy[i];
+            int nz = cz + dz[i];
+
+            if (nx >= 0 && nx < image[0].size() &&
+                ny >= 0 && ny < image[1].size() &&
+                nz >= 0 && nz < image[2].size()) {
+                stack.push({nx, ny, nz});
+            }
+        }
+    }
+}
+
+void NeuronGrowth::IdentifyNeurons3DWithKDTree(vector<float> phi_fine,
+                                               vector<vector<vector<int>>>& neurons, 
+                                               const vector<array<float, 3>>& seed,
+                                               int NX, int NY, int NZ, 
+                                               int originX, int originY, int originZ,
+                                               const KDTree& kdTree, const Vertex3DCloud& cloud) 
+{
+    neurons = ConvertTo3DIntVector(phi_fine, NX * 4 + 1, NY * 4 + 1, NZ * 4 + 1);
+    // for (int i = 0; i < NX * 4 + 1; ++i) {
+    //     neurons[i].resize(NY * 4 + 1); // Middle dimension
+    //     for (int j = 0; j < NY * 4 + 1; ++j) {
+    //         neurons[i][j].resize(NZ * 4 + 1, 0.0f); // Inner dimension, initialized with 0.0f
+    //     }
+    // }
+	PetscPrintf(PETSC_COMM_WORLD, "phi_fine %d, %d %d %d\n", phi_fine.size(), NX, NY, NZ);
+
+    for (size_t i = 0; i < seed.size(); ++i) {
+        int startX = static_cast<int>((seed[i][0] - originX));
+        int startY = static_cast<int>((seed[i][1] - originY));
+        int startZ = static_cast<int>((seed[i][2] - originZ));
+
+        PetscPrintf(PETSC_COMM_WORLD, "Cluster %zu:\n", i + 1);
+        PetscPrintf(PETSC_COMM_WORLD, "Seed: (%f, %f, %f)\n", seed[i][0], seed[i][1], seed[i][2]);
+        PetscPrintf(PETSC_COMM_WORLD, "Origin: (%d, %d, %d)\n", originX, originY, originZ);
+        PetscPrintf(PETSC_COMM_WORLD, "Start: (%d, %d, %d)\n", startX, startY, startZ);
+
+        // if (startX < 0 || startX >= neurons.size() || 
+        //     startY < 0 || startY >= neurons[0].size() || 
+        //     startZ < 0 || startZ >= neurons[0][0].size()) {
+        //     continue;
+        // }
+
+        float newColor = static_cast<float>(i + 10);
+        float originalColor = neurons[startX][startY][startZ];
+        PetscPrintf(PETSC_COMM_WORLD, "Colors - neuron: %f, Original: %f, New: %f\n", neurons[startX][startY][startZ], originalColor, newColor);
+
+        if (originalColor != newColor) {
+            FloodFill3DWithKDTree(neurons, startX, startY, startZ, newColor, originalColor, kdTree, cloud);
+        }
+    }
+}
 
 bool NeuronGrowth::IsValid(const int& x, const int& y, const int& z, 
 						const int& rows, const int& cols, 
@@ -4042,6 +4376,62 @@ PetscErrorCode MySNESMonitor(SNES snes, PetscInt its, PetscReal fnorm, PetscView
     PetscFunctionReturn(PETSC_SUCCESS); // Indicate successful execution
 }
 
+// PetscErrorCode CleanUpSolvers(NeuronGrowth &NG) {
+//     if (NG.phi_solver == "snes") {
+//         // Safely destroy SNES solver for phi
+//         if (NG.snes_phi) { // Check if snes_phi is not NULL before destroying
+//             CHKERRQ(SNESDestroy(&NG.snes_phi));
+//         }
+//         if (NG.J) { // Check if J is not NULL before destroying
+//             CHKERRQ(MatDestroy(&NG.J));
+//         }
+//     } else {
+//         // Safely destroy KSP solver and resources for phi
+//         if (NG.ksp_phi) { // Check if ksp_phi is not NULL before destroying
+//             CHKERRQ(KSPDestroy(&NG.ksp_phi));
+//         }
+//         if (NG.GK_phi) { // Check if GK_phi is not NULL before destroying
+//             CHKERRQ(MatDestroy(&NG.GK_phi));
+//         }
+//         if (NG.GR_phi) { // Check if GR_phi is not NULL before destroying
+//             CHKERRQ(VecDestroy(&NG.GR_phi));
+//         }
+//     }
+//     if (NG.temp_phi) { // Check if temp_phi is not NULL before destroying
+//         CHKERRQ(VecDestroy(&NG.temp_phi));
+//     }
+
+//     // Safely destroy KSP solver and resources for synaptogenesis (syn)
+//     if (NG.ksp_syn) { // Check if ksp_syn is not NULL before destroying
+//         CHKERRQ(KSPDestroy(&NG.ksp_syn));
+//     }
+//     if (NG.GK_syn) { // Check if GK_syn is not NULL before destroying
+//         CHKERRQ(MatDestroy(&NG.GK_syn));
+//     }
+//     if (NG.GR_syn) { // Check if GR_syn is not NULL before destroying
+//         CHKERRQ(VecDestroy(&NG.GR_syn));
+//     }
+//     if (NG.temp_syn) { // Check if temp_syn is not NULL before destroying
+//         CHKERRQ(VecDestroy(&NG.temp_syn));
+//     }
+
+//     // Safely destroy KSP solver and resources for tubules (tub)
+//     if (NG.ksp_tub) { // Check if ksp_tub is not NULL before destroying
+//         CHKERRQ(KSPDestroy(&NG.ksp_tub));
+//     }
+//     if (NG.GK_tub) { // Check if GK_tub is not NULL before destroying
+//         CHKERRQ(MatDestroy(&NG.GK_tub));
+//     }
+//     if (NG.GR_tub) { // Check if GR_tub is not NULL before destroying
+//         CHKERRQ(VecDestroy(&NG.GR_tub));
+//     }
+//     if (NG.temp_tub) { // Check if temp_tub is not NULL before destroying
+//         CHKERRQ(VecDestroy(&NG.temp_tub));
+//     }
+
+//     PetscFunctionReturn(PETSC_SUCCESS); // Indicate successful execution
+// }
+
 // Cleans up solvers and associated resources in the NeuronGrowth object
 PetscErrorCode CleanUpSolvers(NeuronGrowth &NG) {
 	if (NG.phi_solver == "snes") {
@@ -4083,7 +4473,7 @@ int RunNG(
     bool &localRefine,
 	const string& phi_solver,
 	double& t_global,
-	bool& restart)
+	bool& restart, int& tmp_restart_check)
 {
 	/*========================================================*/
 	// Initializations
@@ -4125,6 +4515,8 @@ int RunNG(
 	NG.ReadBezierElementProcess(path_in);
 	PetscPrintf(PETSC_COMM_WORLD, "Read bzmesh!-----------------------------------------------------------------\n");	
 
+	NG.VisualizeVTK_PhysicalDomain_All(99999, NG.path_out);
+	// return 3;
 	/*========================================================*/
 	// Write initial variables
 	string varName;	
@@ -4152,17 +4544,29 @@ int RunNG(
 		// if we want to restart the simulation
 		if (restart == true) {
 			restart = false;
+			tmp_restart_check++;
+
 			string restartVTK = FindLatestVTK(path_out);
 			if (restartVTK == "") {
 				cerr << "Failed to read the latest VTK file.\n";
 			} else {
-				cout << "Read " << cpts.size() << " points from the largest-step file.\n";
+				// cout << "Read " << cpts.size() << " points from the largest-step file.\n";
+				cout << "Reading " << cpts.size() << " points from:" << restartVTK << endl;;
 			}
 			NG.ReadVTK(restartVTK);
+			
+			cpts = NG.cpts;
+			
 			NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
 			// Clean up solvers and synchronize processes
 			// CHKERRQ(CleanUpSolvers(NG));
 
+			NG.CheckVar("CheckExp_phi_reading", NG.cpts, NG.phi);
+			NG.CheckVar("CheckExp_syn_reading", NG.cpts, NG.syn);
+
+			// NG.VisualizeVTK_PhysicalDomain_All(99999, NG.path_out);
+
+			// return 3;
 			// if (NG.comRank == 0) {
 			// 	// Vertex3DCloud cloud(cpts); 					// Cloud for current points
 			// 	// KDTree kdTree(3 /* dim */, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
@@ -4182,12 +4586,30 @@ int RunNG(
 			// localRefine = true;
 
 			NG.HandleExpansion(NG.phi, NX, NY, NZ, originX, originY, originZ);
+			PetscPrintf(PETSC_COMM_WORLD, "Memcheck 1 ... \n");	
+			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+
 			// Store NG variables
 			NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
+			PetscPrintf(PETSC_COMM_WORLD, "Memcheck 2 ... \n");	
+			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+
+			std::cout << "restart: " << restart << endl;
+			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
 
 			// Clean up solvers and synchronize processes
-			CHKERRQ(CleanUpSolvers(NG));
+			if (restart == false && tmp_restart_check == 1) {
+
+			} else {
+				CHKERRQ(CleanUpSolvers(NG));
+			}
+			PetscPrintf(PETSC_COMM_WORLD, "Memcheck 2.5 ... \n");	
+			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+
 			NG.VisualizeVTK_ControlMesh(cpts, iter, path_out);
+			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
+
+			PetscPrintf(PETSC_COMM_WORLD, "Memcheck 3 ... \n");	
 
 			if (NG.comRank == 0) {
 				// Compute refinement values and save to file
@@ -4246,9 +4668,9 @@ int RunNG(
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 			PetscPrintf(PETSC_COMM_WORLD, "Detecting tips\n");
 
-			float tip_intensity_sz = 16.0f; // box size for calculating tip intensity
-			NG.DetectTips(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree, seed, NX, NY, NZ, originX, originY, originZ);
-			// NG.DetectTips(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree);
+			float tip_intensity_sz = 8.0f; // box size for calculating tip intensity
+			// NG.DetectTips(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree, seed, NX, NY, NZ, originX, originY, originZ);
+			NG.DetectTips_old(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree);
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 		}
 
