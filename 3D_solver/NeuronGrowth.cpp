@@ -2891,7 +2891,6 @@ float NeuronGrowth::RmOutlier(vector<float> &data) {
         return 0.0f; // Or handle the case where all values were zero.
     }
 
-
     // 2. Calculate mean and standard deviation using non-zero data
     float sum = std::accumulate(non_zero_data.begin(), non_zero_data.end(), 0.0f);
     float mean = sum / non_zero_data.size();
@@ -2915,113 +2914,6 @@ float NeuronGrowth::RmOutlier(vector<float> &data) {
     // 5. Return the adjusted threshold (based on non-zero data)
     return mean + 2 * standardDeviation;
 }
-//     // Calculate the mean of the data
-//     float sum = accumulate(data.begin(), data.end(), 0.0f);
-//     float mean = sum / data.size();
-
-//     // Calculate the standard deviation
-//     float sq_sum = inner_product(data.begin(), data.end(), data.begin(), 0.0f,
-//                                  [](float acc, float val) { return acc + val; },
-//                                  [mean](float a, float b) { return pow(a - mean, 2) + b; });
-//     float standardDeviation = sqrt(sq_sum / data.size());
-
-//     // Define the threshold as mean + 3 * standard deviation
-//     float threshold = mean + 3 * standardDeviation;
-
-//     // Clamp values that exceed the threshold to the threshold value
-//     transform(data.begin(), data.end(), data.begin(), [threshold](float value) {
-//         return min(value, threshold);
-//     });
-
-//     // Return an adjusted threshold for potential further use
-//     return mean + 2 * standardDeviation;
-// }
-//     if (data.empty()) {
-//         return 0.0f; // Handle empty input
-//     }
-
-//     // Calculate the mean
-//     float sum = std::accumulate(data.begin(), data.end(), 0.0f);
-//     float mean = sum / data.size();
-
-//     // Calculate the standard deviation
-//     float sq_sum = std::inner_product(data.begin(), data.end(), data.begin(), 0.0f,
-//                                [](float acc, float val) { return acc + val; },
-//                                [mean](float a, float b) { return std::pow(a - mean, 2) + b; });
-//     float standardDeviation = std::sqrt(sq_sum / data.size());
-
-//     // Define the threshold (e.g., 3 standard deviations)
-//     float threshold = mean + 3 * standardDeviation;
-//     float lower_threshold = mean - 3 * standardDeviation; // For lower bound
-
-//     // Remove outliers (both above and below the threshold)
-//     data.erase(std::remove_if(data.begin(), data.end(), 
-//                              [threshold, lower_threshold](float value) {
-//                                  return value > threshold || value < lower_threshold; 
-//                              }), 
-//                data.end());
-
-//     // Recalculate mean and standard deviation after removing outliers (Important!)
-//     if (!data.empty()) { //Check if data is not empty after outlier removal
-//         sum = std::accumulate(data.begin(), data.end(), 0.0f);
-//         mean = sum / data.size();
-
-//         sq_sum = std::inner_product(data.begin(), data.end(), data.begin(), 0.0f,
-//                                    [](float acc, float val) { return acc + val; },
-//                                    [mean](float a, float b) { return std::pow(a - mean, 2) + b; });
-//         standardDeviation = std::sqrt(sq_sum / data.size());
-//     }
-
-//     return mean + 2 * standardDeviation; // Or whatever you need to return
-// }
-//     if (data.empty()) {
-//         return 0.0f; // Handle empty input
-//     }
-
-//     // Calculate the mean
-//     float mean = std::accumulate(data.begin(), data.end(), 0.0f) / data.size();
-
-//     // Create a copy of the data containing only the top half
-//     std::vector<float> top_half_data;
-//     for (float value : data) {
-//         if (value >= mean) {
-//             top_half_data.push_back(value);
-//         }
-//     }
-
-//     if (top_half_data.empty()) {
-//       return mean; //Or some other default value
-//     }
-
-//     // Calculate the standard deviation of the top half
-//     float std_dev_top_half = std::sqrt(std::inner_product(top_half_data.begin(), top_half_data.end(), top_half_data.begin(), 0.0f,
-//                                [](float acc, float val) { return acc + val; },
-//                                [mean](float a, float b) { return std::pow(a - mean, 2) + b; }) / top_half_data.size());
-
-//     // Define the threshold (e.g., 3 standard deviations above the mean)
-//     float threshold = mean + 3 * std_dev_top_half;
-
-//     // Remove outliers from the original data (above the calculated threshold)
-//     data.erase(std::remove_if(data.begin(), data.end(),
-//                              [threshold](float value) { return value > threshold; }),
-//                data.end());
-
-//     // *** CORRECTED: Recalculate based on TOP HALF AFTER REMOVAL ***
-//     top_half_data.clear(); // Clear previous top_half data
-//     for (float value : data) { // Re-populate top half with the new data
-//         if (value >= mean) {
-//             top_half_data.push_back(value);
-//         }
-//     }
-//     if (!top_half_data.empty()){ // Check if top_half_data is not empty
-//         mean = std::accumulate(top_half_data.begin(), top_half_data.end(), 0.0f) / top_half_data.size();
-//         std_dev_top_half = std::sqrt(std::inner_product(top_half_data.begin(), top_half_data.end(), top_half_data.begin(), 0.0f,
-//                                    [](float acc, float val) { return acc + val; },
-//                                    [mean](float a, float b) { return std::pow(a - mean, 2) + b; }) / top_half_data.size());
-//     }
-
-//     return mean + 2 * std_dev_top_half; // Return based on the top half
-// }
 
 float NeuronGrowth::CellBoundary(float phi, float threshold) {
     return (phi > threshold) ? 1.0f : 0.0f;
@@ -4376,62 +4268,6 @@ PetscErrorCode MySNESMonitor(SNES snes, PetscInt its, PetscReal fnorm, PetscView
     PetscFunctionReturn(PETSC_SUCCESS); // Indicate successful execution
 }
 
-// PetscErrorCode CleanUpSolvers(NeuronGrowth &NG) {
-//     if (NG.phi_solver == "snes") {
-//         // Safely destroy SNES solver for phi
-//         if (NG.snes_phi) { // Check if snes_phi is not NULL before destroying
-//             CHKERRQ(SNESDestroy(&NG.snes_phi));
-//         }
-//         if (NG.J) { // Check if J is not NULL before destroying
-//             CHKERRQ(MatDestroy(&NG.J));
-//         }
-//     } else {
-//         // Safely destroy KSP solver and resources for phi
-//         if (NG.ksp_phi) { // Check if ksp_phi is not NULL before destroying
-//             CHKERRQ(KSPDestroy(&NG.ksp_phi));
-//         }
-//         if (NG.GK_phi) { // Check if GK_phi is not NULL before destroying
-//             CHKERRQ(MatDestroy(&NG.GK_phi));
-//         }
-//         if (NG.GR_phi) { // Check if GR_phi is not NULL before destroying
-//             CHKERRQ(VecDestroy(&NG.GR_phi));
-//         }
-//     }
-//     if (NG.temp_phi) { // Check if temp_phi is not NULL before destroying
-//         CHKERRQ(VecDestroy(&NG.temp_phi));
-//     }
-
-//     // Safely destroy KSP solver and resources for synaptogenesis (syn)
-//     if (NG.ksp_syn) { // Check if ksp_syn is not NULL before destroying
-//         CHKERRQ(KSPDestroy(&NG.ksp_syn));
-//     }
-//     if (NG.GK_syn) { // Check if GK_syn is not NULL before destroying
-//         CHKERRQ(MatDestroy(&NG.GK_syn));
-//     }
-//     if (NG.GR_syn) { // Check if GR_syn is not NULL before destroying
-//         CHKERRQ(VecDestroy(&NG.GR_syn));
-//     }
-//     if (NG.temp_syn) { // Check if temp_syn is not NULL before destroying
-//         CHKERRQ(VecDestroy(&NG.temp_syn));
-//     }
-
-//     // Safely destroy KSP solver and resources for tubules (tub)
-//     if (NG.ksp_tub) { // Check if ksp_tub is not NULL before destroying
-//         CHKERRQ(KSPDestroy(&NG.ksp_tub));
-//     }
-//     if (NG.GK_tub) { // Check if GK_tub is not NULL before destroying
-//         CHKERRQ(MatDestroy(&NG.GK_tub));
-//     }
-//     if (NG.GR_tub) { // Check if GR_tub is not NULL before destroying
-//         CHKERRQ(VecDestroy(&NG.GR_tub));
-//     }
-//     if (NG.temp_tub) { // Check if temp_tub is not NULL before destroying
-//         CHKERRQ(VecDestroy(&NG.temp_tub));
-//     }
-
-//     PetscFunctionReturn(PETSC_SUCCESS); // Indicate successful execution
-// }
-
 // Cleans up solvers and associated resources in the NeuronGrowth object
 PetscErrorCode CleanUpSolvers(NeuronGrowth &NG) {
 	if (NG.phi_solver == "snes") {
@@ -4558,23 +4394,10 @@ int RunNG(
 			cpts = NG.cpts;
 			
 			NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
-			// Clean up solvers and synchronize processes
-			// CHKERRQ(CleanUpSolvers(NG));
 
 			NG.CheckVar("CheckExp_phi_reading", NG.cpts, NG.phi);
 			NG.CheckVar("CheckExp_syn_reading", NG.cpts, NG.syn);
 
-			// NG.VisualizeVTK_PhysicalDomain_All(99999, NG.path_out);
-
-			// return 3;
-			// if (NG.comRank == 0) {
-			// 	// Vertex3DCloud cloud(cpts); 					// Cloud for current points
-			// 	// KDTree kdTree(3 /* dim */, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
-			// 	// kdTree.buildIndex();
-			// 	// Compute refinement values and save to file
-			// 	vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
-			// 	writeVectorToFile(ele_refine, path_in + "phi.txt", false);
-			// }
 
 			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
 			return 2;
