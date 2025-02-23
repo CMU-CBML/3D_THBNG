@@ -304,38 +304,28 @@ void InitializeSoma(int numNeuron, vector<array<float, 3>>& seed, int& NX, int& 
             seed[0] = {20.0f, 20.0f, 10.0f};
             seed[1] = {20.0f, 20.0f, 30.0f};
             break;
-
         case 3:
-            // Three neurons in a 2D plane
-            NX = 140;
-            NY = 130;
-            NZ = 1;  // Flat plane
-            seed[0] = {35.0f, 35.0f, 0.0f};
-            seed[1] = {105.0f, 35.0f, 0.0f};
-            seed[2] = {70.0f, 95.0f, 0.0f};
+            NX = 70; NY = 70; NZ = 40; // Wider in XY, some Z
+            seed[0] = {10.0f, 10.0f, 10.0f};
+            seed[1] = {60.0f, 10.0f, 20.0f};
+            seed[2] = {35.0f, 60.0f, 30.0f};
             break;
 
-        case 4:
-            // Four neurons in a 2D grid
-            NX = 140;
-            NY = 140;
-            NZ = 1;  // Flat plane
-            seed[0] = {35.0f, 35.0f, 0.0f};
-            seed[1] = {105.0f, 35.0f, 0.0f};
-            seed[2] = {35.0f, 105.0f, 0.0f};
-            seed[3] = {105.0f, 105.0f, 0.0f};
+        case 4: // Square in XY, some Z
+            NX = 70; NY = 70; NZ = 40;
+            seed[0] = {10.0f, 10.0f, 10.0f};
+            seed[1] = {60.0f, 10.0f, 10.0f};
+            seed[2] = {10.0f, 60.0f, 30.0f};
+            seed[3] = {60.0f, 60.0f, 30.0f};
             break;
 
-        case 5:
-            // Five neurons in a 2D grid with a center neuron
-            NX = 140;
-            NY = 140;
-            NZ = 1;  // Flat plane
-            seed[0] = {35.0f, 35.0f, 0.0f};
-            seed[1] = {105.0f, 35.0f, 0.0f};
-            seed[2] = {35.0f, 105.0f, 0.0f};
-            seed[3] = {105.0f, 105.0f, 0.0f};
-            seed[4] = {70.0f, 70.0f, 0.0f};
+        case 5: // Similar to case 4, but adjusted Z
+            NX = 70; NY = 70; NZ = 40;
+            seed[0] = {35.0f, 35.0f, 10.0f};  // Center
+            seed[1] = {10.0f, 10.0f, 20.0f};
+            seed[2] = {60.0f, 10.0f, 20.0f};
+            seed[3] = {10.0f, 60.0f, 20.0f};
+            seed[4] = {60.0f, 60.0f, 20.0f};
             break;
 
         default:
