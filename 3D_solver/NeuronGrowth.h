@@ -564,15 +564,9 @@ public:
 		const float& tip_I_sz,
 		const vector<Vertex3D>& cpts,
 		const Vertex3DCloud& cloud,
-		const KDTree& kdTree);
+		const KDTree& kdTree
+	);
 	
-	// // Sum Calculation for Phi within a Specified Box
-	// void DetectTips(
-	// 	const vector<Vertex3D>& cpts,    // Control points representing center points
-	// 	const float& tip_I_sz, 		     // Cube size for calculating tip intensity
-	// 	const KDTree& kdTree             // KDTree for spatial indexing
-	// ); // Calculate the sum of phi values within a 3D box for each center point in `cpts`
-
 	vector<pair<Vertex3D, int>> FindClosestVerticesWithIndices(
 		const vector<Vertex3D>& vertices,     // List of vertices
 		const Vertex3D& inputVertex,          // Target vertex

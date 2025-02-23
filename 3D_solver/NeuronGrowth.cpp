@@ -1446,58 +1446,6 @@ void NeuronGrowth::WriteVTK_ALL(const vector<array<float, 3>> &spt,
     //--------------------------------------------------------------------------
     fout.close();
 }
-// void NeuronGrowth::WriteVTK_ALL(const vector<array<float, 3>> spt, const vector<vector<float>> sdisp, const vector<array<int, 8>> sele, int step, string fn) {
-// 	stringstream ss;
-// 	ss << step;
-// 	string fname = fn + "/physics_allparticle_" + ss.str() + ".vtk";
-// 	ofstream fout(fname.c_str());
-
-// 	if (fout.is_open()) {
-// 		// Write the VTK file header
-// 		fout << "# vtk DataFile Version 2.0\nHex test\nASCII\nDATASET UNSTRUCTURED_GRID\n";
-
-// 		// Write the points
-// 		fout << "POINTS " << spt.size() << " float\n";
-// 		for (unsigned int i = 0; i < spt.size(); i++) {
-// 			fout << spt[i][0] << " " << spt[i][1] << " " << spt[i][2] << "\n";
-// 		}
-
-// 		// Write the cells
-// 		fout << "\nCELLS " << sele.size() << " " << 9 * sele.size() << '\n';
-// 		for (unsigned int i = 0; i < sele.size(); i++) {
-// 			fout << "8 " << sele[i][0] << " " << sele[i][1] << " " << sele[i][2] << " " << sele[i][3]
-// 				<< " " << sele[i][4] << " " << sele[i][5] << " " << sele[i][6] << " " << sele[i][7] << '\n';
-// 		}
-
-// 		// Write the cell types
-// 		fout << "\nCELL_TYPES " << sele.size() << '\n';
-// 		for (unsigned int i = 0; i < sele.size(); i++) {
-// 			fout << "12\n"; // 12 corresponds to VTK_HEXAHEDRON
-// 		}
-
-// 		// Write scalar fields
-// 		fout << "POINT_DATA " << sdisp[0].size() << "\n";
-// 		const char* scalarNames[] = {"phi", "synaptogenesis", "tubulin", "tips", "theta"};
-// 		for (size_t varIndex = 0; varIndex < sdisp.size(); ++varIndex) {
-// 			fout << "\nSCALARS " << scalarNames[varIndex] << " float 1\nLOOKUP_TABLE default\n";
-// 			for (size_t i = 0; i < sdisp[varIndex].size(); i++) {
-// 				fout << sdisp[varIndex][i] << "\n";
-// 			}
-// 		}
-
-// 		fout.close();
-// 	} else {
-// 		cout << "Cannot open " << fname << "!\n";
-// 	}
-// }
-
-// #include <iostream>
-// #include <fstream>
-// #include <string>
-// #include <vector>
-// #include <array>
-// #include <sstream>
-// #include <algorithm> // for find, etc.
 
 /**
  * @brief Reads a VTK file in ASCII format, extracting 3D points (cpts)
@@ -2910,113 +2858,6 @@ float NeuronGrowth::RmOutlier(vector<float> &data) {
     // 5. Return the adjusted threshold (based on non-zero data)
     return mean + 2 * standardDeviation;
 }
-//     // Calculate the mean of the data
-//     float sum = accumulate(data.begin(), data.end(), 0.0f);
-//     float mean = sum / data.size();
-
-//     // Calculate the standard deviation
-//     float sq_sum = inner_product(data.begin(), data.end(), data.begin(), 0.0f,
-//                                  [](float acc, float val) { return acc + val; },
-//                                  [mean](float a, float b) { return pow(a - mean, 2) + b; });
-//     float standardDeviation = sqrt(sq_sum / data.size());
-
-//     // Define the threshold as mean + 3 * standard deviation
-//     float threshold = mean + 3 * standardDeviation;
-
-//     // Clamp values that exceed the threshold to the threshold value
-//     transform(data.begin(), data.end(), data.begin(), [threshold](float value) {
-//         return min(value, threshold);
-//     });
-
-//     // Return an adjusted threshold for potential further use
-//     return mean + 2 * standardDeviation;
-// }
-//     if (data.empty()) {
-//         return 0.0f; // Handle empty input
-//     }
-
-//     // Calculate the mean
-//     float sum = std::accumulate(data.begin(), data.end(), 0.0f);
-//     float mean = sum / data.size();
-
-//     // Calculate the standard deviation
-//     float sq_sum = std::inner_product(data.begin(), data.end(), data.begin(), 0.0f,
-//                                [](float acc, float val) { return acc + val; },
-//                                [mean](float a, float b) { return std::pow(a - mean, 2) + b; });
-//     float standardDeviation = std::sqrt(sq_sum / data.size());
-
-//     // Define the threshold (e.g., 3 standard deviations)
-//     float threshold = mean + 3 * standardDeviation;
-//     float lower_threshold = mean - 3 * standardDeviation; // For lower bound
-
-//     // Remove outliers (both above and below the threshold)
-//     data.erase(std::remove_if(data.begin(), data.end(), 
-//                              [threshold, lower_threshold](float value) {
-//                                  return value > threshold || value < lower_threshold; 
-//                              }), 
-//                data.end());
-
-//     // Recalculate mean and standard deviation after removing outliers (Important!)
-//     if (!data.empty()) { //Check if data is not empty after outlier removal
-//         sum = std::accumulate(data.begin(), data.end(), 0.0f);
-//         mean = sum / data.size();
-
-//         sq_sum = std::inner_product(data.begin(), data.end(), data.begin(), 0.0f,
-//                                    [](float acc, float val) { return acc + val; },
-//                                    [mean](float a, float b) { return std::pow(a - mean, 2) + b; });
-//         standardDeviation = std::sqrt(sq_sum / data.size());
-//     }
-
-//     return mean + 2 * standardDeviation; // Or whatever you need to return
-// }
-//     if (data.empty()) {
-//         return 0.0f; // Handle empty input
-//     }
-
-//     // Calculate the mean
-//     float mean = std::accumulate(data.begin(), data.end(), 0.0f) / data.size();
-
-//     // Create a copy of the data containing only the top half
-//     std::vector<float> top_half_data;
-//     for (float value : data) {
-//         if (value >= mean) {
-//             top_half_data.push_back(value);
-//         }
-//     }
-
-//     if (top_half_data.empty()) {
-//       return mean; //Or some other default value
-//     }
-
-//     // Calculate the standard deviation of the top half
-//     float std_dev_top_half = std::sqrt(std::inner_product(top_half_data.begin(), top_half_data.end(), top_half_data.begin(), 0.0f,
-//                                [](float acc, float val) { return acc + val; },
-//                                [mean](float a, float b) { return std::pow(a - mean, 2) + b; }) / top_half_data.size());
-
-//     // Define the threshold (e.g., 3 standard deviations above the mean)
-//     float threshold = mean + 3 * std_dev_top_half;
-
-//     // Remove outliers from the original data (above the calculated threshold)
-//     data.erase(std::remove_if(data.begin(), data.end(),
-//                              [threshold](float value) { return value > threshold; }),
-//                data.end());
-
-//     // *** CORRECTED: Recalculate based on TOP HALF AFTER REMOVAL ***
-//     top_half_data.clear(); // Clear previous top_half data
-//     for (float value : data) { // Re-populate top half with the new data
-//         if (value >= mean) {
-//             top_half_data.push_back(value);
-//         }
-//     }
-//     if (!top_half_data.empty()){ // Check if top_half_data is not empty
-//         mean = std::accumulate(top_half_data.begin(), top_half_data.end(), 0.0f) / top_half_data.size();
-//         std_dev_top_half = std::sqrt(std::inner_product(top_half_data.begin(), top_half_data.end(), top_half_data.begin(), 0.0f,
-//                                    [](float acc, float val) { return acc + val; },
-//                                    [mean](float a, float b) { return std::pow(a - mean, 2) + b; }) / top_half_data.size());
-//     }
-
-//     return mean + 2 * std_dev_top_half; // Return based on the top half
-// }
 
 float NeuronGrowth::CellBoundary(float phi, float threshold) {
     return (phi > threshold) ? 1.0f : 0.0f;
@@ -3127,123 +2968,6 @@ void NeuronGrowth::FindLocalMaximaClusters_box(
     PetscPrintf(PETSC_COMM_WORLD, "Number of clusters identified: %d\n", numClusters);
 }
 
-// void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine, 
-// 							const Vertex3DCloud& cloud_fine,
-// 							const KDTree& kdTree_fine,
-// 							const float& tip_I_sz,
-// 							const vector<Vertex3D>& cpts,
-// 							const Vertex3DCloud& cloud,
-// 							const KDTree& kdTree,
-// 							vector<array<float, 3>>& seed,
-// 							const int NX, const int NY, const int NZ,
-// 							const int originX, const int originY, const int originZ
-// )
-// {
-// 	vector<float> phi_fine(cpts_fine.size(), 0.0f);
-
-// 	for (size_t i = 0; i < cpts_fine.size(); ++i) {
-// 		InterpolateOrFindExact_singleVar(
-// 			cpts_fine[i], kdTree, cloud, phi, cpts, phi_fine[i], true);
-// 	}
-
-// 	// if (n % var_save_invl == 0) CheckVar("PHI_FINE", cpts_fine, phi_fine);
-// 	CheckVar("PHI_FINE", cpts_fine, phi_fine);
-
-//     const float threshold = 0.95f;    // Threshold for tip detection
-//     float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
-
-//     // Precompute transformed phi values
-//     vector<float> phiTransformed(phi_fine.size());
-//     for (size_t j = 0; j < phi_fine.size(); ++j) {
-//         phiTransformed[j] = CellBoundary(phi_fine[j], 0.50f);
-//     }
-
-//     // Clear and resize tips to match the number of control points
-//     vector<float> tips_fine(cpts_fine.size(), 0.0f);
-	
-// 	// // Initialize neurons
-// 	// vector<vector<vector<int>>> neurons;
-// 	// IdentifyNeurons3DWithKDTree(phi_fine, neurons, seed, NX, NY, NZ, originX, originY, originZ, kdTree_fine, cloud_fine);
-// 	// auto neurons_flattern = Convert3DIntTo1DFloatVector(neurons);
-// 	// CheckVar("NEURONS_", cpts_fine, neurons_flattern);
-// 	// vector<vector<vector<int>>> geoDist = CalculateGeodesicDistanceFromPoint3D(neurons, seed, originX, originY, originZ);
-// 	// auto geoDist_flattern = Convert3DIntTo1DFloatVector(geoDist);
-// 	// CheckVar("DIST_", cpts_fine, geoDist_flattern);
-
-//     // compute tip intensity
-//     for (size_t id = 0; id < seed.size(); ++id) {
-// 		for (size_t i = 0; i < cpts_fine.size(); ++i) {
-// 			const auto& center = cpts_fine[i];
-// 			float localSum = 0.0f; // Sum of phi values within the box
-
-// 			// Compute the sum of phi values for points within the vicinity
-// 			for (size_t j = 0; j < phi_fine.size(); ++j) {
-// 				// if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz) && neurons_flattern[i] == id) {
-// 				if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
-// 				// if (IsWithinRadius(cpts_fine[j], center, tip_I_sz)) {
-// 					localSum += phiTransformed[j];
-// 				}
-// 			}
-
-// 			// Compute the tip score for the current vertex
-// 			// if (localSum > 0.0f && tmp[i] < INF) {
-// 			if (localSum > 0.0f) {
-// 				tips_fine[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
-// 				//  * tmp[i];
-// 			} else {
-// 				tips_fine[i] = 0.0f; // Avoid division by zero
-// 			}
-// 		}
-// 	}
-
-//     CheckVar("TIP_FINE_", cpts_fine, tips_fine);
-
-// 	FindLocalMaximaClusters_box(tips_fine, cpts_fine, 4, 4, 4);
-
-//     // Debugging and visualization
-//     // if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
-//     CheckVar("TIP_local_FINE_", cpts_fine, tips_fine);
-
-//     // Clear and resize tips to match the number of control points
-//     tips.clear();
-//     tips.resize(cpts.size(), 0.0f);
-
-// 	for (size_t i = 0; i < cpts.size(); ++i) {
-// 		InterpolateOrFindExact_singleVar(
-// 			cpts[i], kdTree_fine, cloud_fine, tips_fine, cpts_fine, tips[i], false);
-// 		maxTipValue = max(maxTipValue, tips[i]);
-// 	}
-// 	// float m_2std = RmOutlier(tips);
-// 	// cout << maxTipValue << " " << m_2std << endl;
-// 	// cout << "test test" << endl << endl;
-// 	// cout << maxTipValue << endl;
-// 	// maxTipValue = min(maxTipValue, 0.0070f);
-// 	// if (n > 100) {
-// 	// 	maxTipValue = 0.001;
-// 	// }
-// 	maxTipValue = min(maxTipValue, 0.00133f);
-// 	// maxTipValue = 0.00133;
-
-// 	// maxTipValue = 0.0009; // large radius
-// 	// maxTipValue = min(maxTipValue * threshold, 0.00086)
-// 	// maxTipValue = 0.006;
-// 	// maxTipValue = min(maxTipValue * threshold, 0.006f);
-	
-// 	// float check_val = min(m_2std, maxTipValue);
-// 	// if (n % var_save_invl == 0) CheckVar("TIP_", cpts, tips);
-// 	CheckVar("TIP_", cpts, tips);
-
-//     // Thresholding and normalization
-//     for (float& tip : tips) {
-//         tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
-//         // tip = (tip > maxTipValue) ? 1.0f : 0.0f;
-//         // tip = (tip > threshold * check_val) ? 1.0f : 0.0f;
-//         // tip = (tip > threshold * m_2std) ? 1.0f : 0.0f;
-//     }
-// 	// if (n % var_save_invl == 0) CheckVar("TIP_cutoff_", cpts, tips);
-// 	CheckVar("TIP_cutoff_", cpts, tips);
-
-// }
 void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine, 
 							const Vertex3DCloud& cloud_fine,
 							const KDTree& kdTree_fine,
@@ -3647,82 +3371,10 @@ vector<float> NeuronGrowth::FindLocalMaximaInClusters3D(const vector<float>& mat
 	return localMaxima;
 }
 
-// void NeuronGrowth::FloodFill3DWithKDTree(vector<vector<vector<int>>>& image,
-//                                          int x, int y, int z, int newColor, int originalColor,
-//                                          const KDTree& kdTree, const Vertex3DCloud& cloud) 
-// {
-//     if (x < 0 || x >= image.size() || 
-//         y < 0 || y >= image[0].size() || 
-//         z < 0 || z >= image[0][0].size() || 
-//         image[x][y][z] != originalColor || 
-//         image[x][y][z] == newColor) {
-//         return;
-//     }
-
-//     image[x][y][z] = newColor;
-
-//     // Search for neighbors using KD_SearchPair in six possible directions
-//     int dx[] = {0, 0, -1, 1, 0, 0};
-//     int dy[] = {-1, 1, 0, 0, 0, 0};
-//     int dz[] = {0, 0, 0, 0, -1, 1};
-
-//     for (int i = 0; i < 6; ++i) {
-//         int nx = x + dx[i];
-//         int ny = y + dy[i];
-//         int nz = z + dz[i];
-
-//         // Validate bounds
-//         if (nx >= 0 && nx < image.size() && ny >= 0 && ny < image[0].size() && nz >= 0 && nz < image[0][0].size()) {
-//             int index;
-//             if (KD_SearchPair(cloud.pts, kdTree, nx, ny, nz, index)) {
-//                 FloodFill3DWithKDTree(image, nx, ny, nz, newColor, originalColor, kdTree, cloud);
-//             }
-//         }
-//     }
-// }
-
 void NeuronGrowth::FloodFill3DWithKDTree(vector<vector<vector<int>>>& image,
                                          int x, int y, int z, float newColor, float originalColor,
                                          const KDTree& kdTree, const Vertex3DCloud& cloud) 
 {
-//     std::stack<array<int, 3>> stack;
-//     stack.push({x, y, z});
-
-//     while (!stack.empty()) {
-//         auto [cx, cy, cz] = stack.top();
-//         stack.pop();
-
-//         if (cx < 0 || cx >= image.size() || 
-//             cy < 0 || cy >= image[0].size() || 
-//             cz < 0 || cz >= image[0][0].size() || 
-//             image[cx][cy][cz] != originalColor || 
-//             image[cx][cy][cz] == newColor) {
-//             continue;
-//         }
-
-//         image[cx][cy][cz] = newColor;
-
-//         int dx[] = {0, 0, -1, 1, 0, 0};
-//         int dy[] = {-1, 1, 0, 0, 0, 0};
-//         int dz[] = {0, 0, 0, 0, -1, 1};
-
-//         for (int i = 0; i < 6; ++i) {
-//             int nx = cx + dx[i];
-//             int ny = cy + dy[i];
-//             int nz = cz + dz[i];
-
-//             if (nx >= 0 && nx < image.size() &&
-//                 ny >= 0 && ny < image[0].size() &&
-//                 nz >= 0 && nz < image[0][0].size()) {
-//                 stack.push({nx, ny, nz});
-//             }
-//         }
-//     }
-// }
-// void NeuronGrowth::FloodFill3DWithKDTree(std::vector<std::vector<std::vector<int>>>& image,
-//                                          int x, int y, int z, int newColor,
-//                                          const KDTree& kdTree, const Vertex3DCloud& cloud) 
-// {
     std::stack<std::array<int, 3>> stack;
     stack.push({x, y, z});
 
@@ -4482,67 +4134,19 @@ int RunNG(
 		if (restart == true) {
 			restart = false;
 			tmp_restart_check++;
-
 			string restartVTK = FindLatestVTK(path_out);
 			if (restartVTK == "") {
 				cerr << "Failed to read the latest VTK file.\n";
 			} else {
-				// cout << "Read " << cpts.size() << " points from the largest-step file.\n";
 				cout << "Reading " << cpts.size() << " points from:" << restartVTK << endl;;
 			}
 			NG.ReadVTK(restartVTK);
-			
-			cpts = NG.cpts;
-			
+			cpts = NG.cpts;			
 			NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
-			// Clean up solvers and synchronize processes
-			// CHKERRQ(CleanUpSolvers(NG));
-
-			// NG.CheckVar("CheckExp_phi_reading", NG.cpts, NG.phi);
-			// NG.CheckVar("CheckExp_syn_reading", NG.cpts, NG.syn);
-
-			// NG.VisualizeVTK_PhysicalDomain_All(99999, NG.path_out);
-
-			// return 3;
-			// if (NG.comRank == 0) {
-			// 	// Vertex3DCloud cloud(cpts); 					// Cloud for current points
-			// 	// KDTree kdTree(3 /* dim */, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
-			// 	// kdTree.buildIndex();
-			// 	// Compute refinement values and save to file
-			// 	vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
-			// 	writeVectorToFile(ele_refine, path_in + "phi.txt", false);
-			// }
 
 			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
 			return 2;
 		}
-		// /*========================================================*/
-		// // if we want to restart the simulation
-		// if (restart == true) {
-		// 	restart = false;
-		// 	string restartVTK = FindLatestVTK(path_out);
-		// 	if (restartVTK == "") {
-		// 		cerr << "Failed to read the latest VTK file.\n";
-		// 	} else {
-		// 		cout << "Read " << cpts.size() << " points from the largest-step file.\n";
-		// 	}
-		// 	NG.ReadVTK(restartVTK);
-		// 	NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
-		// 	// Clean up solvers and synchronize processes
-		// 	// CHKERRQ(CleanUpSolvers(NG));
-
-		// 	// if (NG.comRank == 0) {
-		// 	// 	// Vertex3DCloud cloud(cpts); 					// Cloud for current points
-		// 	// 	// KDTree kdTree(3 /* dim */, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */));
-		// 	// 	// kdTree.buildIndex();
-		// 	// 	// Compute refinement values and save to file
-		// 	// 	vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
-		// 	// 	writeVectorToFile(ele_refine, path_in + "phi.txt", false);
-		// 	// }
-
-		// 	CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
-		// 	return 2;
-		// }
 		
 		/*--------------------------------------------------------*/
 		// Domain expansion and variable passing
@@ -4555,22 +4159,12 @@ int RunNG(
 
 			// Clean up solvers and synchronize processes
 			if (restart == false && tmp_restart_check == 1) {
-			} else {
-				CHKERRQ(CleanUpSolvers(NG));
-			}
-			// // Clean up solvers and synchronize processes
-			// CHKERRQ(CleanUpSolvers(NG));
+			} else {CHKERRQ(CleanUpSolvers(NG));}
 			NG.VisualizeVTK_ControlMesh(cpts, iter, path_out);
 
 			if (NG.comRank == 0) {
 				// Compute refinement values and save to file
 				vector<float> ele_refine = NG.ComputeRefine(NG.phi, NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
-				// vector<float> tmp(NG.tips.size());
-				// for (int i = 0; i < NG.tips.size(); i++) {
-				// 	tmp[i] = NG.CellBoundary(NG.tips[i], 0);
-				// }
-				// NG.CheckVar("TMP_", cpts, tmp); // check control points phi for debugging
-				// vector<float> ele_refine = NG.ComputeRefine(tmp, NX, NY, NZ, originX, originY, originZ, kdTree, cloud);
 				writeVectorToFile(ele_refine, path_in + "phi.txt", false);
 				vector<float> tmp = {NX, NY, NZ, originX, originY, originZ};
 				writeVectorToFile(tmp, path_in + "domain_size.txt", false);
@@ -4583,7 +4177,6 @@ int RunNG(
 
 		/*--------------------------------------------------------*/
 		// Update local refinement information (2 scenarios, initial local refinement and later interval based local refinements)
-		// if ((NG.n == 10 && !localRefine) || (NG.n % NG.refine_invl == 0 && NG.n != 0)) {
 		if (NG.n == 10 && !localRefine) {
 		// if (!localRefine) {
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
@@ -4871,16 +4464,6 @@ int RunNG(
 		NG.PrintStatus(NG.n, NG.end_iter, reason_phi, its_phi, t_phi, 
             reason_syn, reason_tub, its_syn, its_tub, t_syn_tub, 
             n_bzmesh);
-
-		// // Write physical domain results to file
-		// if (NG.n != 0 && NG.n % NG.var_save_invl == 0) {
-		// 	PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-		// 	NG.VisualizeVTK_PhysicalDomain_All(NG.n, path_out);
-		// 	PetscPrintf(PETSC_COMM_WORLD, 
-		// 				"Step: %d/%d | Wrote Physical Domain! | Average time %fs | Total time: %f |\n", 
-		// 				NG.n, NG.end_iter, t_write / NG.var_save_invl, t_global);
-		// 	PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
-		// }
 		
 		// Increment iteration counter if no expansion
 		iter++;
