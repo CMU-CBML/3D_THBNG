@@ -290,10 +290,6 @@ void InitializeSoma(int numNeuron, vector<array<float, 3>>& seed, int& NX, int& 
             NY = 10;
             NZ = 10;  // Assumes 3D initialization
             seed[0] = {20.0f, 20.0f, 20.0f};
-            // NX = 5;
-            // NY = 5;
-            // NZ = 5;  // Assumes 3D initialization
-            // seed[0] = {10.0f, 10.0f, 10.0f};
             break;
 
         case 2:
