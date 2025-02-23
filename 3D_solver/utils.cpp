@@ -342,6 +342,8 @@ void InitializeSoma(int numNeuron, vector<array<float, 3>>& seed, int& NX, int& 
             cerr << "Unsupported number of neurons: " << numNeuron << endl;
             throw invalid_argument("Number of neurons must be between 1 and 5.");
     }
+    for (auto& s : seed) { for (float& v : s) { v += (rand() % 7) - 3; } }  // Adds a random integer between -5 and 5
+
 }
 
 void ReadMesh(string fn, vector<Vertex3D>& pts, vector<Element3D>& mesh)//need vtk file with point label
