@@ -293,12 +293,12 @@ void InitializeSoma(int numNeuron, vector<array<float, 3>>& seed, int& NX, int& 
             break;
 
         case 2:
-            // Two neurons in a 2D plane
+            // Two neurons
             NX = 10;
             NY = 10;
-            NZ = 10;  // Flat plane
-            seed[0] = {20.0f, 20.0f, 10.0f};
-            seed[1] = {20.0f, 20.0f, 30.0f};
+            NZ = 10;
+            seed[0] = {20.0f, 20.0f, 15.0f};
+            seed[1] = {20.0f, 20.0f, 25.0f};
             break;
         case 3:
             NX = 70; NY = 70; NZ = 40; // Wider in XY, some Z

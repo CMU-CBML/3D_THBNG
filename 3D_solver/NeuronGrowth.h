@@ -566,6 +566,18 @@ public:
 		const Vertex3DCloud& cloud,
 		const KDTree& kdTree
 	);
+
+	void DetectTips_multi(const vector<Vertex3D>& cpts_fine, 
+		const Vertex3DCloud& cloud_fine,
+		const KDTree& kdTree_fine,
+		const float& tip_I_sz,
+		const vector<Vertex3D>& cpts,
+		const Vertex3DCloud& cloud,
+		const KDTree& kdTree,
+		vector<array<float, 3>>& seed,
+		const int NX, const int NY, const int NZ,
+		const int originX, const int originY, const int originZ
+	);
 	
 	vector<pair<Vertex3D, int>> FindClosestVerticesWithIndices(
 		const vector<Vertex3D>& vertices,     // List of vertices
