@@ -2834,6 +2834,7 @@ float NeuronGrowth::RmOutlier(vector<float> &data) {
         return 0.0f; // Or handle the case where all values were zero.
     }
 
+
     // 2. Calculate mean and standard deviation using non-zero data
     float sum = std::accumulate(non_zero_data.begin(), non_zero_data.end(), 0.0f);
     float mean = sum / non_zero_data.size();
@@ -3001,15 +3002,6 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
     // Clear and resize tips to match the number of control points
     vector<float> tips_fine(cpts_fine.size(), 0.0f);
 	
-	// Initialize neurons
-	vector<vector<vector<int>>> neurons;
-	IdentifyNeurons3DWithKDTree(phi_fine, neurons, seed, NX, NY, NZ, originX, originY, originZ, kdTree_fine, cloud_fine);
-	auto neurons_flattern = Convert3DIntTo1DFloatVector(neurons);
-	CheckVar("NEURONS_", cpts_fine, neurons_flattern);
-	vector<vector<vector<int>>> geoDist = CalculateGeodesicDistanceFromPoint3D(neurons, seed, originX, originY, originZ);
-	auto geoDist_flattern = Convert3DIntTo1DFloatVector(geoDist);
-	CheckVar("DIST_", cpts_fine, geoDist_flattern);
-
     // compute tip intensity
     for (size_t id = 0; id < seed.size(); ++id) {
 		for (size_t i = 0; i < cpts_fine.size(); ++i) {
@@ -3064,84 +3056,6 @@ void NeuronGrowth::DetectTips(const vector<Vertex3D>& cpts_fine,
 	}
 	// CheckVar("TIP_FINAL", cpts, tips);
 
-	// float m_2std = RmOutlier(tips);
-	// cout << maxTipValue << " " << m_2std << endl;
-	// cout << "test test" << endl << endl;
-	// cout << maxTipValue << endl;
-}
-
-
-void NeuronGrowth::DetectTips_old(const vector<Vertex3D>& cpts_fine, 
-	const Vertex3DCloud& cloud_fine,
-	const KDTree& kdTree_fine,
-	const float& tip_I_sz,
-	const vector<Vertex3D>& cpts,
-	const Vertex3DCloud& cloud,
-	const KDTree& kdTree)
-{
-	vector<float> phi_fine(cpts_fine.size(), 0.0f);
-
-	for (size_t i = 0; i < cpts_fine.size(); ++i) {
-		InterpolateOrFindExact_singleVar(
-		cpts_fine[i], kdTree, cloud, phi, cpts, phi_fine[i], true);
-	}
-
-	if (n % var_save_invl == 0) CheckVar("PHI_FINE", cpts_fine, phi_fine);
-
-	const float threshold = 0.95f;    // Threshold for tip detection
-	float maxTipValue = 0.0f;        // Tracks maximum tip value for normalization
-
-	// Precompute transformed phi values
-	vector<float> phiTransformed(phi_fine.size());
-	for (size_t j = 0; j < phi_fine.size(); ++j) {
-		phiTransformed[j] = CellBoundary(phi_fine[j], 0.50f);
-	}
-
-	// Clear and resize tips to match the number of control points
-	vector<float> tips_fine(cpts_fine.size(), 0.0f);
-
-	// compute tip intensity
-	for (size_t i = 0; i < cpts_fine.size(); ++i) {
-		const auto& center = cpts_fine[i];
-		float localSum = 0.0f; // Sum of phi values within the box
-
-		// Compute the sum of phi values for points within the vicinity
-		for (size_t j = 0; j < phi_fine.size(); ++j) {
-			if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
-				localSum += phiTransformed[j];
-			}
-		}
-
-		// Compute the tip score for the current vertex
-		if (localSum > 0.0f) {
-			tips_fine[i] = (phiTransformed[i] / localSum) * phiTransformed[i];
-		} else {
-			tips_fine[i] = 0.0f; // Avoid division by zero
-		}
-	}
-
-	// Debugging and visualization
-	if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
-
-	// Clear and resize tips to match the number of control points
-	tips.clear();
-	tips.resize(cpts.size(), 0.0f);
-
-	for (size_t i = 0; i < cpts.size(); ++i) {
-		InterpolateOrFindExact_singleVar(
-		cpts[i], kdTree_fine, cloud_fine, tips_fine, cpts_fine, tips[i], false);
-		maxTipValue = max(maxTipValue, tips[i]);
-	}
-	// cout << maxTipValue << endl;
-	maxTipValue = 0.0065;
-	if (n % var_save_invl == 0) CheckVar("TIP_", cpts, tips);
-
-	// Thresholding and normalization
-	for (float& tip : tips) {
-		tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
-	}
-	if (n % var_save_invl == 0) CheckVar("TIP_cutoff_", cpts, tips);
-
 }
 
 void NeuronGrowth::DetectTips_multi(const vector<Vertex3D>& cpts_fine, 
@@ -3182,9 +3096,9 @@ void NeuronGrowth::DetectTips_multi(const vector<Vertex3D>& cpts_fine,
 	IdentifyNeurons3DWithKDTree(phi_fine, neurons, seed, NX, NY, NZ, originX, originY, originZ, kdTree_fine, cloud_fine);
 	auto neurons_flattern = Convert3DIntTo1DFloatVector(neurons);
 	CheckVar("NEURONS_", cpts_fine, neurons_flattern);
-	vector<vector<vector<int>>> geoDist = CalculateGeodesicDistanceFromPoint3D(neurons, seed, originX, originY, originZ);
-	auto geoDist_flattern = Convert3DIntTo1DFloatVector(geoDist);
-	CheckVar("DIST_", cpts_fine, geoDist_flattern);
+	// vector<vector<vector<int>>> geoDist = CalculateGeodesicDistanceFromPoint3D(neurons, seed, originX, originY, originZ);
+	// auto geoDist_flattern = Convert3DIntTo1DFloatVector(geoDist);
+	// CheckVar("DIST_", cpts_fine, geoDist_flattern);
 	
 	// Clear and resize tips to match the number of control points
 	tips.clear();
@@ -3198,7 +3112,7 @@ void NeuronGrowth::DetectTips_multi(const vector<Vertex3D>& cpts_fine,
 
 			// Compute the sum of phi values for points within the vicinity
 			for (size_t j = 0; j < phi_fine.size(); ++j) {
-				if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz) && neurons_flattern[i] == neurons_flattern[j]) {
+				if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz) && neurons_flattern[j] == neurons_flattern[i]) {
 				// if (IsInBox(cpts_fine[j], center, tip_I_sz, tip_I_sz, tip_I_sz)) {
 					localSum += phiTransformed[j];
 				}
@@ -3212,10 +3126,6 @@ void NeuronGrowth::DetectTips_multi(const vector<Vertex3D>& cpts_fine,
 				tips_fine[i] = 0.0f; // Avoid division by zero
 			}
 		}
-
-		// // Clear and resize tips to match the number of control points
-		// tips.clear();
-		// tips.resize(cpts.size(), 0.0f);
 
 		vector<float> tips_tmp(cpts.size(), 0.0f);
 		for (size_t i = 0; i < cpts.size(); ++i) {
@@ -3237,27 +3147,6 @@ void NeuronGrowth::DetectTips_multi(const vector<Vertex3D>& cpts_fine,
 		}
 		// if (n % var_save_invl == 0) CheckVar("TIP_cutoff_", cpts, tips);
 	}
-
-	// // Debugging and visualization
-	// if (n % var_save_invl == 0) CheckVar("TIP_FINE_", cpts_fine, tips_fine);
-
-	// // Clear and resize tips to match the number of control points
-	// tips.clear();
-	// tips.resize(cpts.size(), 0.0f);
-
-	// for (size_t i = 0; i < cpts.size(); ++i) {
-	// 	InterpolateOrFindExact_singleVar(
-	// 	cpts[i], kdTree_fine, cloud_fine, tips_fine, cpts_fine, tips[i], false);
-	// 	maxTipValue = max(maxTipValue, tips[i]);
-	// }
-	// // cout << maxTipValue << endl;
-	// maxTipValue = 0.0065;
-	// if (n % var_save_invl == 0) CheckVar("TIP_", cpts, tips);
-
-	// // Thresholding and normalization
-	// for (float& tip : tips) {
-	// 	tip = (tip > threshold * maxTipValue) ? 1.0f : 0.0f;
-	// }
 	if (n % var_save_invl == 0) CheckVar("TIP_cutoff_", cpts, tips);
 
 }
@@ -3489,42 +3378,39 @@ vector<float> NeuronGrowth::FindLocalMaximaInClusters3D(const vector<float>& mat
 }
 
 // void NeuronGrowth::FloodFill3DWithKDTree(vector<vector<vector<int>>>& image,
-//                                          int x, int y, int z, float newColor, float originalColor,
+//                                          int x, int y, int z, int newColor, int originalColor,
 //                                          const KDTree& kdTree, const Vertex3DCloud& cloud) 
 // {
-//     std::stack<std::array<int, 3>> stack;
-//     stack.push({x, y, z});
+//     if (x < 0 || x >= image.size() || 
+//         y < 0 || y >= image[0].size() || 
+//         z < 0 || z >= image[0][0].size() || 
+//         image[x][y][z] != originalColor || 
+//         image[x][y][z] == newColor) {
+//         return;
+//     }
 
-//     while (!stack.empty()) {
-//         auto [cx, cy, cz] = stack.top();
-//         stack.pop();
+//     image[x][y][z] = newColor;
 
-//         if (cx < 0 || cx >= image[0].size() || 
-//             cy < 0 || cy >= image[1].size() || 
-//             cz < 0 || cz >= image[2].size() || 
-//             image[cx][cy][cz] != 1) { // Check for 1 explicitly
-//             continue;
-//         }
+//     // Search for neighbors using KD_SearchPair in six possible directions
+//     int dx[] = {0, 0, -1, 1, 0, 0};
+//     int dy[] = {-1, 1, 0, 0, 0, 0};
+//     int dz[] = {0, 0, 0, 0, -1, 1};
 
-//         image[cx][cy][cz] = newColor;
+//     for (int i = 0; i < 6; ++i) {
+//         int nx = x + dx[i];
+//         int ny = y + dy[i];
+//         int nz = z + dz[i];
 
-//         int dx[] = {0, 0, -1, 1, 0, 0};
-//         int dy[] = {-1, 1, 0, 0, 0, 0};
-//         int dz[] = {0, 0, 0, 0, -1, 1};
-
-//         for (int i = 0; i < 6; ++i) {
-//             int nx = cx + dx[i];
-//             int ny = cy + dy[i];
-//             int nz = cz + dz[i];
-
-//             if (nx >= 0 && nx < image[0].size() &&
-//                 ny >= 0 && ny < image[1].size() &&
-//                 nz >= 0 && nz < image[2].size()) {
-//                 stack.push({nx, ny, nz});
+//         // Validate bounds
+//         if (nx >= 0 && nx < image.size() && ny >= 0 && ny < image[0].size() && nz >= 0 && nz < image[0][0].size()) {
+//             int index;
+//             if (KD_SearchPair(cloud.pts, kdTree, nx, ny, nz, index)) {
+//                 FloodFill3DWithKDTree(image, nx, ny, nz, newColor, originalColor, kdTree, cloud);
 //             }
 //         }
 //     }
 // }
+
 void NeuronGrowth::FloodFill3DWithKDTree(std::vector<std::vector<std::vector<int>>>& image,
 	int x, int y, int z, float newColor, float originalColor,
 	const KDTree& kdTree, const Vertex3DCloud& cloud)
@@ -3587,11 +3473,11 @@ void NeuronGrowth::IdentifyNeurons3DWithKDTree(vector<float> phi_fine,
         PetscPrintf(PETSC_COMM_WORLD, "Origin: (%d, %d, %d)\n", originX, originY, originZ);
         PetscPrintf(PETSC_COMM_WORLD, "Start: (%d, %d, %d)\n", startX, startY, startZ);
 
-        // if (startX < 0 || startX >= neurons.size() || 
-        //     startY < 0 || startY >= neurons[0].size() || 
-        //     startZ < 0 || startZ >= neurons[0][0].size()) {
-        //     continue;
-        // }
+        if (startX < 0 || startX >= neurons.size() || 
+            startY < 0 || startY >= neurons[0].size() || 
+            startZ < 0 || startZ >= neurons[0][0].size()) {
+            continue;
+        }
 
         float newColor = static_cast<float>(i + 2);
         float originalColor = static_cast<float>(neurons[startX][startY][startZ]);
@@ -4286,15 +4172,21 @@ int RunNG(
 		if (restart == true) {
 			restart = false;
 			tmp_restart_check++;
+
 			string restartVTK = FindLatestVTK(path_out);
 			if (restartVTK == "") {
 				cerr << "Failed to read the latest VTK file.\n";
 			} else {
+				// cout << "Read " << cpts.size() << " points from the largest-step file.\n";
 				cout << "Reading " << cpts.size() << " points from:" << restartVTK << endl;;
 			}
 			NG.ReadVTK(restartVTK);
-			cpts = NG.cpts;			
+			
+			cpts = NG.cpts;
+			
 			NGvars = {NG.phi, NG.syn, NG.tub, NG.theta, NG.phi_0, NG.tub_0};
+			// Clean up solvers and synchronize processes
+			// CHKERRQ(CleanUpSolvers(NG)); // some potential memory issues here
 
 			CHKERRQ(MPI_Barrier(PETSC_COMM_WORLD));
 			return 2;
@@ -4311,7 +4203,11 @@ int RunNG(
 
 			// Clean up solvers and synchronize processes
 			if (restart == false && tmp_restart_check == 1) {
-			} else {CHKERRQ(CleanUpSolvers(NG));}
+			} else {
+				CHKERRQ(CleanUpSolvers(NG));
+			}
+			// // Clean up solvers and synchronize processes
+			// CHKERRQ(CleanUpSolvers(NG));
 			NG.VisualizeVTK_ControlMesh(cpts, iter, path_out);
 
 			if (NG.comRank == 0) {
@@ -4329,6 +4225,7 @@ int RunNG(
 
 		/*--------------------------------------------------------*/
 		// Update local refinement information (2 scenarios, initial local refinement and later interval based local refinements)
+		// if ((NG.n == 10 && !localRefine) || (NG.n % NG.refine_invl == 0 && NG.n != 0)) {
 		if (NG.n == 10 && !localRefine) {
 		// if (!localRefine) {
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
@@ -4366,10 +4263,6 @@ int RunNG(
 
 			float tip_intensity_sz = 8.0f; // box size for calculating tip intensity
 			// NG.DetectTips(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree, seed, NX, NY, NZ, originX, originY, originZ);
-			
-			// Single neuron cases uses the following tip detection
-			// NG.DetectTips_old(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree);
-			// Multiple neuron cases uses the following
 			NG.DetectTips_multi(cpts_fine, cloud_fine, kdTree_fine, tip_intensity_sz, cpts, cloud, kdTree, seed, NX, NY, NZ, originX, originY, originZ);
 			PetscPrintf(PETSC_COMM_WORLD, "-----------------------------------------------------------------------------------------\n");
 		}
@@ -4620,7 +4513,7 @@ int RunNG(
 		NG.PrintStatus(NG.n, NG.end_iter, reason_phi, its_phi, t_phi, 
             reason_syn, reason_tub, its_syn, its_tub, t_syn_tub, 
             n_bzmesh);
-		
+
 		// Increment iteration counter if no expansion
 		iter++;
 	}
