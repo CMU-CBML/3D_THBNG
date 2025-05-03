@@ -1,4 +1,5 @@
-# 3D Phase Field Neuron Growth Simulation (IGA/THB-Splines)
+# 3D Phase Field Neuron Growth Simulation
+[![DOI](https://zenodo.org/badge/676995203.svg)](https://doi.org/10.5281/zenodo.15331689)
 
 ## Overview
 
@@ -21,7 +22,16 @@ The simulation follows the general workflow depicted below:
 
 ![Simulation Workflow Overview](media/3DNG_Overview.png)
 
-*(Note: Store GIF and image files in a `media/` folder within the repository for these links to work).*
+1.  **Initialization:** Load parameters, set up initial mesh/state or load restart data.
+2.  **Preprocessing:** Generate/read Bezier information, partition mesh (METIS).
+3.  **Precomputation:** Calculate iteration-independent terms (basis functions, source terms).
+4.  **Time Loop:**
+    * Check for domain expansion and local refinement needs; trigger geometry updates and potential restart of `RunNG` if required.
+    * Perform tip detection periodically.
+    * Solve coupled PDEs for $\phi$, $c_{neur}$, $c_{tubu}$ using PETSc solvers.
+    * Save output VTK files periodically.
+5.  **Cleanup:** Release PETSc resources.
+
 
 ## Example Simulations
 
@@ -44,8 +54,6 @@ Examples showing the interaction and connection formation between two initially 
 | ![Multi Neuron 1](media/2n22.gif) | ![Multi Neuron 2](media/2n23.gif) |
 | **Case 3** | **Case 4** |
 | ![Multi Neuron 3](media/2n24.gif) | ![Multi Neuron 4](media/2n25.gif) |
-
-*(Tip: Optimize your GIFs for size to ensure the README loads reasonably quickly).*
 
 ## Dependencies
 
@@ -135,20 +143,6 @@ Outputs are saved in an `outputs/` subdirectory inside the input path (`--path_i
 * **`controlmesh_XXXXXX.vtk`**: Control mesh points and simulation variables ($\phi$, $c_{neur}$, etc.) at save intervals. Used for restarts.
 * **`physics_allparticle_XXXXXX.vtk`**: Finer sampling of the physical domain with interpolated variables for visualization.
 * **`domain_size.txt`**: (In `path_in`) Stores current domain size and origin, updated on expansion.
-
-## Simulation Workflow Outline
-
-*(The general workflow is visually represented in the "Simulation Workflow Overview" section above).*
-
-1.  **Initialization:** Load parameters, set up initial mesh/state or load restart data.
-2.  **Preprocessing:** Generate/read Bezier information, partition mesh (METIS).
-3.  **Precomputation:** Calculate iteration-independent terms (basis functions, source terms).
-4.  **Time Loop:**
-    * Check for domain expansion and local refinement needs; trigger geometry updates and potential restart of `RunNG` if required.
-    * Perform tip detection periodically.
-    * Solve coupled PDEs for $\phi$, $c_{neur}$, $c_{tubu}$ using PETSc solvers.
-    * Save output VTK files periodically.
-5.  **Cleanup:** Release PETSc resources.
 
 ## Restart Capability
 
