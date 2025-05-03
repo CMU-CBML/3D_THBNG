@@ -15,11 +15,19 @@ This C++ code simulates 3D neuron growth and neurodevelopmental disorder (NDD) d
 * Parallel Execution using MPI and PETSc (SNES/KSP solvers)
 * Checkpoint/Restart Functionality
 
+## Simulation Workflow Overview
+
+The simulation follows the general workflow depicted below:
+
+![Simulation Workflow Overview](media/3DNG_Overview.png)
+
+*(Note: Store GIF and image files in a `media/` folder within the repository for these links to work).*
+
 ## Example Simulations
 
 ### Single Neuron Growth
 
-Examples showcasing the growth, branching, deterioration of a single neuron over time.
+Examples showcasing the growth and branching of a single neuron over time.
 
 | Case 1                       | Case 2                       |
 | :--------------------------: | :--------------------------: |
@@ -101,3 +109,62 @@ mpirun -np <N> ./3DNG \
        --solver=<snes|ksp> \
        --path_in=<dir> \
        [--restart=<yes|no>]
+```
+
+* `<N>`: Number of MPI processes.
+* `--numNeuron`: Number of initial neurons (1 or 2).
+* `--end_iter`: Total simulation iterations.
+* `--solver`: Nonlinear solver for phase field (`snes` recommended).
+* `--path_in`: Path to input directory.
+* `--restart`: Optional flag to continue from the last saved state (`yes` or `no`).
+
+**Example:**
+
+```bash
+mpirun -np 64 ./3DNG --numNeuron=1 --end_iter=10000 --solver=snes --path_in=./inputs/case1/ --restart=no
+```
+
+## Simulation Parameters
+
+Adjust simulation behavior by editing `simulation_parameters.txt` in the input directory. Key parameters include timestep (`dt`), mobility (`M_phi`), diffusion coefficients (`Dc`, `Diff`), and NDD control (`c_opti`).
+
+## Output Files
+
+Outputs are saved in an `outputs/` subdirectory inside the input path (`--path_in`).
+
+* **`controlmesh_XXXXXX.vtk`**: Control mesh points and simulation variables ($\phi$, $c_{neur}$, etc.) at save intervals. Used for restarts.
+* **`physics_allparticle_XXXXXX.vtk`**: Finer sampling of the physical domain with interpolated variables for visualization.
+* **`domain_size.txt`**: (In `path_in`) Stores current domain size and origin, updated on expansion.
+
+## Simulation Workflow Outline
+
+*(The general workflow is visually represented in the "Simulation Workflow Overview" section above).*
+
+1.  **Initialization:** Load parameters, set up initial mesh/state or load restart data.
+2.  **Preprocessing:** Generate/read Bezier information, partition mesh (METIS).
+3.  **Precomputation:** Calculate iteration-independent terms (basis functions, source terms).
+4.  **Time Loop:**
+    * Check for domain expansion and local refinement needs; trigger geometry updates and potential restart of `RunNG` if required.
+    * Perform tip detection periodically.
+    * Solve coupled PDEs for $\phi$, $c_{neur}$, $c_{tubu}$ using PETSc solvers.
+    * Save output VTK files periodically.
+5.  **Cleanup:** Release PETSc resources.
+
+## Restart Capability
+
+Use `--restart=yes`. The code finds the latest `controlmesh_*.vtk` in the output directory, reads `domain_size.txt` from the input directory, loads the state, and resumes from that iteration. Ensure `domain_size.txt` matches the latest VTK state.
+
+## Code Structure
+
+* `main.cpp`: Driver program, argument parsing, main simulation loop control.
+* `NeuronGrowth.h`/`.cpp`: `NeuronGrowth` class, core physics, PETSc integration, algorithms.
+* `utils.h`/`.cpp`: Helper functions (mesh I/O, MPI setup, external tool calls, KD-tree helpers, etc.).
+* `BasicDataStructure.h`/`.cpp`: Basic geometry structs (`Vertex3D`, `Element3D`).
+
+## Code Availability
+
+The code is available at: \url{https://github.com/CMU-CBML/3D_THBNG}
+
+## Contact
+
+For questions, contact K.Q. (Kuanren Qian) or Y.J.Z. (Yongjie Jessica Zhang).
