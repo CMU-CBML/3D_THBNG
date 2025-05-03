@@ -61,7 +61,7 @@ Examples showing the interaction and connection formation between two initially 
 * **MPI:** MPI library (MPICH, OpenMPI).
 * **PETSc:** Scientific computation library [PETSc](https://petsc.org/), built with MPI support. Requires `PETSC_DIR` and `PETSC_ARCH` environment variables.
 * **Nanoflann:** Header-only KD-tree library (included via relative path `../nanoflann/`). [Nanoflann](https://github.com/jlblancoc/nanoflann)
-* **METIS (Recommended):** For graph partitioning (`mpmetis` command needed). [METIS](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview)
+* **METIS (Recommended):** For graph partitioning (`mpmetis` command needed). [METIS](https://karypis.github.io)
 * **External Spline Tools (Required):** Pre-compiled executables needed in relative paths or system PATH:
     * `../spline3D_src/spline`: For Bezier extraction / spline processing.
     * `../THS3D/THS3D`: For THB-spline local refinement.
