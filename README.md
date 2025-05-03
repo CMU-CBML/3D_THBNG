@@ -17,8 +17,6 @@ This C++ code simulates 3D neuron growth and neurodevelopmental disorder (NDD) d
 
 ## Example Simulations
 
-*(Note: Store GIF files in a `media/` folder within the repository for these links to work).*
-
 ### Single Neuron Growth
 
 Examples showcasing the growth, branching, deterioration of a single neuron over time.
